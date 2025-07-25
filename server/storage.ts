@@ -1,5 +1,7 @@
 import { type User, type InsertUser, type Company, type InsertCompany, type Job, type InsertJob, type Application, type InsertApplication, type Message, type InsertMessage, type Experience, type InsertExperience } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { db } from "./db";
+import { users, companies, jobs, applications, messages, experiences } from "@shared/schema";
+import { eq, and, or, like, ilike, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -44,248 +46,239 @@ export interface IStorage {
   deleteExperience(id: string): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User> = new Map();
-  private companies: Map<string, Company> = new Map();
-  private jobs: Map<string, Job> = new Map();
-  private applications: Map<string, Application> = new Map();
-  private messages: Map<string, Message> = new Map();
-  private experiences: Map<string, Experience> = new Map();
-
+export class DatabaseStorage implements IStorage {
   // Users
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.email === email);
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = {
-      ...insertUser,
-      id,
-      createdAt: new Date(),
-    };
-    this.users.set(id, user);
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
     return user;
   }
 
   async updateUser(id: string, updates: Partial<InsertUser>): Promise<User> {
-    const user = this.users.get(id);
+    const [user] = await db
+      .update(users)
+      .set(updates)
+      .where(eq(users.id, id))
+      .returning();
     if (!user) throw new Error("User not found");
-    
-    const updatedUser = { ...user, ...updates };
-    this.users.set(id, updatedUser);
-    return updatedUser;
+    return user;
   }
 
   // Companies
   async getCompany(id: string): Promise<Company | undefined> {
-    return this.companies.get(id);
+    const [company] = await db.select().from(companies).where(eq(companies.id, id));
+    return company || undefined;
   }
 
   async getCompaniesByOwner(ownerId: string): Promise<Company[]> {
-    return Array.from(this.companies.values()).filter(company => company.ownerId === ownerId);
+    return await db.select().from(companies).where(eq(companies.ownerId, ownerId));
   }
 
   async createCompany(insertCompany: InsertCompany): Promise<Company> {
-    const id = randomUUID();
-    const company: Company = {
-      ...insertCompany,
-      id,
-      createdAt: new Date(),
-    };
-    this.companies.set(id, company);
+    const [company] = await db
+      .insert(companies)
+      .values(insertCompany)
+      .returning();
     return company;
   }
 
   async updateCompany(id: string, updates: Partial<InsertCompany>): Promise<Company> {
-    const company = this.companies.get(id);
+    const [company] = await db
+      .update(companies)
+      .set(updates)
+      .where(eq(companies.id, id))
+      .returning();
     if (!company) throw new Error("Company not found");
-    
-    const updatedCompany = { ...company, ...updates };
-    this.companies.set(id, updatedCompany);
-    return updatedCompany;
+    return company;
   }
 
   // Jobs
   async getJob(id: string): Promise<Job | undefined> {
-    return this.jobs.get(id);
+    const [job] = await db.select().from(jobs).where(eq(jobs.id, id));
+    return job || undefined;
   }
 
   async getJobs(filters?: { location?: string; skills?: string[]; jobType?: string; search?: string }): Promise<Job[]> {
-    let jobs = Array.from(this.jobs.values()).filter(job => job.isActive);
+    let query = db.select().from(jobs).where(eq(jobs.isActive, true));
     
     if (filters?.location && filters.location !== "All Locations") {
-      jobs = jobs.filter(job => job.location.toLowerCase().includes(filters.location!.toLowerCase()));
+      query = query.where(ilike(jobs.location, `%${filters.location}%`));
     }
     
+    if (filters?.jobType && filters.jobType !== "All Jobs") {
+      query = query.where(eq(jobs.jobType, filters.jobType));
+    }
+    
+    if (filters?.search) {
+      const searchPattern = `%${filters.search}%`;
+      query = query.where(
+        or(
+          ilike(jobs.title, searchPattern),
+          ilike(jobs.description, searchPattern)
+        )
+      );
+    }
+    
+    const allJobs = await query.orderBy(jobs.createdAt);
+    
+    // Filter by skills in application code since SQL array operations are complex
     if (filters?.skills && filters.skills.length > 0) {
-      jobs = jobs.filter(job => 
-        filters.skills!.some(skill => 
-          job.skills.some(jobSkill => 
+      return allJobs.filter(job => 
+        job.skills && filters.skills!.some(skill => 
+          job.skills!.some(jobSkill => 
             jobSkill.toLowerCase().includes(skill.toLowerCase())
           )
         )
       );
     }
     
-    if (filters?.jobType && filters.jobType !== "All Jobs") {
-      jobs = jobs.filter(job => job.jobType === filters.jobType);
-    }
-    
-    if (filters?.search) {
-      const searchLower = filters.search.toLowerCase();
-      jobs = jobs.filter(job => 
-        job.title.toLowerCase().includes(searchLower) ||
-        job.description.toLowerCase().includes(searchLower) ||
-        job.skills.some(skill => skill.toLowerCase().includes(searchLower))
-      );
-    }
-    
-    return jobs.sort((a, b) => b.createdAt!.getTime() - a.createdAt!.getTime());
+    return allJobs;
   }
 
   async getJobsByEmployer(employerId: string): Promise<Job[]> {
-    return Array.from(this.jobs.values()).filter(job => job.employerId === employerId);
+    return await db.select().from(jobs).where(eq(jobs.employerId, employerId));
   }
 
   async getJobsByCompany(companyId: string): Promise<Job[]> {
-    return Array.from(this.jobs.values()).filter(job => job.companyId === companyId);
+    return await db.select().from(jobs).where(eq(jobs.companyId, companyId));
   }
 
   async createJob(insertJob: InsertJob): Promise<Job> {
-    const id = randomUUID();
-    const job: Job = {
-      ...insertJob,
-      id,
-      createdAt: new Date(),
-    };
-    this.jobs.set(id, job);
+    const [job] = await db
+      .insert(jobs)
+      .values(insertJob)
+      .returning();
     return job;
   }
 
   async updateJob(id: string, updates: Partial<InsertJob>): Promise<Job> {
-    const job = this.jobs.get(id);
+    const [job] = await db
+      .update(jobs)
+      .set(updates)
+      .where(eq(jobs.id, id))
+      .returning();
     if (!job) throw new Error("Job not found");
-    
-    const updatedJob = { ...job, ...updates };
-    this.jobs.set(id, updatedJob);
-    return updatedJob;
+    return job;
   }
 
   // Applications
   async getApplication(id: string): Promise<Application | undefined> {
-    return this.applications.get(id);
+    const [application] = await db.select().from(applications).where(eq(applications.id, id));
+    return application || undefined;
   }
 
   async getApplicationsByJob(jobId: string): Promise<Application[]> {
-    return Array.from(this.applications.values()).filter(app => app.jobId === jobId);
+    return await db.select().from(applications).where(eq(applications.jobId, jobId));
   }
 
   async getApplicationsByApplicant(applicantId: string): Promise<Application[]> {
-    return Array.from(this.applications.values()).filter(app => app.applicantId === applicantId)
-      .sort((a, b) => b.appliedAt!.getTime() - a.appliedAt!.getTime());
+    return await db.select().from(applications)
+      .where(eq(applications.applicantId, applicantId))
+      .orderBy(applications.appliedAt);
   }
 
   async createApplication(insertApplication: InsertApplication): Promise<Application> {
-    const id = randomUUID();
-    const application: Application = {
-      ...insertApplication,
-      id,
-      appliedAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.applications.set(id, application);
+    const [application] = await db
+      .insert(applications)
+      .values(insertApplication)
+      .returning();
     return application;
   }
 
   async updateApplication(id: string, updates: Partial<InsertApplication>): Promise<Application> {
-    const application = this.applications.get(id);
+    const [application] = await db
+      .update(applications)
+      .set(updates)
+      .where(eq(applications.id, id))
+      .returning();
     if (!application) throw new Error("Application not found");
-    
-    const updatedApplication = { 
-      ...application, 
-      ...updates, 
-      updatedAt: new Date() 
-    };
-    this.applications.set(id, updatedApplication);
-    return updatedApplication;
+    return application;
   }
 
   // Messages
   async getMessage(id: string): Promise<Message | undefined> {
-    return this.messages.get(id);
+    const [message] = await db.select().from(messages).where(eq(messages.id, id));
+    return message || undefined;
   }
 
   async getMessagesByUser(userId: string): Promise<Message[]> {
-    return Array.from(this.messages.values())
-      .filter(msg => msg.senderId === userId || msg.receiverId === userId)
-      .sort((a, b) => b.createdAt!.getTime() - a.createdAt!.getTime());
+    return await db.select().from(messages)
+      .where(or(eq(messages.senderId, userId), eq(messages.receiverId, userId)))
+      .orderBy(messages.createdAt);
   }
 
   async getConversation(user1Id: string, user2Id: string): Promise<Message[]> {
-    return Array.from(this.messages.values())
-      .filter(msg => 
-        (msg.senderId === user1Id && msg.receiverId === user2Id) ||
-        (msg.senderId === user2Id && msg.receiverId === user1Id)
+    return await db.select().from(messages)
+      .where(
+        or(
+          and(eq(messages.senderId, user1Id), eq(messages.receiverId, user2Id)),
+          and(eq(messages.senderId, user2Id), eq(messages.receiverId, user1Id))
+        )
       )
-      .sort((a, b) => a.createdAt!.getTime() - b.createdAt!.getTime());
+      .orderBy(messages.createdAt);
   }
 
   async createMessage(insertMessage: InsertMessage): Promise<Message> {
-    const id = randomUUID();
-    const message: Message = {
-      ...insertMessage,
-      id,
-      createdAt: new Date(),
-    };
-    this.messages.set(id, message);
+    const [message] = await db
+      .insert(messages)
+      .values(insertMessage)
+      .returning();
     return message;
   }
 
   async markMessageAsRead(id: string): Promise<Message> {
-    const message = this.messages.get(id);
+    const [message] = await db
+      .update(messages)
+      .set({ isRead: true })
+      .where(eq(messages.id, id))
+      .returning();
     if (!message) throw new Error("Message not found");
-    
-    const updatedMessage = { ...message, isRead: true };
-    this.messages.set(id, updatedMessage);
-    return updatedMessage;
+    return message;
   }
 
   // Experiences
   async getExperience(id: string): Promise<Experience | undefined> {
-    return this.experiences.get(id);
+    const [experience] = await db.select().from(experiences).where(eq(experiences.id, id));
+    return experience || undefined;
   }
 
   async getExperiencesByUser(userId: string): Promise<Experience[]> {
-    return Array.from(this.experiences.values()).filter(exp => exp.userId === userId);
+    return await db.select().from(experiences).where(eq(experiences.userId, userId));
   }
 
   async createExperience(insertExperience: InsertExperience): Promise<Experience> {
-    const id = randomUUID();
-    const experience: Experience = {
-      ...insertExperience,
-      id,
-    };
-    this.experiences.set(id, experience);
+    const [experience] = await db
+      .insert(experiences)
+      .values(insertExperience)
+      .returning();
     return experience;
   }
 
   async updateExperience(id: string, updates: Partial<InsertExperience>): Promise<Experience> {
-    const experience = this.experiences.get(id);
+    const [experience] = await db
+      .update(experiences)
+      .set(updates)
+      .where(eq(experiences.id, id))
+      .returning();
     if (!experience) throw new Error("Experience not found");
-    
-    const updatedExperience = { ...experience, ...updates };
-    this.experiences.set(id, updatedExperience);
-    return updatedExperience;
+    return experience;
   }
 
   async deleteExperience(id: string): Promise<void> {
-    this.experiences.delete(id);
+    await db.delete(experiences).where(eq(experiences.id, id));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
