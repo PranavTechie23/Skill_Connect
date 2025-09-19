@@ -1,6 +1,44 @@
-node_modules
-dist
+# Create .gitignore (PowerShell here-string)
+@'
+# Node & build
+node_modules/
+dist/
+build/
+out/
+
+# Env & secrets
+.env
+.env.*.local
+.env.local
+
+# Local DBs
+dev.db
+*.sqlite
+*.sqlite3
+
+# Replit / local state / caches
+.replit
+.local/
+.local/state/
+.replit/
+.replit.lock
+
+# Editor/OS
+.vscode/
+.idea/
 .DS_Store
-server/public
-vite.config.ts.*
-*.tar.gz
+Thumbs.db
+
+# NPM / package manager
+.npmrc
+package-lock.json # (optional: if you want to ignore lockfile, usually you keep it)
+
+# Misc
+*.log
+coverage/
+'@ | Out-File -Encoding utf8 .gitignore
+
+# Create .gitattributes to normalise EOLs
+@'
+* text=auto eol=lf
+'@ | Out-File -Encoding utf8 .gitattributes

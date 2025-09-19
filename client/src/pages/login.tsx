@@ -1,202 +1,238 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/queryClient";
-import { loginSchema, type LoginData } from "@shared/schema";
-import { Shield, Building, User } from "lucide-react";
+import { motion } from "framer-motion";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { FaGoogle, FaGithub, FaLinkedin } from 'react-icons/fa';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+interface LoginData {
+  email: string;
+  password: string;
+}
+
+interface RegisterData extends LoginData {
+  firstName: string;
+  lastName: string;
+  confirmPassword: string;
+  userType: 'Employer' | 'Professional';
+  location: string;
+  professionalTitle: string;
+  username: string;
+}
+
+const indianCities = [
+  'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai',
+  'Kolkata', 'Pune', 'Ahmedabad', 'Jaipur', 'Lucknow',
+];
+
+const jobRoles = [
+  'Software Developer', 'Data Scientist', 'UX/UI Designer',
+  'Product Manager', 'DevOps Engineer', 'Cybersecurity Analyst',
+  'Frontend Developer', 'Backend Developer', 'Full Stack Developer',
+  'Mobile App Developer', 'UI/UX Designer', 'Graphic Designer',
+  'Marketing Manager', 'Sales Executive', 'HR Specialist',
+  'Financial Analyst', 'Business Analyst', 'Project Manager',
+  'Data Analyst', 'Machine Learning Engineer', 'Cloud Architect',
+  'Network Administrator', 'Database Administrator', 'System Engineer',
+  'Quality Assurance Engineer', 'Technical Support Specialist',
+  'IT Consultant', 'Security Analyst', 'Product Designer',
+  'Content Writer', 'Social Media Manager', 'Digital Marketing Specialist'
+];
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { setUser } = useAuth();
-  const [selectedRole, setSelectedRole] = useState<string>("");
-
-  const form = useForm<LoginData>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
+  const [isLogin, setIsLogin] = useState(true);
+  const [loginData, setLoginData] = useState<LoginData>({ email: '', password: '' });
+  const [registerData, setRegisterData] = useState<RegisterData>({
+    firstName: '', lastName: '', email: '', password: '', confirmPassword: '',
+    userType: 'Professional', location: '', professionalTitle: '', username: '',
   });
 
-  const handleRoleSelect = (role: string) => {
-    setSelectedRole(role);
-    // Pre-fill admin credentials
-    if (role === "admin") {
-      form.setValue("email", "admin123");
-      form.setValue("password", "admin@123");
-    } else {
-      form.setValue("email", "");
-      form.setValue("password", "");
+  const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setLoginData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleRegisterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setRegisterData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await apiRequest("POST", "/api/login", loginData);
+      toast({ title: "Success", description: "Logged in successfully" });
+      setLocation("/dashboard");
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   };
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: LoginData) => {
-      const response = await apiRequest("POST", "/api/auth/login", data);
-      return response.json();
-    },
-    onSuccess: (data) => {
-      setUser(data.user);
-      toast({
-        title: "Welcome back!",
-        description: "You have been logged in successfully.",
-      });
-      setLocation("/");
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Login failed",
-        description: error.message || "Invalid credentials",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const onSubmit = (data: LoginData) => {
-    loginMutation.mutate(data);
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (registerData.password !== registerData.confirmPassword) {
+      toast({ title: "Error", description: "Passwords do not match", variant: "destructive" });
+      return;
+    }
+    try {
+      await apiRequest("POST", "/api/register", registerData);
+      toast({ title: "Success", description: "Account created successfully" });
+      setIsLogin(true);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   };
 
-  if (!selectedRole) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">Choose Login Type</CardTitle>
-            <CardDescription className="text-center">
-              Select your role to continue
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button
-              onClick={() => handleRoleSelect("admin")}
-              className="w-full h-16 flex items-center justify-center space-x-3 bg-red-600 hover:bg-red-700"
-            >
-              <Shield className="h-6 w-6" />
-              <span className="text-lg">Admin Login</span>
-            </Button>
-            
-            <Button
-              onClick={() => handleRoleSelect("employer")}
-              className="w-full h-16 flex items-center justify-center space-x-3 bg-blue-600 hover:bg-blue-700"
-            >
-              <Building className="h-6 w-6" />
-              <span className="text-lg">Employer Login</span>
-            </Button>
-            
-            <Button
-              onClick={() => handleRoleSelect("job_seeker")}
-              className="w-full h-16 flex items-center justify-center space-x-3 bg-green-600 hover:bg-green-700"
-            >
-              <User className="h-6 w-6" />
-              <span className="text-lg">Employee Login</span>
-            </Button>
-            
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
-                Don't have an account?{" "}
-                <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500">
-                  Sign up
-                </Link>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const handleOAuth = (provider: string) => {
+    // Implement OAuth logic here
+    console.log(`Signing in with ${provider}`);
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-2xl">
-              {selectedRole === "admin" && "Admin Login"}
-              {selectedRole === "employer" && "Employer Login"} 
-              {selectedRole === "job_seeker" && "Employee Login"}
-            </CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedRole("")}
-            >
-              Back
-            </Button>
-          </div>
-          <CardDescription>
-            {selectedRole === "admin" && "Access admin dashboard"}
-            {selectedRole === "employer" && "Manage your job postings"}
-            {selectedRole === "job_seeker" && "Find your next opportunity"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {selectedRole === "admin" ? "Username" : "Email"}
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        type={selectedRole === "admin" ? "text" : "email"}
-                        placeholder={selectedRole === "admin" ? "Enter username" : "Enter your email"}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="Enter your password"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={loginMutation.isPending}
-              >
-                {loginMutation.isPending ? "Signing in..." : "Sign in"}
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 py-12 px-4 sm:px-6 lg:px-8">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-md"
+      >
+        <Card className="shadow-xl">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold text-center">Welcome to SkillConnect</CardTitle>
+            <CardDescription className="text-center">
+              Sign in to your account or create a new one
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="login" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login" onClick={() => setIsLogin(true)}>Login</TabsTrigger>
+                <TabsTrigger value="register" onClick={() => setIsLogin(false)}>Register</TabsTrigger>
+              </TabsList>
+              <TabsContent value="login">
+                <form onSubmit={handleLogin} className="space-y-4 mt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" name="email" type="email" required onChange={handleLoginChange} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input id="password" name="password" type="password" required onChange={handleLoginChange} />
+                  </div>
+                  <Button type="submit" className="w-full">Sign In</Button>
+                </form>
+              </TabsContent>
+              <TabsContent value="register">
+                <form onSubmit={handleRegister} className="space-y-4 mt-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input id="firstName" name="firstName" required onChange={handleRegisterChange} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input id="lastName" name="lastName" required onChange={handleRegisterChange} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" name="email" type="email" required onChange={handleRegisterChange} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Username</Label>
+                    <Input id="username" name="username" required onChange={handleRegisterChange} />
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
+                      <Input id="password" name="password" type="password" required onChange={handleRegisterChange} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword">Confirm Password</Label>
+                      <Input id="confirmPassword" name="confirmPassword" type="password" required onChange={handleRegisterChange} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="userType">I am a</Label>
+                    <Select onValueChange={(value: 'Employer' | 'Professional') => setRegisterData({...registerData, userType: value})} value={registerData.userType}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select user type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Employer">Employer</SelectItem>
+                        <SelectItem value="Professional">Professional</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="location">Location</Label>
+                    <Select onValueChange={(value) => setRegisterData({...registerData, location: value})} value={registerData.location}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select location" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {indianCities.map((city) => (
+                          <SelectItem key={city} value={city}>{city}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="professionalTitle">Professional Title</Label>
+                    <Select onValueChange={(value) => setRegisterData({...registerData, professionalTitle: value})} value={registerData.professionalTitle}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a job role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {jobRoles.map((role) => (
+                          <SelectItem key={role} value={role}>{role}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button type="submit" className="w-full">Sign Up</Button>
+                </form>
+              </TabsContent>
+            </Tabs>
+            <Separator className="my-4" />
+            <div className="grid grid-cols-3 gap-4">
+              <Button variant="outline" onClick={() => handleOAuth('google')}>
+                <FaGoogle className="mr-2 h-4 w-4" />
+                Google
               </Button>
-            </form>
-          </Form>
-          <div className="text-center mt-4">
-            <p className="text-sm text-gray-600">
-              Don't have an account?{" "}
-              <Link href="/register" className="text-primary hover:underline">
-                Sign up
+              <Button variant="outline" onClick={() => handleOAuth('github')}>
+                <FaGithub className="mr-2 h-4 w-4" />
+                GitHub
+              </Button>
+              <Button variant="outline" onClick={() => handleOAuth('linkedin')}>
+                <FaLinkedin className="mr-2 h-4 w-4" />
+                LinkedIn
+              </Button>
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-center">
+            <p className="text-sm text-muted-foreground">
+              By signing up, you agree to our{" "}
+              <Link href="/terms" className="underline">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="underline">
+                Privacy Policy
               </Link>
             </p>
-          </div>
-        </CardContent>
-      </Card>
+          </CardFooter>
+        </Card>
+      </motion.div>
     </div>
   );
 }

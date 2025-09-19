@@ -1,0 +1,102 @@
+:root {
+    --hue: 27;
+    --sat: 69%;
+    --white: hsl(0, 0%, 100%);
+    --purple-primary: rgba(132, 0, 255, 1);
+    --purple-glow: rgba(132, 0, 255, 0.2);
+    --purple-border: rgba(132, 0, 255, 0.8);
+    --border-color: #392e4e;
+    --background-dark: #060010;
+    color-scheme: light dark;
+  }
+  
+  .magic-card-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    aspect-ratio: 4/3;
+    min-height: 200px;
+    width: 100%;
+    max-width: 100%;
+    padding: 1.25em;
+    border-radius: 20px;
+    font-weight: 300;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    --glow-x: 50%;
+    --glow-y: 50%;
+    --glow-intensity: 0;
+    --glow-radius: 200px;
+  }
+  
+  /* Border glow effect */
+  .magic-card-container--border-glow::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 6px;
+    background: radial-gradient(
+      var(--glow-radius) circle at var(--glow-x) var(--glow-y),
+      rgba(132, 0, 255, calc(var(--glow-intensity) * 0.8)) 0%,
+      rgba(132, 0, 255, calc(var(--glow-intensity) * 0.4)) 30%,
+      transparent 60%
+    );
+    border-radius: inherit;
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask-composite: subtract;
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 1;
+  }
+  
+  .magic-card-container--border-glow:hover::after {
+    opacity: 1;
+  }
+  
+  .magic-card-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
+  
+  .particle {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .particle::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: rgba(132, 0, 255, 0.2);
+    border-radius: 50%;
+    z-index: -1;
+  }
+  
+  .magic-card-container:hover {
+    box-shadow:
+      0 4px 20px rgba(46, 24, 78, 0.2),
+      0 0 30px var(--purple-glow);
+  }
+  
+  /* Global spotlight styles */
+  .global-spotlight {
+    mix-blend-mode: screen;
+    will-change: transform, opacity;
+    z-index: 200 !important;
+    pointer-events: none;
+  }
+  
+  .magic-section {
+    position: relative;
+    user-select: none;
+  }

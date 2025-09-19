@@ -294,10 +294,14 @@ export default function Profile() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="Downtown District">Downtown District</SelectItem>
-                            <SelectItem value="North District">North District</SelectItem>
-                            <SelectItem value="South Hills">South Hills</SelectItem>
-                            <SelectItem value="East Valley">East Valley</SelectItem>
+                            <SelectItem value="Mumbai">Mumbai</SelectItem>
+                            <SelectItem value="Delhi">Delhi</SelectItem>
+                            <SelectItem value="Bengaluru">Bengaluru</SelectItem>
+                            <SelectItem value="Hyderabad">Hyderabad</SelectItem>
+                            <SelectItem value="Chennai">Chennai</SelectItem>
+                            <SelectItem value="Kolkata">Kolkata</SelectItem>
+                            <SelectItem value="Pune">Pune</SelectItem>
+                            <SelectItem value="Ahmedabad">Ahmedabad</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />

@@ -1,138 +1,126 @@
+import JobCard from "@/components/job-card";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import JobSearch from "@/components/job-search";
+import { Card, CardContent } from "@/components/ui/card";
+import { motion } from "framer-motion";
+import { Briefcase, MapPin, Clock, DollarSign, TrendingUp, Filter } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, MapPin, Clock, DollarSign, Heart, Code, Megaphone, Users } from "lucide-react";
-import JobCard from "@/components/job-card";
+import { Pagination } from "@/components/ui/pagination";
+import { RadixDropdownMenuDemo } from "@/components/RadixDropdownMenuDemo";
+import { JobCategoryDropdown } from "@/components/JobCategoryDropdown";
 
 export default function Jobs() {
-  const [search, setSearch] = useState("");
-  const [location, setLocation] = useState("All Locations");
-  const [jobType, setJobType] = useState("All Jobs");
-  const [activeFilter, setActiveFilter] = useState("All Jobs");
+  const [filters, setFilters] = useState({
+    search: "",
+    location: "",
+    jobType: "",
+    skills: [] as string[],
+  });
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 10;
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const categories = ['Technology', 'Design', 'Marketing', 'Sales', 'Customer Service'];
 
-  const { data: jobs, isLoading } = useQuery({
-    queryKey: ["/api/jobs", { search, location: location === "All Locations" ? undefined : location, jobType: activeFilter === "All Jobs" ? undefined : activeFilter }],
+  const { data: jobs = [], isLoading } = useQuery({
+    queryKey: ["/api/jobs", { ...filters, page, itemsPerPage }],
+    queryFn: async () => {
+      const qs = buildJobsQueryString(filters, page, itemsPerPage);
+      const response = await fetch(`/api/jobs${qs ? `?${qs}` : ""}`);
+      if (!response.ok) throw new Error("Failed to fetch jobs");
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
-  const handleSearch = () => {
-    // Search is handled by the query key changes
+  const handleSearch = (next: { search: string; location: string; jobType: string }) => {
+    setPage(1);
+    setFilters(prev => ({ ...prev, ...next }));
   };
 
-  const jobTypeFilters = ["All Jobs", "Full-time", "Part-time", "Remote", "Contract"];
-
-  if (isLoading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-6">
-          {[...Array(5)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <Skeleton className="h-6 w-1/3 mb-4" />
-                <Skeleton className="h-4 w-1/4 mb-4" />
-                <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-2/3" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const jobTypes = ["All Jobs", "Full-time", "Part-time", "Remote", "Contract"];
 
   return (
-    <div className="bg-white min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center mb-12">
-          <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">Find Your Perfect Match</h1>
-          <p className="text-xl text-gray-600">Search thousands of local opportunities tailored to your skills</p>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <h1 className="text-4xl font-bold text-gray-900 mb-6 text-center">Find Your Perfect Job</h1>
+          <JobSearch onSearch={handleSearch} className="mb-8" />
+        </motion.div>
+
+        <div className="flex flex-wrap gap-3 mb-6 justify-center">
+          {jobTypes.map((type) => (
+            <Button
+              key={type}
+              variant={filters.jobType === type ? "default" : "outline"}
+              onClick={() => setFilters(prev => ({ ...prev, jobType: type }))}
+              className="rounded-full"
+              size="sm"
+            >
+              {type === "All Jobs" ? <Briefcase className="mr-2 h-4 w-4" /> : null}
+              {type}
+            </Button>
+          ))}
         </div>
-        
-        <div className="max-w-4xl mx-auto">
-          {/* Search Bar */}
-          <Card className="mb-8">
-            <CardContent className="p-6">
-              <div className="grid md:grid-cols-4 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Job Title or Skills</label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                      type="text"
-                      placeholder="e.g., Web Developer, Marketing"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                  <Select value={location} onValueChange={setLocation}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="All Locations">All Locations</SelectItem>
-                      <SelectItem value="Downtown District">Downtown District</SelectItem>
-                      <SelectItem value="North District">North District</SelectItem>
-                      <SelectItem value="South Hills">South Hills</SelectItem>
-                      <SelectItem value="East Valley">East Valley</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">&nbsp;</label>
-                  <Button onClick={handleSearch} className="w-full">
-                    Search Jobs
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Filter Tabs */}
-          <div className="flex flex-wrap gap-3 mb-8">
-            {jobTypeFilters.map((filter) => (
-              <Button
-                key={filter}
-                variant={activeFilter === filter ? "default" : "outline"}
-                onClick={() => setActiveFilter(filter)}
-                className="rounded-full"
-              >
-                {filter}
-              </Button>
-            ))}
-          </div>
-
-          {/* Job Results */}
+        {isLoading ? (
           <div className="space-y-6">
-            {jobs && jobs.length > 0 ? (
-              jobs.map((job: any) => (
-                <JobCard key={job.id} job={job} />
-              ))
-            ) : (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No jobs found</h3>
-                  <p className="text-gray-600">Try adjusting your search criteria or filters.</p>
+            {[...Array(3)].map((_, i) => (
+              <Card key={i}>
+                <CardContent className="p-6">
+                  <Skeleton className="h-6 w-2/3 mb-4" />
+                  <Skeleton className="h-4 w-1/2 mb-2" />
+                  <Skeleton className="h-4 w-1/3" />
                 </CardContent>
               </Card>
-            )}
+            ))}
           </div>
+        ) : jobs && jobs.length > 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="space-y-6"
+          >
+            {jobs.map((job: any) => (
+              <JobCard key={job.id} job={job} />
+            ))}
+            <Pagination
+              currentPage={page}
+              totalPages={Math.ceil(jobs.length / itemsPerPage)}
+              onPageChange={setPage}
+            />
+          </motion.div>
+        ) : (
+          <Card className="text-center p-12">
+            <CardContent>
+              <TrendingUp className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No jobs found</h3>
+              <p className="text-gray-600">Try adjusting your search criteria or filters.</p>
+            </CardContent>
+          </Card>
+        )}
 
-          {jobs && jobs.length > 0 && (
-            <div className="text-center mt-12">
-              <Button variant="outline">
-                Load More Jobs
-              </Button>
-            </div>
-          )}
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="mt-12 bg-white rounded-lg shadow-lg p-6"
+        >
+          <h2 className="text-2xl font-semibold mb-4">Job Search Tips</h2>
+          <ul className="space-y-2">
+            <li className="flex items-center"><MapPin className="mr-2 h-5 w-5 text-purple-500" /> Use location filters to find jobs near you</li>
+            <li className="flex items-center"><Clock className="mr-2 h-5 w-5 text-pink-500" /> Set job type preferences (Full-time, Part-time, etc.)</li>
+            <li className="flex items-center"><DollarSign className="mr-2 h-5 w-5 text-orange-500" /> Compare salary ranges across different positions</li>
+            <li className="flex items-center"><Filter className="mr-2 h-5 w-5 text-blue-500" /> Use multiple filters to narrow down your search</li>
+          </ul>
+        </motion.div>
       </div>
     </div>
   );

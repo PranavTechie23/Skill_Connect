@@ -2,51 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Light mode styles (default) */
 :root {
-  --background: hsl(0, 0%, 100%);
-  --foreground: hsl(20, 14.3%, 4.1%);
-  --muted: hsl(60, 4.8%, 95.9%);
-  --muted-foreground: hsl(25, 5.3%, 44.7%);
-  --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(20, 14.3%, 4.1%);
-  --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(20, 14.3%, 4.1%);
-  --border: hsl(20, 5.9%, 90%);
-  --input: hsl(20, 5.9%, 90%);
-  --primary: hsl(218, 81%, 56%);
-  --primary-foreground: hsl(210, 40%, 98%);
-  --secondary: hsl(142, 71%, 45%);
-  --secondary-foreground: hsl(355, 7%, 97%);
-  --accent: hsl(41, 96%, 54%);
-  --accent-foreground: hsl(26, 83%, 14%);
-  --destructive: hsl(0, 84.2%, 60.2%);
-  --destructive-foreground: hsl(60, 9.1%, 97.8%);
-  --ring: hsl(20, 14.3%, 4.1%);
-  --radius: 0.5rem;
+  --bg-main: #ffffff;
+  --text-main: #111827;
+  --bg-card: #ffffff;
+  --text-card: #111827;
+  --border-color: #e5e7eb;
 }
 
+/* Dark mode styles */
 .dark {
-  --background: hsl(240, 10%, 3.9%);
-  --foreground: hsl(0, 0%, 98%);
-  --muted: hsl(240, 3.7%, 15.9%);
-  --muted-foreground: hsl(240, 5%, 64.9%);
-  --popover: hsl(240, 10%, 3.9%);
-  --popover-foreground: hsl(0, 0%, 98%);
-  --card: hsl(240, 10%, 3.9%);
-  --card-foreground: hsl(0, 0%, 98%);
-  --border: hsl(240, 3.7%, 15.9%);
-  --input: hsl(240, 3.7%, 15.9%);
-  --primary: hsl(218, 81%, 56%);
-  --primary-foreground: hsl(210, 40%, 98%);
-  --secondary: hsl(142, 71%, 45%);
-  --secondary-foreground: hsl(355, 7%, 97%);
-  --accent: hsl(142, 71%, 45%);
-  --accent-foreground: hsl(355, 7%, 97%);
-  --destructive: hsl(0, 62.8%, 30.6%);
-  --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(240, 4.9%, 83.9%);
-  --radius: 0.5rem;
+  --bg-main: #111827;
+  --text-main: #ffffff;
+  --bg-card: #1f2937;
+  --text-card: #ffffff;
+  --border-color: #374151;
 }
+
+/* Base styles */
+body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+/* Card styles */
+.card {
+  background-color: var(--bg-card);
+  color: var(--text-card);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* Custom dark mode transitions */
+
 
 @layer base {
   * {
@@ -58,10 +49,87 @@
   }
 }
 
+/* Responsive Gradients */
 .gradient-hero {
-  background: linear-gradient(135deg, hsl(218, 100%, 97%) 0%, hsl(221, 84%, 90%) 100%);
+  background: linear-gradient(135deg,
+      hsl(218, 100%, 97%) 0%,
+      hsl(221, 84%, 90%) 100%);
 }
 
 .gradient-secondary {
-  background: linear-gradient(135deg, hsl(206, 100%, 97%) 0%, hsl(221, 84%, 90%) 100%);
+  background: linear-gradient(135deg,
+      hsl(142, 71%, 95%) 0%,
+      hsl(142, 71%, 85%) 100%);
+}
+
+.gradient-accent {
+  background: linear-gradient(135deg,
+      hsl(41, 96%, 95%) 0%,
+      hsl(41, 96%, 75%) 100%);
+}
+
+/* Responsive Tweaks */
+@media (max-width: 640px) {
+
+  /* sm */
+  .gradient-hero {
+    background: linear-gradient(160deg,
+        hsl(218, 100%, 98%) 0%,
+        hsl(221, 84%, 94%) 100%);
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+
+  /* md-lg */
+  .gradient-hero {
+    background: linear-gradient(140deg,
+        hsl(218, 100%, 96%) 0%,
+        hsl(221, 84%, 88%) 100%);
+  }
+}
+
+@media (min-width: 1025px) {
+
+  /* xl+ */
+  .gradient-hero {
+    background: linear-gradient(135deg,
+        hsl(218, 100%, 97%) 0%,
+        hsl(221, 84%, 90%) 100%);
+  }
+}
+
+/* Modern hero overlays */
+.mesh-hero-overlay {
+  background:
+    radial-gradient(1000px circle at 15% 10%, rgba(255,255,255,0.22), transparent 60%),
+    radial-gradient(800px circle at 85% 20%, rgba(255,255,255,0.16), transparent 60%),
+    radial-gradient(900px circle at 50% 85%, rgba(255,255,255,0.14), transparent 60%);
+}
+
+.grid-overlay {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px);
+  background-size: 40px 40px, 40px 40px;
+  background-position: -1px -1px, -1px -1px;
+}
+
+/* Animated gradient mesh for hero (inspired by pattern libraries) */
+@keyframes meshShift {
+  0% { background-position: 0% 0%, 100% 0%, 0% 100%, 100% 100%; }
+  50% { background-position: 100% 0%, 0% 100%, 100% 100%, 0% 0%; }
+  100% { background-position: 0% 0%, 100% 0%, 0% 100%, 100% 100%; }
+}
+
+.hero-animated-bg {
+  background-image:
+    radial-gradient(1200px 800px at 10% 10%, rgba(250, 204, 21, 0.35), transparent 60%),
+    radial-gradient(1000px 700px at 90% 15%, rgba(59, 130, 246, 0.25), transparent 60%),
+    radial-gradient(1000px 700px at 15% 90%, rgba(16, 185, 129, 0.25), transparent 60%),
+    radial-gradient(1200px 800px at 85% 85%, rgba(236, 72, 153, 0.25), transparent 60%);
+  background-repeat: no-repeat;
+  background-size: 120% 120%, 120% 120%, 120% 120%, 120% 120%;
+  animation: meshShift 18s ease-in-out infinite;
+  filter: saturate(110%);
 }
