@@ -121,10 +121,13 @@ export const insertExperienceSchema = createInsertSchema(experiences).omit({
   id: true,
 });
 
-export const insertStorySchema = createInsertSchema(stories).omit({
-  id: true,
-  createdAt: true,
+export const insertStorySchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  content: z.string().min(1, "Content is required"),
+  tags: z.array(z.string()).optional(),
+  authorId: z.string(),
 });
+
 
 // Auth schemas
 export const loginSchema = z.object({
@@ -132,7 +135,17 @@ export const loginSchema = z.object({
   password: z.string().min(6),
 });
 
-export const registerSchema = insertUserSchema.extend({
+export const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  firstName: z.string(),
+  lastName: z.string(),
+  userType: z.string(),
+  location: z.string().optional(),
+  profilePhoto: z.string().optional(),
+  title: z.string().optional(),
+  bio: z.string().optional(),
+  skills: z.array(z.string()).optional(),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
