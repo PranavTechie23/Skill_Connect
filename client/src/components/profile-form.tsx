@@ -109,7 +109,7 @@ export default function ProfileForm({
                       <FormItem>
                         <FormLabel>First Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="John" {...field} />
+                          <Input placeholder="John" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -122,7 +122,7 @@ export default function ProfileForm({
                       <FormItem>
                         <FormLabel>Last Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="Doe" {...field} />
+                          <Input placeholder="Doe" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -137,7 +137,7 @@ export default function ProfileForm({
                     <FormItem>
                       <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="john@example.com" {...field} />
+                        <Input type="email" placeholder="john@example.com" {...field} value={field.value || ""} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -173,7 +173,7 @@ export default function ProfileForm({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Location</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value || undefined}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select location" />
@@ -197,7 +197,7 @@ export default function ProfileForm({
                       <FormItem>
                         <FormLabel>Professional Title</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., Software Developer" {...field} />
+                          <Input placeholder="e.g., Software Developer" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -212,10 +212,11 @@ export default function ProfileForm({
                     <FormItem>
                       <FormLabel>Bio</FormLabel>
                       <FormControl>
-                        <Textarea 
+                        <Textarea
                           placeholder="Tell us about yourself and your experience..."
                           rows={4}
                           {...field}
+                          value={field.value || ""}
                         />
                       </FormControl>
                       <FormMessage />
@@ -232,7 +233,7 @@ export default function ProfileForm({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Add Skills</label>
                   <div className="flex flex-wrap gap-2 mb-3">
-                    {(form.watch("skills") || []).map((skill, index) => (
+                    {(form.watch("skills") || []).map((skill: string, index: number) => (
                       <Badge key={index} variant="default" className="flex items-center">
                         {skill}
                         <Button

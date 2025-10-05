@@ -1,11 +1,9 @@
-
-import React from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, LineChart, Line } from "recharts";
-import { Users, Briefcase, TrendingUp, MessageCircle } from "lucide-react";
-
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, CartesianGrid, Legend } from "recharts";
+import { Users, Briefcase, TrendingUp, MessageCircle, Activity, ClipboardList } from "lucide-react";
+import { Eye, FileText } from "lucide-react";
 const Dashboards = () => {
   const sectionVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -29,7 +27,7 @@ const Dashboards = () => {
     { name: "Other", value: 100 },
   ];
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+  const COLORS = ['#4F46E5', '#06B6D4', '#10B981', '#8B5CF6', '#EC4899'];
 
   const applicationStatusData = [
     { name: "Pending", value: 50 },
@@ -48,29 +46,79 @@ const Dashboards = () => {
     { day: "Sun", messages: 80, applications: 30 },
   ];
 
+  // Custom pie chart rendering with better visibility in both modes
+  interface PieChartData {
+    name: string;
+    value: number;
+    [key: string]: string | number;
+  }
+
+  interface PieChartLabel {
+    name: string;
+    percent: number;
+  }
+
+  const renderPieChart = (data: PieChartData[], height: number = 300) => (
+    <ResponsiveContainer width="100%" height={height}>
+      <PieChart>
+        <Pie
+          data={data}
+          cx="50%"
+          cy="50%"
+          outerRadius={80}
+          fill="#8884d8"
+          dataKey="value"
+          labelLine={false}
+          label={({ name, value, percent }: { name: string; value: number; percent: number }) => `${name}: ${percent.toFixed(0)}%`}
+        >
+          {data.map((entry: PieChartData, index: number) => (
+            <Cell 
+              key={`cell-${entry.name}`}
+              fill={COLORS[index % COLORS.length]} 
+              stroke="#ffffff"
+              strokeWidth={2}
+            />
+          ))}
+        </Pie>
+        <Tooltip 
+          contentStyle={{ 
+            backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+            color: '#333',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            boxShadow: '0 2px 5px rgba(0,0,0,0.15)'
+          }} 
+        />
+      </PieChart>
+    </ResponsiveContainer>   
+  );
+
   return (
     <motion.div
-      className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-red-50 p-6"
+      className="min-h-screen p-6 text-center mb-12"
       initial="hidden"
       animate="visible"
       variants={sectionVariants}
     >
-      <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">Dashboard</h1>
+      <br></br>
+      <h1 className=" justify-center text-4xl sm:text-5xl lg:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-500 mb-4">Dashboard</h1>
+      <br></br>
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          <TabsTrigger value="overview" className="bg-white shadow-md hover:bg-purple-100 transition-colors">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-pink-400 data-[state=active]:text-white dark:data-[state=active]:bg-pink-500">
             <Users className="mr-2" /> Overview
           </TabsTrigger>
-          <TabsTrigger value="jobs" className="bg-white shadow-md hover:bg-purple-100 transition-colors">
+          <TabsTrigger value="jobs" className="data-[state=active]:bg-pink-400 data-[state=active]:text-white dark:data-[state=active]:bg-pink-500">
             <Briefcase className="mr-2" /> Jobs
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="bg-white shadow-md hover:bg-purple-100 transition-colors">
+          <TabsTrigger value="analytics" className="data-[state=active]:bg-pink-400 data-[state=active]:text-white dark:data-[state=active]:bg-pink-500">
             <TrendingUp className="mr-2" /> Analytics
           </TabsTrigger>
-          <TabsTrigger value="engagement" className="bg-white shadow-md hover:bg-purple-100 transition-colors">
+          <TabsTrigger value="engagement" className="data-[state=active]:bg-pink-400 data-[state=active]:text-white dark:data-[state=active]:bg-pink-500">
             <MessageCircle className="mr-2" /> Engagement
           </TabsTrigger>
         </TabsList>
+        <br />
 
         <TabsContent value="overview">
           <motion.div
@@ -86,7 +134,7 @@ const Dashboards = () => {
                   <BarChart data={userGrowthData}>
                     <XAxis dataKey="month" />
                     <YAxis />
-                    <Tooltip />
+                    <Tooltip contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', color: '#333' }} />
                     <Bar dataKey="users" fill="#8884d8" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -98,24 +146,7 @@ const Dashboards = () => {
                 <CardTitle>Job Categories</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={jobCategoriesData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {jobCategoriesData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                {renderPieChart(jobCategoriesData)}
               </CardContent>
             </Card>
 
@@ -126,20 +157,20 @@ const Dashboards = () => {
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Total Users</span>
-                    <span className="text-2xl font-bold text-purple-600">3,500</span>
+                    <span>Total Users</span>
+                    <span>3,500</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Active Jobs</span>
-                    <span className="text-2xl font-bold text-green-600">250</span>
+                    <span>Active Jobs</span>
+                    <span>250</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Applications Today</span>
-                    <span className="text-2xl font-bold text-blue-600">75</span>
+                    <span>Applications Today</span>
+                    <span>75</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Successful Matches</span>
-                    <span className="text-2xl font-bold text-yellow-600">120</span>
+                    <span>Successful Matches</span>
+                    <span>120</span>
                   </div>
                 </div>
               </CardContent>
@@ -157,33 +188,19 @@ const Dashboards = () => {
                 <CardTitle>Application Status</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={applicationStatusData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {applicationStatusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                {renderPieChart(applicationStatusData)}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Top Job Listings</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Briefcase />
+                  Top Job Listings
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <ul className="space-y-2">
+                <ul className="space-y-3">
                   {[
                     { title: "Senior Software Engineer", views: 1200, applications: 45 },
                     { title: "UX Designer", views: 980, applications: 38 },
@@ -191,11 +208,22 @@ const Dashboards = () => {
                     { title: "Data Analyst", views: 720, applications: 25 },
                     { title: "Customer Support Specialist", views: 650, applications: 20 },
                   ].map((job, index) => (
-                    <li key={index} className="flex justify-between items-center bg-gray-100 p-2 rounded">
-                      <span className="font-medium">{job.title}</span>
-                      <div className="text-sm text-gray-600">
-                        <span className="mr-2">{job.views} views</span>
-                        <span>{job.applications} apps</span>
+                    <li 
+                      key={index} 
+                      className="flex justify-between items-center p-4 rounded-lg transition-colors duration-200"
+                    >
+                      <span>
+                        {job.title}
+                      </span>
+                      <div className="flex items-center gap-4">
+                        <span>
+                          <Eye className="h-4 w-4 mr-1" />
+                          {job.views.toLocaleString()} views
+                        </span>
+                        <span>
+                          <FileText className="h-4 w-4 mr-1" />
+                          {job.applications} apps
+                        </span>
                       </div>
                     </li>
                   ))}
@@ -212,44 +240,50 @@ const Dashboards = () => {
           >
             <Card>
               <CardHeader>
-                <CardTitle>User Engagement</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp />
+                  User Growth
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={engagementData}>
-                    <XAxis dataKey="day" />
+                  <AreaChart data={userGrowthData}>
+                    <defs>
+                      <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#4F46E5" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="month"/>
                     <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="messages" stroke="#8884d8" />
-                    <Line type="monotone" dataKey="applications" stroke="#82ca9d" />
-                  </LineChart>
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'white', 
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '6px'
+                      }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="users" 
+                      stroke="#4F46E5" 
+                      fillOpacity={1} 
+                      fill="url(#colorUsers)"
+                    />
+                  </AreaChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Key Metrics</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart />
+                  Job Categories
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Avg. Time to Hire</span>
-                    <span className="text-2xl font-bold text-purple-600">12 days</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Applicant to Interview Ratio</span>
-                    <span className="text-2xl font-bold text-green-600">25%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Job Posting Engagement Rate</span>
-                    <span className="text-2xl font-bold text-blue-600">68%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">User Retention Rate</span>
-                    <span className="text-2xl font-bold text-yellow-600">82%</span>
-                  </div>
-                </div>
+                {renderPieChart(jobCategoriesData)}
               </CardContent>
             </Card>
           </motion.div>
@@ -262,16 +296,39 @@ const Dashboards = () => {
           >
             <Card>
               <CardHeader>
-                <CardTitle>Engagement Over Time</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity />
+                  Weekly Engagement
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={engagementData}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                     <XAxis dataKey="day" />
                     <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="messages" stroke="#8884d8" strokeWidth={2} />
-                    <Line type="monotone" dataKey="applications" stroke="#82ca9d" strokeWidth={2} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'white',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '6px'
+                      }}
+                    />
+                    <Legend />
+                    <Line 
+                      type="monotone" 
+                      dataKey="messages" 
+                      stroke="#10B981" 
+                      strokeWidth={2}
+                      dot={{ fill: '#10B981' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="applications" 
+                      stroke="#8B5CF6" 
+                      strokeWidth={2}
+                      dot={{ fill: '#8B5CF6' }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -279,26 +336,25 @@ const Dashboards = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle>Engagement Metrics</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardList />
+                  Application Status
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Daily Active Users</span>
-                    <span className="text-xl font-bold text-purple-600">1,200</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Messages Sent Today</span>
-                    <span className="text-xl font-bold text-green-600">850</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Avg. Response Time</span>
-                    <span className="text-xl font-bold text-blue-600">2.5 hrs</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Platform Satisfaction</span>
-                    <span className="text-xl font-bold text-yellow-600">4.2/5</span>
-                  </div>
+                {renderPieChart(applicationStatusData)}
+                <div className="grid grid-cols-2 gap-4 mt-6">
+                  {applicationStatusData.map((status, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      />
+                      <span>
+                        {status.name}: {status.value}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>

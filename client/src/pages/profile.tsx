@@ -1,46 +1,102 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Separator } from "@/components/ui/separator";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { insertUserSchema, insertExperienceSchema } from "@shared/schema";
-import { User, Plus, X, Edit2, Trash2 } from "lucide-react";
 import { z } from "zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { User, Edit2, Trash2, X } from "lucide-react";
 
-const profileSchema = insertUserSchema.omit({ password: true });
-type ProfileData = z.infer<typeof profileSchema>;
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
+import { Badge } from "../components/ui/badge";
+import { Separator } from "../components/ui/separator";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "../components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 
-const experienceSchema = insertExperienceSchema.omit({ userId: true });
-type ExperienceData = z.infer<typeof experienceSchema>;
+// Types
+interface ProfileData {
+  email: string;
+  firstName: string;
+  lastName: string;
+  userType: string;
+  location?: string;
+  title?: string;
+  bio?: string;
+  skills?: string[];
+}
+
+interface ExperienceData {
+  title: string;
+  company: string;
+  description?: string;
+  startDate: string;
+  endDate?: string;
+  isCurrent: boolean;
+}
+
+// Schemas
+const profileSchema = z.object({
+  email: z.string().email(),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  userType: z.string(),
+  location: z.string().optional(),
+  title: z.string().optional(),
+  bio: z.string().optional(),
+  skills: z.array(z.string()).optional(),
+});
+
+const experienceSchema = z.object({
+  title: z.string().min(1, "Job title is required"),
+  company: z.string().min(1, "Company is required"),
+  description: z.string().optional(),
+  startDate: z.string().min(1, "Start date is required"),
+  endDate: z.string().optional(),
+  isCurrent: z.boolean().default(false),
+});
 
 export default function Profile() {
-  const { user, setUser } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [skillInput, setSkillInput] = useState("");
-  const [editingExperience, setEditingExperience] = useState<string | null>(null);
+  const [editingExperience, setEditingExperience] = useState<number | null>(null);
+  const queryClient = useQueryClient();
 
+  const { data: user, isLoading: userLoading } = useQuery({
+    queryKey: ["auth-me"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/me");
+      if (!res.ok) {
+        throw new Error("Not authenticated");
+      }
+      return res.json();
+    },
+  });
+
+  // Forms
   const form = useForm<ProfileData>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      email: user?.email || "",
-      firstName: user?.firstName || "",
-      lastName: user?.lastName || "",
-      userType: user?.userType || "job_seeker",
-      location: user?.location || "",
-      title: user?.title || "",
-      bio: user?.bio || "",
-      skills: user?.skills || [],
+      email: "",
+      firstName: "",
+      lastName: "",
+      userType: "professional",
+      location: "",
+      title: "",
+      bio: "",
+      skills: [],
     },
   });
 
@@ -56,80 +112,90 @@ export default function Profile() {
     },
   });
 
-  const { data: experiences, isLoading: experiencesLoading } = useQuery({
-    queryKey: ["/api/experiences", { userId: user?.id }],
+  // API calls
+  const { data: experiences = [], isLoading: experiencesLoading } = useQuery({
+    queryKey: ["experiences", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await fetch(`/api/experiences?userId=${user.id}`);
+      return res.json();
+    },
     enabled: !!user?.id,
   });
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileData) => {
-      const response = await apiRequest("PUT", `/api/users/${user?.id}`, data);
-      return response.json();
-    },
-    onSuccess: (data) => {
-      setUser(data);
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully.",
+      if (!user?.id) throw new Error("User not found");
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
       });
+      if (!res.ok) {
+        throw new Error("Failed to update profile");
+      }
+      return res.json();
     },
-    onError: (error: any) => {
-      toast({
-        title: "Update failed",
-        description: error.message || "Something went wrong",
-        variant: "destructive",
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["auth-me"] });
     },
   });
 
   const createExperienceMutation = useMutation({
     mutationFn: async (data: ExperienceData) => {
-      const response = await apiRequest("POST", "/api/experiences", {
-        ...data,
-        userId: user?.id,
+      if (!user?.id) throw new Error("User not found");
+      const res = await fetch("/api/experiences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, userId: user.id }),
       });
-      return response.json();
+      if (!res.ok) {
+        throw new Error("Failed to create experience");
+      }
+      return res.json();
     },
     onSuccess: () => {
-      toast({
-        title: "Experience added",
-        description: "Your work experience has been added.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/experiences"] });
+      queryClient.invalidateQueries({ queryKey: ["experiences", user?.id] });
       experienceForm.reset();
     },
   });
 
   const updateExperienceMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: ExperienceData }) => {
-      const response = await apiRequest("PUT", `/api/experiences/${id}`, data);
-      return response.json();
+    mutationFn: async ({ id, data }: { id: number; data: ExperienceData }) => {
+      const res = await fetch(`/api/experiences/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to update experience");
+      }
+      return res.json();
     },
     onSuccess: () => {
-      toast({
-        title: "Experience updated",
-        description: "Your work experience has been updated.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/experiences"] });
+      queryClient.invalidateQueries({ queryKey: ["experiences", user?.id] });
       setEditingExperience(null);
       experienceForm.reset();
     },
   });
 
   const deleteExperienceMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await apiRequest("DELETE", `/api/experiences/${id}`);
-      return response.json();
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/experiences/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        throw new Error("Failed to delete experience");
+      }
+      return id;
     },
     onSuccess: () => {
-      toast({
-        title: "Experience deleted",
-        description: "Your work experience has been deleted.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/experiences"] });
+      queryClient.invalidateQueries({ queryKey: ["experiences", user?.id] });
     },
   });
 
+  // Handlers
   const onSubmit = (data: ProfileData) => {
     updateProfileMutation.mutate(data);
   };
@@ -175,19 +241,23 @@ export default function Profile() {
   };
 
   useEffect(() => {
-    if (user) {
+    if (user?.user) {
       form.reset({
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        userType: user.userType,
-        location: user.location || "",
-        title: user.title || "",
-        bio: user.bio || "",
-        skills: user.skills || [],
+        email: user.user.email,
+        firstName: user.user.firstName,
+        lastName: user.user.lastName,
+        userType: user.user.userType,
+        location: user.user.location || "",
+        title: user.user.title || "",
+        bio: user.user.bio || "",
+        skills: user.user.skills || [],
       });
     }
   }, [user, form]);
+
+  if (userLoading) {
+    return <div>Loading...</div>; // Or a spinner component
+  }
 
   if (!user) {
     return (
