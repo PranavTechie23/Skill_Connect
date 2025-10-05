@@ -1,236 +1,134 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import React, { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { Card, CardHeader, CardFooter, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useNavigate, Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { FaGoogle, FaGithub, FaLinkedin } from 'react-icons/fa';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/AuthContext";
+import { Eye, EyeOff } from "lucide-react";
 
-interface LoginData {
-  email: string;
-  password: string;
-}
-
-interface RegisterData extends LoginData {
+interface User {
+  userType: "Professional" | "Employer";
+  id: string;
   firstName: string;
   lastName: string;
-  confirmPassword: string;
-  userType: 'Employer' | 'Professional';
-  location: string;
-  professionalTitle: string;
-  username: string;
+  email: string;
 }
 
-const indianCities = [
-  'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai',
-  'Kolkata', 'Pune', 'Ahmedabad', 'Jaipur', 'Lucknow',
-];
-
-const jobRoles = [
-  'Software Developer', 'Data Scientist', 'UX/UI Designer',
-  'Product Manager', 'DevOps Engineer', 'Cybersecurity Analyst',
-  'Frontend Developer', 'Backend Developer', 'Full Stack Developer',
-  'Mobile App Developer', 'UI/UX Designer', 'Graphic Designer',
-  'Marketing Manager', 'Sales Executive', 'HR Specialist',
-  'Financial Analyst', 'Business Analyst', 'Project Manager',
-  'Data Analyst', 'Machine Learning Engineer', 'Cloud Architect',
-  'Network Administrator', 'Database Administrator', 'System Engineer',
-  'Quality Assurance Engineer', 'Technical Support Specialist',
-  'IT Consultant', 'Security Analyst', 'Product Designer',
-  'Content Writer', 'Social Media Manager', 'Digital Marketing Specialist'
-];
-
 export default function Login() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const { toast } = useToast();
-  const [isLogin, setIsLogin] = useState(true);
-  const [loginData, setLoginData] = useState<LoginData>({ email: '', password: '' });
-  const [registerData, setRegisterData] = useState<RegisterData>({
-    firstName: '', lastName: '', email: '', password: '', confirmPassword: '',
-    userType: 'Professional', location: '', professionalTitle: '', username: '',
-  });
+  const auth = useAuth(); // use the auth object directly
+  const user = auth.user;
 
-  const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setLoginData((prev) => ({ ...prev, [name]: value }));
+  const [open, setOpen] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [form, setForm] = useState({ email: "", password: "" });
+
+  useEffect(() => {
+    if (user) {
+      const redirect = user.userType === "Professional" ? "/employee/dashboard" : "/employer/dashboard";
+      navigate(redirect, { replace: true });
+    }
+  }, [user, navigate]);
+
+  function handleClose() {
+    setOpen(false);
+    navigate("/");
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
   };
 
-  const handleRegisterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setRegisterData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+
     try {
-      await apiRequest("POST", "/api/login", loginData);
+      const res = await fetch("http://localhost:5001/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(form),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Login failed");
+      }
+
+      const data = await res.json();
+      // Use the existing auth API (setUser) instead of a non-existent `login`
+      if (typeof auth.setUser === "function") {
+        auth.setUser(data.user as User);
+      }
+
       toast({ title: "Success", description: "Logged in successfully" });
-      setLocation("/dashboard");
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+
+      const redirect = data.user?.userType === "Professional" ? "/employee/dashboard" : "/employer/dashboard";
+      navigate(redirect || "/", { replace: true });
+    } catch (err: any) {
+      toast({ title: "Error", description: err?.message || "Invalid credentials", variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (registerData.password !== registerData.confirmPassword) {
-      toast({ title: "Error", description: "Passwords do not match", variant: "destructive" });
-      return;
-    }
-    try {
-      await apiRequest("POST", "/api/register", registerData);
-      toast({ title: "Success", description: "Account created successfully" });
-      setIsLogin(true);
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    }
-  };
-
-  const handleOAuth = (provider: string) => {
-    // Implement OAuth logic here
-    console.log(`Signing in with ${provider}`);
-  };
+  if (!open) return null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 py-12 px-4 sm:px-6 lg:px-8">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
-        <Card className="shadow-xl">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center">Welcome to SkillConnect</CardTitle>
-            <CardDescription className="text-center">
-              Sign in to your account or create a new one
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="login" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login" onClick={() => setIsLogin(true)}>Login</TabsTrigger>
-                <TabsTrigger value="register" onClick={() => setIsLogin(false)}>Register</TabsTrigger>
-              </TabsList>
-              <TabsContent value="login">
-                <form onSubmit={handleLogin} className="space-y-4 mt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" name="email" type="email" required onChange={handleLoginChange} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input id="password" name="password" type="password" required onChange={handleLoginChange} />
-                  </div>
-                  <Button type="submit" className="w-full">Sign In</Button>
-                </form>
-              </TabsContent>
-              <TabsContent value="register">
-                <form onSubmit={handleRegister} className="space-y-4 mt-4">
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName">First Name</Label>
-                      <Input id="firstName" name="firstName" required onChange={handleRegisterChange} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input id="lastName" name="lastName" required onChange={handleRegisterChange} />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" name="email" type="email" required onChange={handleRegisterChange} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
-                    <Input id="username" name="username" required onChange={handleRegisterChange} />
-                  </div>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Password</Label>
-                      <Input id="password" name="password" type="password" required onChange={handleRegisterChange} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="confirmPassword">Confirm Password</Label>
-                      <Input id="confirmPassword" name="confirmPassword" type="password" required onChange={handleRegisterChange} />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="userType">I am a</Label>
-                    <Select onValueChange={(value: 'Employer' | 'Professional') => setRegisterData({...registerData, userType: value})} value={registerData.userType}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select user type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Employer">Employer</SelectItem>
-                        <SelectItem value="Professional">Professional</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="location">Location</Label>
-                    <Select onValueChange={(value) => setRegisterData({...registerData, location: value})} value={registerData.location}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select location" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {indianCities.map((city) => (
-                          <SelectItem key={city} value={city}>{city}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="professionalTitle">Professional Title</Label>
-                    <Select onValueChange={(value) => setRegisterData({...registerData, professionalTitle: value})} value={registerData.professionalTitle}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a job role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {jobRoles.map((role) => (
-                          <SelectItem key={role} value={role}>{role}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button type="submit" className="w-full">Sign Up</Button>
-                </form>
-              </TabsContent>
-            </Tabs>
-            <Separator className="my-4" />
-            <div className="grid grid-cols-3 gap-4">
-              <Button variant="outline" onClick={() => handleOAuth('google')}>
-                <FaGoogle className="mr-2 h-4 w-4" />
-                Google
-              </Button>
-              <Button variant="outline" onClick={() => handleOAuth('github')}>
-                <FaGithub className="mr-2 h-4 w-4" />
-                GitHub
-              </Button>
-              <Button variant="outline" onClick={() => handleOAuth('linkedin')}>
-                <FaLinkedin className="mr-2 h-4 w-4" />
-                LinkedIn
-              </Button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
+      <motion.div initial={{ opacity: 0, scale: 0.98, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.28 }} className="relative z-10 w-full max-w-3xl mx-auto">
+        <Card className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+          <div className="flex flex-col lg:flex-row">
+            <div className="hidden lg:flex lg:w-1/2 items-center justify-center bg-gradient-to-br from-blue-600 to-purple-600 p-10">
+              <div className="text-center text-white max-w-xs">
+                <h2 className="text-3xl font-extrabold mb-2">Welcome back</h2>
+                <p className="text-sm opacity-90">Sign in to access your SkillConnect dashboard and manage your professional journey.</p>
+              </div>
             </div>
-          </CardContent>
-          <CardFooter className="flex justify-center">
-            <p className="text-sm text-muted-foreground">
-              By signing up, you agree to our{" "}
-              <Link href="/terms" className="underline">
-                Terms of Service
-              </Link>{" "}
-              and{" "}
-              <Link href="/privacy" className="underline">
-                Privacy Policy
-              </Link>
-            </p>
-          </CardFooter>
+
+            <div className="w-full lg:w-1/2 p-8 sm:p-10">
+              <CardHeader className="p-0 mb-4">
+                <CardTitle className="text-2xl font-bold">Sign in to SkillConnect</CardTitle>
+                <p className="text-sm text-muted-foreground mt-2">Access your personalized dashboard</p>
+              </CardHeader>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" name="email" type="email" value={form.email} onChange={handleChange} required placeholder="Enter your email" />
+                </div>
+
+                <div>
+                  <Label htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <Input id="password" name="password" type={showPassword ? "text" : "password"} value={form.password} onChange={handleChange} required placeholder="Enter your password" />
+                    <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => setShowPassword(!showPassword)}>
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "Signing in..." : "Sign In"}
+                </Button>
+              </form>
+
+              <div className="text-sm text-center mt-4">Don't have an account? <Link to="/signup" className="text-primary hover:underline">Create one</Link></div>
+
+              <CardFooter className="pt-4 px-0">
+                <div className="flex justify-end">
+                  <button onClick={handleClose} className="text-sm text-muted-foreground hover:underline">Close</button>
+                </div>
+              </CardFooter>
+            </div>
+          </div>
         </Card>
       </motion.div>
     </div>

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -102,7 +101,11 @@ export default function Register() {
   };
 
   const handleUserTypeChange = (value: 'Employer' | 'Professional') => {
-    setFormData({ ...formData, userType: value });
+    setFormData((prevData) => ({
+      ...prevData,
+      userType: value,
+      professionalTitle: value === 'Employer' ? '' : prevData.professionalTitle,
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,7 +115,7 @@ export default function Register() {
       return;
     }
     try {
-      await apiRequest("POST", "/api/register", formData);
+      await apiRequest("POST", "/api/auth/register", formData);
       toast({ title: "Success", description: "Account created successfully" });
       setLocation("/login");
     } catch (error: any) {
@@ -126,14 +129,14 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
+        className="w-full max-w-md mx-auto  transition-all duration-300 "
       >
-        <Card className="shadow-xl">
+        <Card className="shadow-2xl border-0 bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
             <CardDescription className="text-center">
@@ -152,7 +155,7 @@ export default function Register() {
               </Button>
             </div>
             <Separator className="my-4">
-              <span className="px-2 text-muted-foreground text-sm">Or continue with</span>
+              <span className="px-2 text-red-500 dark:text-white text-sm">Or continue with</span>
             </Separator>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -200,7 +203,7 @@ export default function Register() {
               <div className="space-y-2">
                 <Label htmlFor="userType">I am a</Label>
                 <Select onValueChange={handleUserTypeChange} value={formData.userType}>
-                  <SelectTrigger>
+                  <SelectTrigger aria-label="Select user type">
                     <SelectValue placeholder="Select user type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -211,8 +214,8 @@ export default function Register() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="location">Location</Label>
-                <Select onValueChange={(value) => setFormData({...formData, location: value})} value={formData.location}>
-                  <SelectTrigger>
+                <Select onValueChange={(value) => setFormData(prev => ({...prev, location: value}))} value={formData.location}>
+                  <SelectTrigger aria-label="Select location">
                     <SelectValue placeholder="Select location" />
                   </SelectTrigger>
                   <SelectContent>
@@ -222,19 +225,21 @@ export default function Register() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="professionalTitle">Professional Title</Label>
-                <Select onValueChange={(value) => setFormData({...formData, professionalTitle: value})} value={formData.professionalTitle}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a job role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {jobRoles.map((role) => (
-                      <SelectItem key={role} value={role}>{role}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {formData.userType === 'Professional' && (
+                <div className="space-y-2">
+                  <Label htmlFor="professionalTitle">Professional Title</Label>
+                  <Select onValueChange={(value) => setFormData(prev => ({...prev, professionalTitle: value}))} value={formData.professionalTitle}>
+                    <SelectTrigger aria-label="Select professional title">
+                      <SelectValue placeholder="Select a job role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {jobRoles.map((role) => (
+                        <SelectItem key={role} value={role}>{role}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <Button type="submit" className="w-full">Sign Up</Button>
             </form>
           </CardContent>
