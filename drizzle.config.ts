@@ -1,11 +1,13 @@
-import { defineConfig } from 'drizzle-kit';
-import { DrizzleConfig } from 'drizzle-orm';
+// drizzle.config.ts
+import type { Config } from 'drizzle-kit';
 
-export default defineConfig({
-  schema: './shared/schema.ts',
-  out: './migrations',
+export default {
+  schema: './server/src/schema.ts',
+  out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    url: 'postgresql://postgres:dsa@localhost:5432/graphicgenie', // ✅ Hardcoded URL
   },
-} as DrizzleConfig);
+  verbose: true,
+  strict: true
+} satisfies Config;
