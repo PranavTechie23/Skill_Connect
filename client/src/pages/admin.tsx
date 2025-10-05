@@ -4,27 +4,68 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
-import { Users, Building, Briefcase, MessageSquare, Shield, TrendingUp } from "lucide-react";
+import { Users, Building, Briefcase, Shield, TrendingUp } from "lucide-react";
+
+// Type definition for admin stats
+interface AdminStats {
+  totalUsers: number;
+  activeJobs: number;
+  totalCompanies: number;
+  totalApplications: number;
+  newUsersThisWeek: number;
+  newJobsThisWeek: number;
+  newCompaniesThisWeek: number;
+  newApplicationsThisWeek: number;
+}
+
+// Type definitions for other admin data
+interface AdminUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  userType: string;
+  location: string;
+}
+
+interface AdminJob {
+  id: string;
+  title: string;
+  location: string;
+  isActive: boolean;
+  jobType: string;
+  salaryMin?: number;
+  salaryMax?: number;
+}
+
+interface AdminCompany {
+  id: string;
+  name: string;
+  location: string;
+  industry: string;
+  size: string;
+  description: string;
+}
 
 export default function Admin() {
   const { user } = useAuth();
 
-  const { data: stats = {} } = useQuery({
+  const { data: stats = {} as AdminStats } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
     enabled: user?.userType === "admin",
   });
 
-  const { data: users = [] } = useQuery({
+  const { data: users = [] } = useQuery<AdminUser[]>({
     queryKey: ["/api/admin/users"],
     enabled: user?.userType === "admin",
   });
 
-  const { data: jobs = [] } = useQuery({
+  const { data: jobs = [] } = useQuery<AdminJob[]>({
     queryKey: ["/api/admin/jobs"],
     enabled: user?.userType === "admin",
   });
 
-  const { data: companies = [] } = useQuery({
+  const { data: companies = [] } = useQuery<AdminCompany[]>({
     queryKey: ["/api/admin/companies"],
     enabled: user?.userType === "admin",
   });
@@ -122,7 +163,7 @@ export default function Admin() {
                 {users.length === 0 ? (
                   <p className="text-muted-foreground">No users found.</p>
                 ) : (
-                  users.map((user: any) => (
+                  users.map((user) => (
                     <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
                         <div className="flex items-center space-x-3">
@@ -159,7 +200,7 @@ export default function Admin() {
                 {jobs.length === 0 ? (
                   <p className="text-muted-foreground">No jobs found.</p>
                 ) : (
-                  jobs.map((job: any) => (
+                  jobs.map((job) => (
                     <div key={job.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
                         <div className="flex items-center space-x-3">
@@ -199,7 +240,7 @@ export default function Admin() {
                 {companies.length === 0 ? (
                   <p className="text-muted-foreground">No companies found.</p>
                 ) : (
-                  companies.map((company: any) => (
+                  companies.map((company) => (
                     <div key={company.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
                         <div className="flex items-center space-x-3">

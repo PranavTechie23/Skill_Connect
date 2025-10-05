@@ -1,21 +1,18 @@
-
 import { Link } from "wouter";
 import TextType from "@/components/TextType";
-import Hyperspeed from "@/components/Hyperspeed";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle, ChartLine, Target, GraduationCap } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { CheckCircle, BarChart2, Target, GraduationCap } from "lucide-react";
+
 import { useState, useEffect, useRef } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { useTheme } from "@/components/theme-provider";
 import ChromaGrid, { ChromaItem } from "@/components/ChromaGrid";
+import { ModeToggle } from "@/components/ui/dark-mode-toggle";
 import { motion } from "framer-motion";
 
+
 // Add a new component for the feature items
-const FeatureItem = ({ icon: Icon, text }: { icon: any; text: string }) => (
+const FeatureItem = ({ icon: Icon, text }: { icon: React.ComponentType<{ className?: string }>; text: string }) => (
   <div className="flex items-center">
     <Icon className="text-secondary mr-2 h-5 w-5" />
     <span>{text}</span>
@@ -23,19 +20,17 @@ const FeatureItem = ({ icon: Icon, text }: { icon: any; text: string }) => (
 );
 
 export default function Home() {
-  const [booking, setBooking] = useState<{ name: string; role: string } | null>(null);
-  const [form, setForm] = useState({ fullName: "", phone: "", date: "" });
-  const { toast } = useToast();
+  // booking/form state reserved for future features
   const workers = [
-    { name: 'Axar Patel', role: 'Building worker', img: '/images/building_worker.jpg', rating: 4.2 },
-    { name: 'Abhishek Sharma', role: 'Carpenter', img: '/images/carpenter.jpg', rating: 4.0 },
-    { name: 'Taylor Swift', role: 'Mechanical Engineer', img: '/images/mechanic.jpeg', rating: 5.0 },
-    { name: 'Elizabeth', role: 'Farmer', img: '/images/farmer.jpg', rating: 4.5 },
+  { name: 'Axar Patel', role: 'Building worker', img: '/images/building_worker.jpg', rating: 4.2 },
+  { name: 'Abhishek Sharma', role: 'Carpenter', img: '/images/carpenter.jpg', rating: 4.0 },
+  { name: 'Taylor Swift', role: 'Mechanical Engineer', img: '/images/mechanic.jpeg', rating: 5.0 },
+  { name: 'Elizabeth', role: 'Farmer', img: '/images/farmer.jpg', rating: 4.5 },
   ];
 
   const [motivationalQuote, setMotivationalQuote] = useState({
     text: "Your skills can open new doors—start today!",
-    author: "LocalSkills Team",
+    author: "SkillConnect Team",
   });
 
   const quotes = [
@@ -49,29 +44,17 @@ export default function Home() {
     const interval = setInterval(() => {
       const randomIndex = Math.floor(Math.random() * quotes.length);
       setMotivationalQuote(quotes[randomIndex]);
-    }, 60000); // Refresh every 60 seconds
+    }, 15000); // Refresh every 60 seconds
     return () => clearInterval(interval); // Cleanup on unmount
   }, []);
 
-  async function submitBooking() {
-    const who = booking?.name || "Professional";
-    const role = booking?.role || "Service";
-    const content = `Booking request for ${who} (${role})\nName: ${form.fullName}\nPhone: ${form.phone}\nDate: ${form.date}`;
-    try {
-      await apiRequest("POST", "/api/messages", { content });
-      toast({ title: "Request sent", description: "We will contact you shortly." });
-      setForm({ fullName: "", phone: "", date: "" });
-      setBooking(null);
-    } catch (e: any) {
-      toast({ title: "Failed to send", description: e?.message || "Please try again.", variant: "destructive" });
-    }
-  }
+  // booking functionality reserved for future - submitBooking removed to avoid unused variable errors
 
   const chromaItems: ChromaItem[] = workers.map(worker => ({
     image: worker.img,
     title: worker.name,
     subtitle: worker.role,
-   // location: `Role: ${worker.role}`,
+    location: `Role: ${worker.role}`,
     borderColor: '#ffffffff',
     gradient: 'linear-gradient(145deg, #0000ffff, #000000ff)',
     url: 'https://www.linkedin.com',
@@ -81,17 +64,44 @@ export default function Home() {
   // Animation variants for framer-motion
   const sectionVariants = {
     hidden: { opacity: 0, x: -100 },
-    visible: { opacity: 1, x: 0, transition: { duration: 0.8, ease: "easeOut" } },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.8 } },
   };
 
   const alternateSectionVariants = {
     hidden: { opacity: 0, x: 100 },
-    visible: { opacity: 1, x: 0, transition: { duration: 0.8, ease: "easeOut" } },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.8 } },
   };
 
   // Video state and ref
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(true);
+
+  // Theme handling: ensure document element class reflects provider theme
+  const { theme } = useTheme();
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    // remove any previous explicit classes we may have set
+    root.classList.remove("light", "dark");
+
+    if (theme === "system") {
+      const mq = window.matchMedia("(prefers-color-scheme: dark)");
+      const apply = (isDark: boolean) => root.classList.add(isDark ? "dark" : "light");
+      apply(mq.matches);
+      const onChange = (e: MediaQueryListEvent) => {
+        root.classList.remove("light", "dark");
+        apply(e.matches);
+      };
+      if (mq.addEventListener) mq.addEventListener("change", onChange);
+      else mq.addListener(onChange as any);
+      return () => {
+        if (mq.removeEventListener) mq.removeEventListener("change", onChange);
+        else mq.removeListener(onChange as any);
+      };
+    }
+
+    root.classList.add(theme === "dark" ? "dark" : "light");
+  }, [theme]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -122,10 +132,10 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen">
+  <div className="min-h-screen">
       {/* Hero Section */}
       <motion.section
-        className="bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 py-16 lg:py-24 relative overflow-hidden"
+        className="bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 dark:from-gray-900 dark:via-black dark:to-gray-900 py-16 lg:py-24 relative overflow-hidden"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.3 }}
@@ -135,7 +145,6 @@ export default function Home() {
         <div className="pointer-events-none absolute inset-0 mesh-hero-overlay opacity-70 z-0"></div>
         <div className="pointer-events-none absolute inset-0 grid-overlay opacity-20 z-0"></div>
         <div className="absolute inset-0 z-10">
-          <Hyperspeed />
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -157,12 +166,12 @@ export default function Home() {
               </p>
               <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-4">
                 <Link href="/jobs">
-                  <Button size="lg" className="text-lg px-6 sm:px-8 py-3 sm:py-4 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all">
+                  <Button size="lg" className="text-lg px-6 sm:px-8 py-3 sm:py-4 bg-yellow-400 hover:bg-yellow-500 text-red-900 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all">
                     🚀 Find Your Next Role
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button variant="outline" size="lg" className="text-lg px-6 sm:px-8 py-3 sm:py-4 border-white text-white hover:bg-white hover:text-purple-600 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all">
+                  <Button variant="outline" size="lg" className="text-lg px-6 sm:px-8 py-3 sm:py-4 border-white text-red hover:bg-gray-200 hover:text-purple-600 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all">
                     ✨ Post a Job
                   </Button>
                 </Link>
@@ -264,7 +273,7 @@ export default function Home() {
               <div className="space-y-4 sm:space-y-6">
                 <div className="flex items-start p-3 sm:p-4 bg-white/60 rounded-xl backdrop-blur-sm hover:bg-white/80 transition-all">
                   <div className="flex-shrink-0 w-10 sm:w-12 h-10 sm:h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mr-2 sm:mr-4 shadow-lg">
-                    <ChartLine className="text-white h-4 sm:h-5 w-4 sm:w-5" />
+                    <BarChart2 className="text-white h-4 sm:h-5 w-4 sm:w-5" />
                   </div>
                   <div>
                     <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">Skill Assessment Tools</h3>
@@ -303,6 +312,7 @@ export default function Home() {
             </div>
           </div>
         </div>
+
       </motion.section>
 
       {/* Testimonials */}
@@ -365,8 +375,8 @@ export default function Home() {
         variants={sectionVariants}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="rounded-2xl sm:rounded-3xl p-6 sm:p-10 lg:p-14 bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 text-white text-center shadow-xl">
-            <h2 className="text-2xl sm:text-3xl lg:text-5xl font-extrabold tracking-tight">Build Your Future Locally</h2>
+          <div className="rounded-2xl sm:rounded-3xl p-6 sm:p-10 lg:p-14 bg-gradient-to-r from-orange-600 via-pink-500 to-orange-400 dark:bg-gradient-to-r dark:grey text-white text-center shadow-xl">
+            <h2 className="text-2xl sm:text-3xl lg:text-5xl font-extrabold tracking-tight">Build Your Future Now</h2>
             <p className="mt-2 sm:mt-4 text-base sm:text-lg text-white/90 max-w-md sm:max-w-2xl mx-auto">Join a growing network of local talent and employers. Post jobs, apply with confidence, and get matched by skills — not just keywords.</p>
             <div className="mt-4 sm:mt-8 flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/register"><Button size="lg" variant="secondary" className="px-4 sm:px-8 py-2 sm:py-3">Get Started</Button></Link>
@@ -378,7 +388,7 @@ export default function Home() {
 
       {/* Local Professionals Section */}
       <motion.section
-        className="py-12 sm:py-16 lg:py-20 bg-white"
+        className="py-12 sm:py-16 lg:py-16 bg-gradient-to-br from-green-50 to-blue-50"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.3 }}
@@ -386,8 +396,8 @@ export default function Home() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-6 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900">Trusted Skilled Professionals</h2>
-            <p className="mt-2 sm:mt-3 text-gray-600 text-base sm:text-lg">Book top-rated, verified workers in your area</p>
+            <h1 className="text-4xl sm:text-4xl lg:text-4xl font-extrabold text-blue-900 bg-">Trusted Skilled Professionals</h1>
+            <p className="mt-2 sm:mt-3 text-red-600 text-base sm:text-lg">Book top-rated, verified workers in your area</p>
           </div>
           <div className="flex justify-center">
   <ChromaGrid 
@@ -464,8 +474,8 @@ export default function Home() {
             viewport={{ once: true, amount: 0.3 }}
             variants={sectionVariants}
           >
-            <div className="bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border border-gray-700 max-w-sm sm:max-w-md mx-auto text-center transition-opacity duration-1000">
-              <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">Motivational Quote</h3>
+            <div className="bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border border-white-700 max-w-sm sm:max-w-md mx-auto text-center transition-opacity duration-1000">
+              <h3 className="text-lg sm:text-xl font-extrabold text-white mb-2  border-white-700">Motivational Quote</h3>
               <p className="text-gray-300 italic mb-2 sm:mb-4 text-sm sm:text-base">{motivationalQuote.text}</p>
               <p className="text-xs sm:text-sm text-gray-500">- {motivationalQuote.author}</p>
             </div>

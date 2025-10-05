@@ -91,7 +91,7 @@ export default function Messages() {
   };
 
   // Group messages by conversation
-  const conversations = messages ? messages.reduce((acc: any, message: any) => {
+  const conversations = Array.isArray(messages) ? messages.reduce((acc: any, message: any) => {
     const otherUserId = message.senderId === user?.id ? message.receiverId : message.senderId;
     if (!acc[otherUserId]) {
       acc[otherUserId] = {
@@ -224,7 +224,7 @@ export default function Messages() {
                   <ScrollArea className="flex-1 p-4">
                     {conversationLoading ? (
                       <div className="text-center">Loading messages...</div>
-                    ) : conversation && conversation.length > 0 ? (
+                    ) : Array.isArray(conversation) && conversation.length > 0 ? (
                       <div className="space-y-4">
                         {conversation.map((message: any) => (
                           <div

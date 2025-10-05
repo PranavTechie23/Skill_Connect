@@ -154,16 +154,21 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
   }, [animationHandlers]);
 
   const handlePointerLeave = useCallback(
-    (event: React.PointerEvent) => {
+    (event: React.PointerEvent | PointerEvent) => {
       const card = cardRef.current;
       const wrap = wrapRef.current;
 
       if (!card || !wrap || !animationHandlers) return;
 
+      // Calculate offset coordinates from client coordinates
+      const rect = card.getBoundingClientRect();
+      const offsetX = event.clientX - rect.left;
+      const offsetY = event.clientY - rect.top;
+
       animationHandlers.createSmoothAnimation(
         ANIMATION_CONFIG.SMOOTH_DURATION,
-        event.offsetX,
-        event.offsetY,
+        offsetX,
+        offsetY,
         card,
         wrap
       );
@@ -201,21 +206,31 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
 
     if (!card || !wrap) return;
 
-    const pointerMoveHandler = handlePointerMove;
-    const pointerEnterHandler = handlePointerEnter;
-    const pointerLeaveHandler = handlePointerLeave;
+    // Create native DOM event handlers that wrap the React handlers
+    const pointerMoveHandler = (event: PointerEvent) => {
+      handlePointerMove(event as any);
+    };
+
+    const pointerEnterHandler = () => {
+      handlePointerEnter();
+    };
+
+    const pointerLeaveHandler = (event: PointerEvent) => {
+      handlePointerLeave(event);
+    };
+
     const deviceOrientationHandler = handleDeviceOrientation;
 
     const handleClick = () => {
       if (!enableMobileTilt || location.protocol !== 'https:') return;
-      if (typeof DeviceMotionEvent.requestPermission === 'function') {
-        DeviceMotionEvent.requestPermission()
-          .then(state => {
+      if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
+        (DeviceMotionEvent as any).requestPermission()
+          .then((state: string) => {
             if (state === 'granted') {
               window.addEventListener('deviceorientation', deviceOrientationHandler);
             }
           })
-          .catch(err => console.error(err));
+          .catch((err: any) => console.error(err));
       } else {
         window.addEventListener('deviceorientation', deviceOrientationHandler);
       }
@@ -256,7 +271,7 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
       '--grain': grainUrl ? `url(${grainUrl})` : 'none',
       '--behind-gradient': showBehindGradient ? (behindGradient ?? DEFAULT_BEHIND_GRADIENT) : 'none',
       '--inner-gradient': innerGradient ?? DEFAULT_INNER_GRADIENT
-    }),
+    } as React.CSSProperties),
     [iconUrl, grainUrl, showBehindGradient, behindGradient, innerGradient]
   );
 

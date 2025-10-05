@@ -415,7 +415,7 @@ const useMobileDetection = () => {
   return isMobile;
 };
 
-const MagicCard = ({
+export const MagicCard = ({
   children,
   className = '',
   disableAnimations = false,
@@ -469,7 +469,6 @@ const MagicCard = ({
         enableTilt={enableTilt}
         clickEffect={clickEffect}
         enableMagnetism={enableMagnetism}
-        enableStars={enableStars}
         particleCount={particleCount}
         glowColor={glowColor}
       >

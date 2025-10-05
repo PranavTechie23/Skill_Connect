@@ -40,7 +40,7 @@ export function getQueryFn<T>(options: { on401: UnauthorizedBehavior }): QueryFu
 
     const res = await fetch(url, { credentials: "include" });
     if (on401 === "returnNull" && res.status === 401) {
-      // @ts-expect-error allow null when caller expects it
+      // @ts-ignore allow null when caller expects it
       return null;
     }
     await throwIfResNotOk(res);
