@@ -53,11 +53,6 @@ const Dashboards = () => {
     [key: string]: string | number;
   }
 
-  interface PieChartLabel {
-    name: string;
-    percent: number;
-  }
-
   const renderPieChart = (data: PieChartData[], height: number = 300) => (
     <ResponsiveContainer width="100%" height={height}>
       <PieChart>
@@ -69,7 +64,12 @@ const Dashboards = () => {
           fill="#8884d8"
           dataKey="value"
           labelLine={false}
-          label={({ name, value, percent }: { name: string; value: number; percent: number }) => `${name}: ${percent.toFixed(0)}%`}
+          label={(props) => {
+            const { value, payload } = props;
+            const numericValue = value as number;
+            const typedPayload = payload as { name: string; value: number };
+            return `${typedPayload.name}: ${((numericValue / (data.reduce((a, b) => a + b.value, 0))) * 100).toFixed(0)}%`;
+          }}
         >
           {data.map((entry: PieChartData, index: number) => (
             <Cell 

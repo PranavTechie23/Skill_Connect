@@ -135,7 +135,7 @@ export default function Home() {
   <div className="min-h-screen">
       {/* Hero Section */}
       <motion.section
-        className="bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 dark:from-gray-900 dark:via-black dark:to-gray-900 py-16 lg:py-24 relative overflow-hidden"
+        className="bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-16 lg:py-24 relative overflow-hidden"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.3 }}
@@ -187,7 +187,7 @@ export default function Home() {
                 <div className="absolute -inset-4 sm:-inset-6 bg-gradient-to-r from-yellow-400 to-pink-400 rounded-2xl sm:rounded-3xl blur opacity-75 animate-pulse z-10"></div>
                 <video
                   ref={videoRef}
-                  className="relative rounded-2xl sm:rounded-3xl shadow-2xl w-full h-full border-4 border-white object-cover z-20"
+                  className={`relative rounded-2xl sm:rounded-3xl shadow-2xl w-full h-full border-4 ${theme === 'dark' ? 'border-slate-700' : 'border-white'} object-cover z-20`}
                   muted
                   loop
                   playsInline
@@ -204,7 +204,7 @@ export default function Home() {
                 </video>
                 <button
                   onClick={() => setIsMuted(!isMuted)}
-                  className="absolute bottom-4 right-4 z-30 bg-white/80 hover:bg-white text-purple-600 px-3 py-1 rounded-full shadow-md transition-colors text-sm"
+                  className="absolute bottom-4 right-4 z-30 bg-white/80 hover:bg-white dark:bg-slate-700/80 dark:hover:bg-slate-600 text-purple-600 dark:text-white px-3 py-1 rounded-full shadow-md transition-colors text-sm"
                   title={isMuted ? "Unmute" : "Mute"}
                 >
                   {isMuted ? "🔇 Unmute" : "🔊 Mute"}
@@ -217,7 +217,7 @@ export default function Home() {
 
       {/* Services Grid */}
       <motion.section
-        className="py-12 sm:py-16 lg:py-20 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50"
+        className="py-12 sm:py-16 lg:py-20 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.3 }}
@@ -225,10 +225,10 @@ export default function Home() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent dark:from-purple-400 dark:to-pink-400">
               Services for Every Need
             </h2>
-            <p className="mt-2 sm:mt-3 text-gray-700 text-base sm:text-lg">From skilled trades to creative work — discover opportunities tailored to your skills.</p>
+            <p className="mt-2 sm:mt-3 text-gray-700 dark:text-gray-300 text-base sm:text-lg">From skilled trades to creative work — discover opportunities tailored to your skills.</p>
           </div>
           <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {[
@@ -239,12 +239,12 @@ export default function Home() {
               { title: '📚 Education & Tutoring', desc: 'Tutors, coaching, language training.', color: 'from-pink-400 via-rose-500 to-red-500', icon: '🎓' },
               { title: '💻 Technology & Web', desc: 'Websites, apps, digital marketing, data entry.', color: 'from-indigo-400 via-purple-500 to-pink-500', icon: '🚀' },
             ].map((s, i) => (
-              <Card key={i} className="overflow-hidden hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm">
+              <Card key={i} className="overflow-hidden hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md shadow-sm dark:shadow-slate-700/50">
                 <div className={`h-2 w-full bg-gradient-to-r ${s.color}`}></div>
                 <CardContent className="p-4 sm:p-6">
                   <div className="text-2xl sm:text-3xl mb-2 sm:mb-3">{s.icon}</div>
-                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1 sm:mb-2">{s.title}</h3>
-                  <p className="text-gray-600 text-sm sm:text-base">{s.desc}</p>
+                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-1 sm:mb-2">{s.title}</h3>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">{s.desc}</p>
                 </CardContent>
               </Card>
             ))}
@@ -254,7 +254,7 @@ export default function Home() {
 
       {/* Skills-Based Matching Section */}
       <motion.section
-        className="py-12 sm:py-16 lg:py-16 bg-gradient-to-r from-green-100 via-blue-100 to-purple-100"
+        className="py-12 sm:py-16 lg:py-16 bg-gradient-to-r from-green-50 via-blue-50 to-purple-50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-950"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.3 }}
@@ -263,50 +263,50 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 items-center">
             <div>
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent mb-4 sm:mb-6">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent dark:from-green-400 dark:to-blue-400 mb-4 sm:mb-6">
                 🎯 Skills-Based Matching That Actually Works
               </h2>
-              <p className="text-lg sm:text-xl text-gray-700 mb-4 sm:mb-8">
+              <p className="text-lg sm:text-xl text-gray-700 dark:text-gray-300 mb-4 sm:mb-8">
                 Our intelligent matching algorithm connects you with opportunities based on your actual skills,
                 not just keywords. Build a comprehensive skills profile and let employers find you.
               </p>
               <div className="space-y-4 sm:space-y-6">
-                <div className="flex items-start p-3 sm:p-4 bg-white/60 rounded-xl backdrop-blur-sm hover:bg-white/80 transition-all">
-                  <div className="flex-shrink-0 w-10 sm:w-12 h-10 sm:h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mr-2 sm:mr-4 shadow-lg">
+                <div className="flex items-start p-3 sm:p-4 bg-white/70 dark:bg-slate-700/70 rounded-xl backdrop-blur-md hover:bg-white/90 dark:hover:bg-slate-600/90 transition-all shadow-sm dark:shadow-slate-700/50">
+                  <div className="flex-shrink-0 w-10 sm:w-12 h-10 sm:h-12 bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 rounded-full flex items-center justify-center mr-2 sm:mr-4 shadow-lg">
                     <BarChart2 className="text-white h-4 sm:h-5 w-4 sm:w-5" />
                   </div>
                   <div>
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">Skill Assessment Tools</h3>
-                    <p className="text-gray-600 text-sm sm:text-base">Take quick assessments to validate your skills and stand out to employers.</p>
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1 sm:mb-2">Skill Assessment Tools</h3>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">Take quick assessments to validate your skills and stand out to employers.</p>
                   </div>
                 </div>
-                <div className="flex items-start p-3 sm:p-4 bg-white/60 rounded-xl backdrop-blur-sm hover:bg-white/80 transition-all">
-                  <div className="flex-shrink-0 w-10 sm:w-12 h-10 sm:h-12 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center mr-2 sm:mr-4 shadow-lg">
+                <div className="flex items-start p-3 sm:p-4 bg-white/70 dark:bg-slate-700/70 rounded-xl backdrop-blur-md hover:bg-white/90 dark:hover:bg-slate-600/90 transition-all shadow-sm dark:shadow-slate-700/50">
+                  <div className="flex-shrink-0 w-10 sm:w-12 h-10 sm:h-12 bg-gradient-to-r from-green-500 to-blue-600 dark:from-green-600 dark:to-blue-700 rounded-full flex items-center justify-center mr-2 sm:mr-4 shadow-lg">
                     <Target className="text-white h-4 sm:h-5 w-4 sm:w-5" />
                   </div>
                   <div>
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">Intelligent Recommendations</h3>
-                    <p className="text-gray-600 text-sm sm:text-base">Get personalized job recommendations based on your skill profile and preferences.</p>
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1 sm:mb-2">Intelligent Recommendations</h3>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">Get personalized job recommendations based on your skill profile and preferences.</p>
                   </div>
                 </div>
-                <div className="flex items-start p-3 sm:p-4 bg-white/60 rounded-xl backdrop-blur-sm hover:bg-white/80 transition-all">
-                  <div className="flex-shrink-0 w-10 sm:w-12 h-10 sm:h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center mr-2 sm:mr-4 shadow-lg">
+                <div className="flex items-start p-3 sm:p-4 bg-white/70 dark:bg-slate-700/70 rounded-xl backdrop-blur-md hover:bg-white/90 dark:hover:bg-slate-600/90 transition-all shadow-sm dark:shadow-slate-700/50">
+                  <div className="flex-shrink-0 w-10 sm:w-12 h-10 sm:h-12 bg-gradient-to-r from-purple-500 to-pink-600 dark:from-purple-600 dark:to-pink-700 rounded-full flex items-center justify-center mr-2 sm:mr-4 shadow-lg">
                     <GraduationCap className="text-white h-4 sm:h-5 w-4 sm:w-5" />
                   </div>
                   <div>
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2">Skill Development Paths</h3>
-                    <p className="text-gray-600 text-sm sm:text-base">Discover what skills to learn next to advance your career in your chosen field.</p>
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1 sm:mb-2">Skill Development Paths</h3>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">Discover what skills to learn next to advance your career in your chosen field.</p>
                   </div>
                 </div>
               </div>
             </div>
             <div className="lg:pl-8 mt-6 lg:mt-0">
               <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl">
-                <div className="absolute -inset-4 sm:-inset-6 bg-gradient-to-r from-green-400 to-blue-400 rounded-2xl sm:rounded-3xl blur opacity-75 animate-pulse"></div>
+                <div className="absolute -inset-4 sm:-inset-6 bg-gradient-to-r from-green-400 to-blue-400 dark:from-green-500 dark:to-blue-500 rounded-2xl sm:rounded-3xl blur opacity-75 animate-pulse"></div>
                 <img
                   src="/images/building_worker.jpg"
                   alt="Building worker demonstrating skills"
-                  className="relative rounded-2xl sm:rounded-3xl shadow-xl w-full h-auto border-4 border-white"
+                  className="relative rounded-2xl sm:rounded-3xl shadow-xl w-full h-auto border-4 border-white dark:border-slate-700"
                 />
               </div>
             </div>
@@ -317,7 +317,7 @@ export default function Home() {
 
       {/* Testimonials */}
       <motion.section
-        className="py-12 sm:py-16 lg:py-16 bg-gradient-to-br from-pink-50 via-rose-50 to-red-50"
+        className="py-12 sm:py-16 lg:py-16 bg-gradient-to-br from-pink-50 via-rose-50 to-red-50 dark:from-slate-900 dark:via-purple-900 dark:to-slate-900"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.3 }}
@@ -325,10 +325,10 @@ export default function Home() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-6 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold bg-gradient-to-r from-pink-600 to-red-600 bg-clip-text text-transparent">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold bg-gradient-to-r from-pink-600 to-red-600 bg-clip-text text-transparent dark:from-pink-400 dark:to-red-400">
               💬 Stories from Our Community
             </h2>
-            <p className="mt-2 sm:mt-3 text-gray-700 text-base sm:text-lg">Real results from local employers and talent.</p>
+            <p className="mt-2 sm:mt-3 text-gray-700 dark:text-gray-300 text-base sm:text-lg">Real results from local employers and talent.</p>
           </div>
           <div className="grid gap-4 sm:gap-6 md:grid-cols-1 lg:grid-cols-3">
             {[
@@ -351,13 +351,13 @@ export default function Home() {
                 emoji: '✨'
               },
             ].map((t, i) => (
-              <Card key={i} className="h-full hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm">
+              <Card key={i} className="h-full hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md shadow-sm dark:shadow-slate-700/50">
                 <CardContent className="p-4 sm:p-6 flex flex-col justify-between h-full">
                   <div className="text-3xl sm:text-4xl mb-2 sm:mb-4">{t.emoji}</div>
-                  <p className="text-gray-700 leading-relaxed text-sm sm:text-base">" {t.quote} "</p>
+                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-sm sm:text-base">" {t.quote} "</p>
                   <div className="mt-4 sm:mt-6">
-                    <p className="text-sm font-semibold text-gray-900">{t.name}</p>
-                    <p className="text-xs sm:text-sm text-gray-500">{t.role}</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{t.name}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t.role}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -375,7 +375,7 @@ export default function Home() {
         variants={sectionVariants}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="rounded-2xl sm:rounded-3xl p-6 sm:p-10 lg:p-14 bg-gradient-to-r from-orange-600 via-pink-500 to-orange-400 dark:bg-gradient-to-r dark:grey text-white text-center shadow-xl">
+          <div className="rounded-2xl sm:rounded-3xl p-6 sm:p-10 lg:p-14 bg-gradient-to-r from-orange-600 via-pink-500 to-orange-400 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 text-white text-center shadow-xl dark:shadow-slate-700/50">
             <h2 className="text-2xl sm:text-3xl lg:text-5xl font-extrabold tracking-tight">Build Your Future Now</h2>
             <p className="mt-2 sm:mt-4 text-base sm:text-lg text-white/90 max-w-md sm:max-w-2xl mx-auto">Join a growing network of local talent and employers. Post jobs, apply with confidence, and get matched by skills — not just keywords.</p>
             <div className="mt-4 sm:mt-8 flex flex-col sm:flex-row gap-4 justify-center">
@@ -388,7 +388,7 @@ export default function Home() {
 
       {/* Local Professionals Section */}
       <motion.section
-        className="py-12 sm:py-16 lg:py-16 bg-gradient-to-br from-green-50 to-blue-50"
+        className="py-12 sm:py-16 lg:py-16 bg-gradient-to-br from-green-50 to-blue-50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-950"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.3 }}
@@ -396,8 +396,8 @@ export default function Home() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-6 sm:mb-12">
-            <h1 className="text-4xl sm:text-4xl lg:text-4xl font-extrabold text-blue-900 bg-">Trusted Skilled Professionals</h1>
-            <p className="mt-2 sm:mt-3 text-red-600 text-base sm:text-lg">Book top-rated, verified workers in your area</p>
+            <h1 className="text-4xl sm:text-4xl lg:text-4xl font-extrabold text-blue-900 dark:text-blue-300">Trusted Skilled Professionals</h1>
+            <p className="mt-2 sm:mt-3 text-red-600 dark:text-red-400 text-base sm:text-lg">Book top-rated, verified workers in your area</p>
           </div>
           <div className="flex justify-center">
   <ChromaGrid 
@@ -410,7 +410,7 @@ export default function Home() {
 
       {/* For Employers Section */}
       <motion.section
-        className="py-12 sm:py-16 lg:py-16 bg-gradient-to-br from-green-50 to-blue-50"
+        className="py-12 sm:py-16 lg:py-16 bg-gradient-to-br from-green-50 to-blue-50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-950"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.3 }}
@@ -418,15 +418,15 @@ export default function Home() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-6 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2 sm:mb-4">For Employers & Companies</h2>
-            <p className="text-base sm:text-xl text-gray-600">Find skilled local talent and build stronger community connections</p>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2 sm:mb-4">For Employers & Companies</h2>
+            <p className="text-base sm:text-xl text-gray-600 dark:text-gray-300">Find skilled local talent and build stronger community connections</p>
           </div>
         </div>
       </motion.section>
 
       {/* Footer */}
       <motion.footer
-        className="bg-gradient-to-br from-gray-900 via-purple-900 to-gray-800 text-white py-12 sm:py-16"
+        className="bg-gradient-to-br from-gray-900 via-purple-900 to-gray-800 dark:from-slate-900 dark:via-purple-950 dark:to-slate-900 text-white py-12 sm:py-16"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.3 }}
@@ -474,8 +474,8 @@ export default function Home() {
             viewport={{ once: true, amount: 0.3 }}
             variants={sectionVariants}
           >
-            <div className="bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border border-white-700 max-w-sm sm:max-w-md mx-auto text-center transition-opacity duration-1000">
-              <h3 className="text-lg sm:text-xl font-extrabold text-white mb-2  border-white-700">Motivational Quote</h3>
+            <div className="bg-slate-800/80 dark:bg-slate-700/80 p-4 sm:p-6 rounded-xl shadow-lg border border-slate-700/50 backdrop-blur-md max-w-sm sm:max-w-md mx-auto text-center transition-opacity duration-1000">
+              <h3 className="text-lg sm:text-xl font-extrabold text-white mb-2">Motivational Quote</h3>
               <p className="text-gray-300 italic mb-2 sm:mb-4 text-sm sm:text-base">{motivationalQuote.text}</p>
               <p className="text-xs sm:text-sm text-gray-500">- {motivationalQuote.author}</p>
             </div>

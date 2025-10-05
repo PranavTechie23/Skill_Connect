@@ -16,8 +16,18 @@ export default function EmployeeDashboard() {
     let mounted = true;
     (async () => {
       try {
-        const res = await apiRequest("GET", "/api/auth/me");
-        const user = res?.user ?? res;
+        interface UserData {
+          role?: string;
+          userType?: string;
+          firstName?: string;
+          name?: string;
+          location?: string;
+        }
+        interface AuthResponse {
+          user?: UserData;
+        }
+        const res = await apiRequest("GET", "/api/auth/me") as AuthResponse | UserData;
+        const user: UserData = ('user' in res && res.user) ? res.user : res as UserData;
         if (!mounted) return;
         if (!user) {
           toast({ title: "Not authenticated", description: "Please sign in.", variant: "destructive" });

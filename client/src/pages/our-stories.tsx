@@ -1,7 +1,8 @@
 ﻿import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { MessageSquareQuote } from "lucide-react";
 
 const stories = [
   {
@@ -24,82 +25,113 @@ const stories = [
   }
 ];
 
+const StoryCard = ({ story, index }: { story: typeof stories[0], index: number }) => (
+    <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1 + index * 0.2 }}
+    >
+        <Card className="h-full overflow-hidden transition-transform duration-300 ease-in-out hover:-translate-y-2 hover:shadow-xl">
+            <CardHeader>
+                <CardTitle className="text-lg font-semibold">{story.title}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col justify-between">
+                <p className="text-muted-foreground mb-4 line-clamp-4">
+                    {story.content}
+                </p>
+                <p className="text-sm font-medium text-primary">
+                    - {story.name}
+                </p>
+            </CardContent>
+        </Card>
+    </motion.div>
+);
+
 export default function OurStories() {
   const navigate = useNavigate();
+  const title = "Our Success Stories";
 
-  const sectionVariants = {
-    hidden: { opacity: 0, y: 50 },
+  const sentenceVariants = {
+    hidden: { opacity: 1 },
     visible: {
       opacity: 1,
-      y: 0,
-      transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
+      transition: {
+        staggerChildren: 0.05,
+      },
     },
   };
 
+  const letterVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 },
+  };
+
   return (
-    <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="container mx-auto px-4 py-12 sm:py-16 lg:py-20">
+        {/* Hero Section */}
         <motion.section
           initial="hidden"
           animate="visible"
-          variants={sectionVariants}
-          className="text-center mb-12"
+          variants={sentenceVariants}
+          className="text-center mb-16"
         >
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-500 mb-4">
-            Our Success Stories
-          </h1>
-          <p className="light:texttext-xl font-semibold mb-2 text-gray-900 dark:text-white">
-            Real experiences from people who found success through SkillConnect.
-          </p>
-        </motion.section>
-
-        <motion.section
-          initial="hidden"
-          animate="visible"
-          variants={sectionVariants}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16"
-        >
-          {stories.map((story) => (
-            <Card
-              key={story.id}
-              className="text-gray-900 dark:text-gray-100 hover:shadow-lg hover:shadow-purple-500/20 transition-shadow rounded-2xl"
+          <div className="space-y-4">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-blue-800 dark:text-blue-400 mb-4">
+              {title.split("").map((char, index) => (
+                <motion.span key={char + "-" + index} variants={letterVariants}>
+                  {char}
+                </motion.span>
+              ))}
+            </h1>
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.5 }}
+              className="text-xl text-foreground/80 max-w-3xl mx-auto"
             >
-              <CardContent className="p-6">
-                <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">
-                  {story.title}
-                </h3>
-                <p className="text-gray-900 mb-4">
-                  {story.content}
-                </p>
-                <p className="text-sm text-purple-600 dark:text-purple-400">
-                  - {story.name}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
+              Real experiences from people who found success through our platform.
+            </motion.p>
+          </div>
         </motion.section>
 
-        <motion.section
-          initial="hidden"
-          animate="visible"
-          variants={sectionVariants}
-          className="text-center"
-        >
-          <h2 className="text-3xl text-pink-600 dark:text-pink-400 font-bold mb-6">
-            Share Your Success
-          </h2>
-          <p className="text-xl text-gray-800 dark:text-gray-300 mb-8">
-            Has SkillConnect helped you find success? We'd love to hear your
-            story!
-          </p>
+        {/* Stories Grid */}
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20">
+          {stories.map((story, index) => (
+            <StoryCard key={story.id} story={story} index={index} />
+          ))}
+        </section>
 
-          <Button
-            size="lg"
-            onClick={() => navigate("/submit-story")}
-            className="bg-purple-600 hover:bg-purple-700 text-white shadow-md shadow-purple-500/30"
-          >
-            Submit Your Story
-          </Button>
+        {/* CTA Section */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.8 }}
+        >
+            <Card className="bg-card/80 border-border shadow-lg">
+                <div className="flex flex-col md:flex-row items-center justify-between p-8 sm:p-12 gap-8">
+                    <div className="flex items-center space-x-6">
+                        <MessageSquareQuote className="h-16 w-16 text-primary hidden sm:block" />
+                        <div className="max-w-2xl">
+                            <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
+                                Share Your Success Story
+                            </h2>
+                            <p className="text-lg text-muted-foreground mt-2">
+                                Has our platform helped you find success? We'd love to hear your story!
+                            </p>
+                        </div>
+                    </div>
+                    <div className="pt-4 md:pt-0 flex-shrink-0">
+                        <Button
+                            size="lg"
+                            onClick={() => navigate("/submit-story")}
+                            className="shadow-lg hover:shadow-xl transition-shadow duration-300"
+                        >
+                            Submit Your Story
+                        </Button>
+                    </div>
+                </div>
+            </Card>
         </motion.section>
       </div>
     </div>
