@@ -1,21 +1,21 @@
-import { Link, useLocation } from "wouter";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/ui/dark-mode-toggle";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "../hooks/use-auth"; // or check exact path
 import { User, LogOut, Menu, X, Info, BookOpen, LayoutDashboard } from "lucide-react";
 import { useState } from "react";
 
 export default function Navbar() {
-  const { user, setUser } = useAuth();
-  const [location] = useLocation();
+  const { user, logout } = useAuth();
+  const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLogout = () => {
-    setUser(null);
+    logout();
     setIsMenuOpen(false);
   };
 
-  const isActive = (path: string) => location === path;
+  const isActive = (path: string) => location.pathname === path;
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/15 bg-white/70 dark:bg-white/10 backdrop-blur-xl">
@@ -31,8 +31,8 @@ export default function Navbar() {
             >
               {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </Button>
-            <Link href="/" className="flex items-center gap-4">
-              <div className="relative w-16 h-16 sm:w-20 sm:h-20">
+            <Link to="/" className="flex items-center gap-4">
+                <div className="relative w-16 h-16 sm:w-20 sm:h-20">
                 <img
                   src="/images/logo.png"
                   alt="SkillConnect"
@@ -41,22 +41,22 @@ export default function Navbar() {
               </div>
               <span className="text-2xl sm:text-3xl font-extrabold tracking-tight">
                 <span className="text-purple-600">Skill</span>
-                <span className="text-pink-600">Connect</span>
+                <span className="text-pink-600">Connect   </span>
               </span>
             </Link>
           </div>
 
-          {/* Desktop Navigation */}
+          {/* Desktop Navigation & User Actions */}
           <div className="hidden md:flex items-center gap-4">
-            <Link href="/">
+            <Link to="/">
               <Button
                 variant={isActive("/") ? "default" : "ghost"}
                 className="rounded-full px-6 py-2 text-lg"
               >
-                Home
+                 Home
               </Button>
             </Link>
-            <Link href="/jobs">
+            <Link to="/jobs">
               <Button
                 variant={isActive("/jobs") ? "default" : "ghost"}
                 className="rounded-full px-6 py-2 text-lg"
@@ -64,8 +64,8 @@ export default function Navbar() {
                 Jobs
               </Button>
             </Link>
-            {user?.userType === "job_seeker" && (
-              <Link href="/applications">
+            {user?.userType === "Professional" && (
+              <Link to="/applications">
                 <Button
                   variant={isActive("/applications") ? "default" : "ghost"}
                   className="rounded-full px-6 py-2 text-lg"
@@ -74,27 +74,17 @@ export default function Navbar() {
                 </Button>
               </Link>
             )}
-            {user?.userType === "employer" && (
-              <Link href="/employers">
+            {user?.userType === "Employer" && (
+              <Link to="/employer">
                 <Button
-                  variant={isActive("/employers") ? "default" : "ghost"}
+                  variant={isActive("/employer") ? "default" : "ghost"}
                   className="rounded-full px-6 py-2 text-lg"
                 >
                   Post Jobs
                 </Button>
               </Link>
             )}
-            {user?.userType === "admin" && (
-              <Link href="/admin">
-                <Button
-                  variant={isActive("/admin") ? "default" : "ghost"}
-                  className="rounded-full px-6 py-2 text-lg"
-                >
-                  Admin
-                </Button>
-              </Link>
-            )}
-            <Link href="/about">
+            <Link to="/about">
               <Button
                 variant={isActive("/about") ? "default" : "ghost"}
                 className="rounded-full px-6 py-2 text-lg"
@@ -102,15 +92,15 @@ export default function Navbar() {
                 About Us
               </Button>
             </Link>
-            <Link href="/stories">
+            <Link to="/our-stories">
               <Button
-                variant={isActive("/stories") ? "default" : "ghost"}
+                variant={isActive("/our-stories") ? "default" : "ghost"}
                 className="rounded-full px-6 py-2 text-lg"
               >
                 Our Stories
               </Button>
             </Link>
-            <Link href="/dashboards">
+            <Link to="/dashboards">
               <Button
                 variant={isActive("/dashboards") ? "default" : "ghost"}
                 className="rounded-full px-6 py-2 text-lg"
@@ -119,13 +109,9 @@ export default function Navbar() {
               </Button>
             </Link>
             <ModeToggle />
-          </div>
-
-          {/* User Actions (Desktop) */}
-          <div className="hidden md:flex items-center gap-4">
             {user ? (
-              <div className="flex items-center gap-4">
-                <Link href="/profile">
+              <>
+                <Link to="/profile">
                   <Button variant="outline" size="lg" className="rounded-full">
                     <User className="h-5 w-5 mr-2" />
                     Profile
@@ -140,15 +126,15 @@ export default function Navbar() {
                   <LogOut className="h-5 w-5 mr-2" />
                   Logout
                 </Button>
-              </div>
+              </>
             ) : (
-              <div className="flex items-center gap-4">
-                <Link href="/login">
+              <>
+                <Link to="/login">
                   <Button variant="ghost" size="lg" className="rounded-full">
                     Sign In
                   </Button>
                 </Link>
-                <Link href="/register">
+                <Link to="/register">
                   <Button
                     size="lg"
                     className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
@@ -156,7 +142,7 @@ export default function Navbar() {
                     Sign Up
                   </Button>
                 </Link>
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -165,7 +151,7 @@ export default function Navbar() {
         {isMenuOpen && (
           <div className="md:hidden border-t border-white/15 py-4">
             <div className="flex flex-col gap-2">
-              <Link href="/" onClick={() => setIsMenuOpen(false)}>
+              <Link to="/" onClick={() => setIsMenuOpen(false)}>
                 <Button
                   variant={isActive("/") ? "default" : "ghost"}
                   className="w-full justify-start rounded-full"
@@ -173,7 +159,7 @@ export default function Navbar() {
                   Home
                 </Button>
               </Link>
-              <Link href="/jobs" onClick={() => setIsMenuOpen(false)}>
+              <Link to="/jobs" onClick={() => setIsMenuOpen(false)}>
                 <Button
                   variant={isActive("/jobs") ? "default" : "ghost"}
                   className="w-full justify-start rounded-full"
@@ -181,8 +167,8 @@ export default function Navbar() {
                   Jobs
                 </Button>
               </Link>
-              {user?.userType === "job_seeker" && (
-                <Link href="/applications" onClick={() => setIsMenuOpen(false)}>
+              {user?.userType === "Professional" && (
+                <Link to="/applications" onClick={() => setIsMenuOpen(false)}>
                   <Button
                     variant={isActive("/applications") ? "default" : "ghost"}
                     className="w-full justify-start rounded-full"
@@ -191,27 +177,17 @@ export default function Navbar() {
                   </Button>
                 </Link>
               )}
-              {user?.userType === "employer" && (
-                <Link href="/employers" onClick={() => setIsMenuOpen(false)}>
+              {user?.userType === "Employer" && (
+                <Link to="/employer" onClick={() => setIsMenuOpen(false)}>
                   <Button
-                    variant={isActive("/employers") ? "default" : "ghost"}
+                    variant={isActive("/employer") ? "default" : "ghost"}
                     className="w-full justify-start rounded-full"
                   >
                     Post Jobs
                   </Button>
                 </Link>
               )}
-              {user?.userType === "admin" && (
-                <Link href="/admin" onClick={() => setIsMenuOpen(false)}>
-                  <Button
-                    variant={isActive("/admin") ? "default" : "ghost"}
-                    className="w-full justify-start rounded-full"
-                  >
-                    Admin
-                  </Button>
-                </Link>
-              )}
-              <Link href="/about" onClick={() => setIsMenuOpen(false)}>
+              <Link to="/about" onClick={() => setIsMenuOpen(false)}>
                 <Button
                   variant={isActive("/about") ? "default" : "ghost"}
                   className="w-full justify-start rounded-full"
@@ -220,16 +196,16 @@ export default function Navbar() {
                   About Us
                 </Button>
               </Link>
-              <Link href="/stories" onClick={() => setIsMenuOpen(false)}>
+              <Link to="/our-stories" onClick={() => setIsMenuOpen(false)}>
                 <Button
-                  variant={isActive("/stories") ? "default" : "ghost"}
+                  variant={isActive("/our-stories") ? "default" : "ghost"}
                   className="w-full justify-start rounded-full"
                 >
                   <BookOpen className="h-4 w-4 mr-2" />
                   Our Stories
                 </Button>
               </Link>
-              <Link href="/dashboards" onClick={() => setIsMenuOpen(false)}>
+              <Link to="/dashboards" onClick={() => setIsMenuOpen(false)}>
                 <Button
                   variant={isActive("/dashboards") ? "default" : "ghost"}
                   className="w-full justify-start rounded-full"
@@ -243,7 +219,7 @@ export default function Navbar() {
               <div className="border-t border-white/15 pt-4 mt-2">
                 {user ? (
                   <div className="flex flex-col gap-2">
-                    <Link href="/profile" onClick={() => setIsMenuOpen(false)}>
+                    <Link to="/profile" onClick={() => setIsMenuOpen(false)}>
                       <Button variant="outline" className="w-full justify-start rounded-full">
                         <User className="h-4 w-4 mr-2" />
                         Profile
@@ -260,12 +236,12 @@ export default function Navbar() {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+                    <Link to="/login" onClick={() => setIsMenuOpen(false)}>
                       <Button variant="ghost" className="w-full justify-start rounded-full">
                         Sign In
                       </Button>
                     </Link>
-                    <Link href="/register" onClick={() => setIsMenuOpen(false)}>
+                    <Link to="/register" onClick={() => setIsMenuOpen(false)}>
                       <Button className="w-full justify-start rounded-full bg-gradient-to-r from-purple-600 to-pink-600">
                         Sign Up
                       </Button>
