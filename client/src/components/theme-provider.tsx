@@ -31,20 +31,20 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = window.document.documentElement
-
-    root.classList.remove("light", "dark")
+    // Only toggle the `dark` class. Tailwind's `darkMode: 'class'` relies
+    // on the presence of the `dark` class on the root element. Adding a
+    // `light` class is unnecessary and may lead to inconsistent selectors.
+    const applyDark = (shouldBeDark: boolean) => {
+      root.classList.toggle("dark", shouldBeDark)
+    }
 
     if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
-        ? "dark"
-        : "light"
-
-      root.classList.add(systemTheme)
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+      applyDark(prefersDark)
       return
     }
 
-    root.classList.add(theme)
+    applyDark(theme === "dark")
   }, [theme])
 
   const value = {

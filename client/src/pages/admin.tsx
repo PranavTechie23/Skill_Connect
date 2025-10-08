@@ -6,6 +6,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { Users, Building, Briefcase, Shield, TrendingUp, AlertTriangle } from "lucide-react";
 
+// Helper function to fetch data
+const fetcher = async ({ queryKey }: { queryKey: readonly unknown[] }) => {
+  const response = await fetch(queryKey[0] as string);
+  if (!response.ok) {
+    throw new Error('Network response was not ok');
+  }
+  return response.json();
+};
+
 // Type definitions remain the same
 interface AdminStats {
   totalUsers: number;
@@ -135,7 +144,7 @@ export default function Admin() {
   };
 
   const mockUsers: AdminUser[] = [
-    { id: '1', firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', userType: 'employee', location: 'New York, USA' },
+    { id: '1', firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', userType: 'admin', location: 'New York, USA' },
     { id: '2', firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com', userType: 'employer', location: 'London, UK' },
     { id: '3', firstName: 'Admin', lastName: 'User', email: 'admin@example.com', userType: 'admin', location: 'Remote' },
   ];
@@ -152,21 +161,25 @@ export default function Admin() {
 
   const { data: stats = mockStats } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
+    queryFn: fetcher,
     enabled: user?.userType === "admin",
   });
 
   const { data: users = mockUsers } = useQuery<AdminUser[]>({
     queryKey: ["/api/admin/users"],
+    queryFn: fetcher,
     enabled: user?.userType === "admin",
   });
 
   const { data: jobs = mockJobs } = useQuery<AdminJob[]>({
     queryKey: ["/api/admin/jobs"],
+    queryFn: fetcher,
     enabled: user?.userType === "admin",
   });
 
   const { data: companies = mockCompanies } = useQuery<AdminCompany[]>({
     queryKey: ["/api/admin/companies"],
+    queryFn: fetcher,
     enabled: user?.userType === "admin",
   });
 

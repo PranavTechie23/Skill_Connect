@@ -15,13 +15,11 @@ import EmployeeDashboard from "./pages/employee-dashboard";
 import EmployerDashboard from "./pages/employer-dashboard";
 import Applications from "./pages/applications";
 import { AuthProvider } from "./contexts/AuthContext";
-import { ThemeProvider } from "./components/theme-provider";
 
 export default function App() {
   return (
     <Router>
       <AuthProvider>
-        <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme"> {/* Fix: Changed from "dark" to "system" */}
           <div className="min-h-screen flex flex-col">
             <Navbar />
             <main className="flex-1 pt-20">
@@ -43,7 +41,6 @@ export default function App() {
               </Routes>
             </main>
           </div>
-        </ThemeProvider>
       </AuthProvider>
     </Router>
   );

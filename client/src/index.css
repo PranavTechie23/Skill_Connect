@@ -116,7 +116,7 @@
   }
 
   * {
-    @apply border-border;
+    @apply border-default-border;
   }
 
   body {
@@ -127,7 +127,7 @@
 
 @layer components {
   .card {
-    @apply bg-card text-card-foreground border border-border rounded-lg shadow-sm;
+    @apply bg-card text-card-foreground border border-default-border rounded-lg shadow-sm;
   }
 
   .gradient-hero {
@@ -144,20 +144,37 @@
 
   .mesh-hero-overlay {
     background:
-      radial-gradient(1000px circle at 15% 10%, rgba(255,255,255,0.22), transparent 60%),
-      radial-gradient(800px circle at 85% 20%, rgba(255,255,255,0.16), transparent 60%),
-      radial-gradient(900px circle at 50% 85%, rgba(255,255,255,0.14), transparent 60%);
+      radial-gradient(1000px circle at 15% 10%, rgba(0,0,0,0.06), transparent 50%),
+      radial-gradient(800px circle at 85% 20%, rgba(0,0,0,0.04), transparent 50%),
+      radial-gradient(900px circle at 50% 85%, rgba(0,0,0,0.05), transparent 50%);
   }
 
   .grid-overlay {
     background-image:
-      linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px);
+      linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
     background-size: 40px 40px;
     background-position: -1px -1px;
   }
 
   .hero-animated-bg {
+    background-image: none;
+  }
+
+  .dark .mesh-hero-overlay {
+    background:
+      radial-gradient(1000px circle at 15% 10%, rgba(255,255,255,0.22), transparent 60%),
+      radial-gradient(800px circle at 85% 20%, rgba(255,255,255,0.16), transparent 60%),
+      radial-gradient(900px circle at 50% 85%, rgba(255,255,255,0.14), transparent 60%);
+  }
+
+  .dark .grid-overlay {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px);
+  }
+
+  .dark .hero-animated-bg {
     background-image:
       radial-gradient(1200px 800px at 10% 10%, rgba(250, 204, 21, 0.35), transparent 60%),
       radial-gradient(1000px 700px at 90% 15%, rgba(59, 130, 246, 0.25), transparent 60%),

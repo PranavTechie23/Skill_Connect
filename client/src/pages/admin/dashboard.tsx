@@ -5,7 +5,16 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { Users, Building, Briefcase, MessageSquare, Shield, TrendingUp, Activity } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "wouter";
+
+// Helper function to fetch data
+const fetcher = async ({ queryKey }: { queryKey: readonly unknown[] }) => {
+  const response = await fetch(queryKey[0] as string);
+  if (!response.ok) {
+    throw new Error('Network response was not ok');
+  }
+  return response.json();
+};
 
 // Type definition for admin stats
 interface AdminStats {
@@ -53,21 +62,25 @@ export default function AdminDashboard() {
 
   const { data: stats = {} as AdminStats } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
+    queryFn: fetcher,
     enabled: user?.userType === "admin",
   });
 
   const { data: users = [] } = useQuery<AdminUser[]>({
     queryKey: ["/api/admin/users"],
+    queryFn: fetcher,
     enabled: user?.userType === "admin",
   });
 
   const { data: jobs = [] } = useQuery<AdminJob[]>({
     queryKey: ["/api/admin/jobs"],
+    queryFn: fetcher,
     enabled: user?.userType === "admin",
   });
 
   const { data: companies = [] } = useQuery<AdminCompany[]>({
     queryKey: ["/api/admin/companies"],
+    queryFn: fetcher,
     enabled: user?.userType === "admin",
   });
 
@@ -255,5 +268,6 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
 
 

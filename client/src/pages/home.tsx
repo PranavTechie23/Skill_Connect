@@ -10,7 +10,6 @@ import ChromaGrid, { ChromaItem } from "@/components/ChromaGrid";
 import { ModeToggle } from "@/components/ui/dark-mode-toggle";
 import { motion } from "framer-motion";
 
-
 // Add a new component for the feature items
 const FeatureItem = ({ icon: Icon, text }: { icon: React.ComponentType<{ className?: string }>; text: string }) => (
   <div className="flex items-center">
@@ -22,10 +21,10 @@ const FeatureItem = ({ icon: Icon, text }: { icon: React.ComponentType<{ classNa
 export default function Home() {
   // booking/form state reserved for future features
   const workers = [
-  { name: 'Axar Patel', role: 'Building worker', img: '/images/building_worker.jpg', rating: 4.2 },
-  { name: 'Abhishek Sharma', role: 'Carpenter', img: '/images/carpenter.jpg', rating: 4.0 },
-  { name: 'Taylor Swift', role: 'Mechanical Engineer', img: '/images/mechanic.jpeg', rating: 5.0 },
-  { name: 'Elizabeth', role: 'Farmer', img: '/images/farmer.jpg', rating: 4.5 },
+    { name: 'Axar Patel', role: 'Building worker', img: '/images/building_worker.jpg', rating: 4.2 },
+    { name: 'Abhishek Sharma', role: 'Carpenter', img: '/images/carpenter.jpg', rating: 4.0 },
+    { name: 'Taylor Swift', role: 'Mechanical Engineer', img: '/images/mechanic.jpeg', rating: 5.0 },
+    { name: 'Elizabeth', role: 'Farmer', img: '/images/farmer.jpg', rating: 4.5 },
   ];
 
   const [motivationalQuote, setMotivationalQuote] = useState({
@@ -44,7 +43,7 @@ export default function Home() {
     const interval = setInterval(() => {
       const randomIndex = Math.floor(Math.random() * quotes.length);
       setMotivationalQuote(quotes[randomIndex]);
-    }, 15000); // Refresh every 60 seconds
+    }, 5000); // Refresh every 1.5 seconds
     return () => clearInterval(interval); // Cleanup on unmount
   }, []);
 
@@ -64,44 +63,19 @@ export default function Home() {
   // Animation variants for framer-motion
   const sectionVariants = {
     hidden: { opacity: 0, x: -100 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.8 } },
+    visible: { opacity: 1, x: 0, transition: { duration: 0.8 } },
   };
 
   const alternateSectionVariants = {
     hidden: { opacity: 0, x: 100 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.8 } },
+    visible: { opacity: 1, x: 0, transition: { duration: 0.8 } },
   };
 
   // Video state and ref
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(true);
 
-  // Theme handling: ensure document element class reflects provider theme
   const { theme } = useTheme();
-
-  useEffect(() => {
-    const root = window.document.documentElement;
-    // remove any previous explicit classes we may have set
-    root.classList.remove("light", "dark");
-
-    if (theme === "system") {
-      const mq = window.matchMedia("(prefers-color-scheme: dark)");
-      const apply = (isDark: boolean) => root.classList.add(isDark ? "dark" : "light");
-      apply(mq.matches);
-      const onChange = (e: MediaQueryListEvent) => {
-        root.classList.remove("light", "dark");
-        apply(e.matches);
-      };
-      if (mq.addEventListener) mq.addEventListener("change", onChange);
-      else mq.addListener(onChange as any);
-      return () => {
-        if (mq.removeEventListener) mq.removeEventListener("change", onChange);
-        else mq.removeListener(onChange as any);
-      };
-    }
-
-    root.classList.add(theme === "dark" ? "dark" : "light");
-  }, [theme]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -132,10 +106,10 @@ export default function Home() {
   };
 
   return (
-  <div className="min-h-screen">
+    <div className="min-h-screen">
       {/* Hero Section */}
       <motion.section
-        className="bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-16 lg:py-24 relative overflow-hidden"
+        className="bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 dark:from-blue-500 dark:via-indigo-500 dark:to-purple-500 dark:text-white py-16 lg:py-24 relative overflow-hidden"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.3 }}
@@ -149,7 +123,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-white leading-tight drop-shadow-lg">
+              <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white leading-tight drop-shadow-lg">
                 <TextType
                   as="span"
                   className="align-middle"
@@ -160,23 +134,24 @@ export default function Home() {
                   cursorCharacter="|"
                 />
               </h1>
-              <p className="mt-4 sm:mt-6 text-lg sm:text-xl text-white/90 leading-relaxed">
+              <p className="mt-4 sm:mt-6 text-lg sm:text-xl text-slate-800/90 dark:text-white/90 leading-relaxed">
                 Skills-based matching that brings together job seekers and employers.
                 Build your professional network and discover opportunities in your community.
               </p>
               <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-4">
                 <Link href="/jobs">
-                  <Button size="lg" className="text-lg px-6 sm:px-8 py-3 sm:py-4 bg-yellow-400 hover:bg-yellow-500 text-red-900 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all">
+                  <Button size="lg" className="text-lg px-6 sm:px-8 py-3 sm:py-4 bg-pink-500 hover:bg-yellow-500 text-white font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all">
                     🚀 Find Your Next Role
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button variant="outline" size="lg" className="text-lg px-6 sm:px-8 py-3 sm:py-4 border-white text-red hover:bg-gray-200 hover:text-purple-600 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all">
+                  <Button variant="outline" size="lg" className="text-lg px-6 sm:px-8 py-3 sm:py-4 hover:bg-yellow-500 border-slate-900 dark:border-white text-slate-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-800 hover:text-purple-600 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all">
                     ✨ Post a Job
                   </Button>
                 </Link>
+                <ModeToggle />
               </div>
-              <div className="mt-6 sm:mt-8 flex flex-wrap justify-center sm:justify-start space-x-4 sm:space-x-8 text-sm sm:text-base text-white/90">
+              <div className="mt-6 sm:mt-8 flex flex-wrap justify-center sm:justify-start space-x-4 sm:space-x-8 text-sm sm:text-base text-slate-800/90 dark:text-white/90">
                 <FeatureItem icon={CheckCircle} text="100% Local Focus" />
                 <FeatureItem icon={CheckCircle} text="Skills-Based Matching" />
                 <FeatureItem icon={CheckCircle} text="Free to Join" />
@@ -225,13 +200,13 @@ export default function Home() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent dark:from-purple-400 dark:to-pink-400">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
               Services for Every Need
             </h2>
             <p className="mt-2 sm:mt-3 text-gray-700 dark:text-gray-300 text-base sm:text-lg">From skilled trades to creative work — discover opportunities tailored to your skills.</p>
           </div>
           <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {[
+            {[ 
               { title: '🏗 Construction & Repair', desc: 'Masons, carpenters, electricians, plumbers, and more.', color: 'from-red-400 via-pink-500 to-purple-500', icon: '🔨' },
               { title: '🌾 Farming & Agriculture', desc: 'Seasonal help, harvesting, equipment operations.', color: 'from-green-400 via-emerald-500 to-teal-500', icon: '🚜' },
               { title: '🎨 Art & Design', desc: 'Graphic design, video editing, content creation.', color: 'from-yellow-400 via-orange-500 to-red-500', icon: '✨' },
@@ -263,7 +238,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 items-center">
             <div>
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent dark:from-green-400 dark:to-blue-400 mb-4 sm:mb-6">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-green-600 to-blue-600 dark:from-green-400 dark:to-blue-400 bg-clip-text text-transparent mb-4 sm:mb-6">
                 🎯 Skills-Based Matching That Actually Works
               </h2>
               <p className="text-lg sm:text-xl text-gray-700 dark:text-gray-300 mb-4 sm:mb-8">
@@ -312,7 +287,6 @@ export default function Home() {
             </div>
           </div>
         </div>
-
       </motion.section>
 
       {/* Testimonials */}
@@ -325,13 +299,13 @@ export default function Home() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-6 sm:mb-12">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold bg-gradient-to-r from-pink-600 to-red-600 bg-clip-text text-transparent dark:from-pink-400 dark:to-red-400">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold bg-gradient-to-r from-pink-600 to-red-600 dark:from-pink-400 dark:to-red-400 bg-clip-text text-transparent">
               💬 Stories from Our Community
             </h2>
             <p className="mt-2 sm:mt-3 text-gray-700 dark:text-gray-300 text-base sm:text-lg">Real results from local employers and talent.</p>
           </div>
           <div className="grid gap-4 sm:gap-6 md:grid-cols-1 lg:grid-cols-3">
-            {[
+            {[ 
               {
                 quote: 'Hired two skilled technicians within a week — the matching is on point!',
                 name: 'Aarti Verma',
@@ -368,7 +342,7 @@ export default function Home() {
 
       {/* Bold CTA */}
       <motion.section
-        className="py-12 sm:py-16 lg:py-20 bg:black dark:bg-slate-900"
+        className="py-12 sm:py-16 lg:py-20 bg-gray-50 dark:bg-slate-900"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.3 }}
@@ -380,7 +354,7 @@ export default function Home() {
             <p className="mt-2 sm:mt-4 text-base sm:text-lg text-white/90 max-w-md sm:max-w-2xl mx-auto">Join a growing network of local talent and employers. Post jobs, apply with confidence, and get matched by skills — not just keywords.</p>
             <div className="mt-4 sm:mt-8 flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/register"><Button size="lg" variant="secondary" className="px-4 sm:px-8 py-2 sm:py-3">Get Started</Button></Link>
-              <Link href="/jobs"><Button size="lg" variant="outline" className="px-4 sm:px-8 py-2 sm:py-3  text-yellow-600 hover:bg-white/20">Browse Jobs</Button></Link>
+              <Link href="/jobs"><Button size="lg" variant="outline" className="px-4 sm:px-8 py-2 sm:py-3 text-yellow-600 hover:bg-white/20">Browse Jobs</Button></Link>
             </div>
           </div>
         </div>
@@ -400,11 +374,11 @@ export default function Home() {
             <p className="mt-2 sm:mt-3 text-red-600 dark:text-red-400 text-base sm:text-lg">Book top-rated, verified workers in your area</p>
           </div>
           <div className="flex justify-center">
-  <ChromaGrid 
-    items={chromaItems} 
-    className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-6xl" 
-  />
-</div>
+            <ChromaGrid 
+              items={chromaItems} 
+              className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-6xl" 
+            />
+          </div>
         </div>
       </motion.section>
 
@@ -426,7 +400,7 @@ export default function Home() {
 
       {/* Footer */}
       <motion.footer
-        className="bg-gradient-to-br from-gray-900 via-purple-900 to-gray-800 light:from-gray-50 light:via-purple-50 light:to-gray-100 text-gray-900 dark:text-white py-12 sm:py-16"
+        className="bg-gradient-to-br from-gray-50 via-purple-50 to-gray-100 dark:from-gray-900 dark:via-purple-900 dark:to-gray-800 text-gray-900 dark:text-white py-12 sm:py-16"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.3 }}

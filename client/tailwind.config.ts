@@ -1,6 +1,8 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  // Use class strategy so toggling `dark` class on the documentElement works
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,jsx,ts,tsx}"
@@ -43,7 +45,7 @@ const config: Config = {
           DEFAULT: "var(--destructive)",
           foreground: "var(--destructive-foreground)",
         },
-        border: "var(--border)",
+        "default-border": "var(--border)",
         input: "var(--input)",
         ring: "var(--ring)",
         chart: {

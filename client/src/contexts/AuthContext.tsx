@@ -6,7 +6,7 @@ interface User {
   email: string;
   firstName: string;
   lastName: string;
-  userType: 'Professional' | 'Employer';
+  userType: 'Professional' | 'Employer' | 'admin';
 }
 
 interface AuthContextType {
