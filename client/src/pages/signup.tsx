@@ -73,22 +73,8 @@ export default function Signup() {
   const update = (patch: Partial<typeof form>) => setForm(prev => ({ ...prev, ...patch }));
 
   const next = () => {
-    if (step === 0) {
-      if (!form.email || !form.password || form.password !== form.confirmPassword) {
-        toast({ title: "Validation Error", description: "Please check email and passwords.", variant: "destructive" });
-        return;
-      }
-      if (form.password.length < 6) {
-        toast({ title: "Password too short", description: "Password must be at least 6 characters.", variant: "destructive" });
-        return;
-      }
-    }
-    if (step === 1) {
-      if (!form.firstName || !form.lastName) {
-        toast({ title: "Validation Error", description: "Please fill in your name.", variant: "destructive" });
-        return;
-      }
-    }
+    // keep the same validation as validateStep to avoid inconsistencies
+    if (!validateStep(step)) return;
     setStep(s => Math.min(3, s + 1));
   };
   
@@ -174,7 +160,173 @@ export default function Signup() {
     }
   };
 
+  // Centralized step validation used both for disabling the button and preventing navigation
+  const validateStep = (s: number) => {
+    if (s === 0) {
+      if (!form.email || !form.password) return false;
+      if (form.password.length < 6) return false;
+      if (form.password !== form.confirmPassword) return false;
+      return true;
+    }
+    if (s === 1) {
+      return Boolean(form.firstName && form.lastName);
+    }
+    // step 2: allow continuing (optional fields)
+    if (s === 2) return true;
+    // step 3 is the final review step — no continuation from here
+    return true;
+  };
+
+  const isNextDisabled = !validateStep(step);
+
   if (!open) return null;
+
+  // create per-step content (keeps this component self-contained)
+  const Step0 = (
+    <div className="space-y-3">
+      <div>
+        <Label>Email</Label>
+        <Input value={form.email} onChange={e => update({ email: e.target.value })} type="email" placeholder="you@company.com" />
+      </div>
+
+      <div>
+        <Label>Password</Label>
+        <div className="relative">
+          <Input
+            value={form.password}
+            onChange={e => update({ password: e.target.value })}
+            type={showPassword ? "text" : "password"}
+            placeholder="At least 6 characters"
+          />
+          <button
+            type="button"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            className="absolute right-2 top-2"
+            onClick={() => setShowPassword(v => !v)}
+          >
+            {showPassword ? <EyeOff /> : <Eye />}
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <Label>Confirm Password</Label>
+        <div className="relative">
+          <Input
+            value={form.confirmPassword}
+            onChange={e => update({ confirmPassword: e.target.value })}
+            type={showConfirmPassword ? "text" : "password"}
+            placeholder="Repeat your password"
+          />
+          <button
+            type="button"
+            aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+            className="absolute right-2 top-2"
+            onClick={() => setShowConfirmPassword(v => !v)}
+          >
+            {showConfirmPassword ? <EyeOff /> : <Eye />}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const Step1 = (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <Label>First name</Label>
+          <Input value={form.firstName} onChange={e => update({ firstName: e.target.value })} placeholder="John" />
+        </div>
+        <div>
+          <Label>Last name</Label>
+          <Input value={form.lastName} onChange={e => update({ lastName: e.target.value })} placeholder="Doe" />
+        </div>
+      </div>
+
+      <div>
+        <Label>I'm signing up as</Label>
+        <div className="flex gap-2 mt-2">
+          {(["employee", "employer", "admin"] as Role[]).map(r => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => update({ userType: r })}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${form.userType === r ? "border-blue-600 bg-blue-50" : "border-gray-200"}`}
+            >
+              {getUserTypeIcon(r)}
+              <div className="text-left">
+                <div className="text-sm font-medium">{r === 'employee' ? 'Professional' : r === 'employer' ? 'Employer' : 'Admin'}</div>
+                <div className="text-xs opacity-80">{getUserTypeDescription(r)}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const Step2 = (
+    <div className="space-y-3">
+      <div>
+        <Label>Location</Label>
+        <Input value={form.location} onChange={e => update({ location: e.target.value })} placeholder="City, Country" />
+      </div>
+
+      <div>
+        <Label>Title</Label>
+        <Input value={form.title} onChange={e => update({ title: e.target.value })} placeholder="Frontend Developer" />
+      </div>
+
+      <div>
+        <Label>Bio</Label>
+        <Textarea value={form.bio} onChange={e => update({ bio: e.target.value })} placeholder="Short intro about you" />
+      </div>
+
+      <div>
+        <Label>Skills (comma separated)</Label>
+        <Input value={form.skills} onChange={e => update({ skills: e.target.value })} placeholder="React, Node.js, SQL" />
+      </div>
+    </div>
+  );
+
+  const Step3 = (
+    <div className="space-y-3">
+      <h3 className="text-lg font-semibold">Review your information</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <Label>Email</Label>
+          <div className="mt-1">{form.email}</div>
+        </div>
+        <div>
+          <Label>Name</Label>
+          <div className="mt-1">{form.firstName} {form.lastName}</div>
+        </div>
+        <div>
+          <Label>User type</Label>
+          <div className="mt-1">{mapUserType(form.userType)}</div>
+        </div>
+        <div>
+          <Label>Location</Label>
+          <div className="mt-1">{form.location || '—'}</div>
+        </div>
+        <div>
+          <Label>Title</Label>
+          <div className="mt-1">{form.title || '—'}</div>
+        </div>
+        <div>
+          <Label>Skills</Label>
+          <div className="mt-1">{form.skills || '—'}</div>
+        </div>
+      </div>
+
+      <div className="text-sm text-muted-foreground mt-2">
+        If everything looks good, click "Create account" to finish.
+      </div>
+    </div>
+  );
+
+  const steps = [Step0, Step1, Step2, Step3];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
@@ -214,180 +366,7 @@ export default function Signup() {
 
               {/* Step content */}
               <div className="space-y-4">
-                {step === 0 && (
-                  <>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Account details</p>
-                    <div>
-                      <Label htmlFor="email">Email</Label>
-                      <Input 
-                        id="email" 
-                        name="email"
-                        type="email" 
-                        value={form.email} 
-                        onChange={e => update({ email: e.target.value })} 
-                        required 
-                        placeholder="Enter your email"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="password">Password</Label>
-                        <div className="relative">
-                          <Input 
-                            id="password" 
-                            name="password"
-                            type={showPassword ? "text" : "password"} 
-                            value={form.password} 
-                            onChange={e => update({ password: e.target.value })} 
-                            required 
-                            placeholder="Create password"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                            onClick={() => setShowPassword(!showPassword)}
-                          >
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </Button>
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="confirmPassword">Confirm Password</Label>
-                        <div className="relative">
-                          <Input 
-                            id="confirmPassword" 
-                            name="confirmPassword"
-                            type={showConfirmPassword ? "text" : "password"} 
-                            value={form.confirmPassword} 
-                            onChange={e => update({ confirmPassword: e.target.value })} 
-                            required 
-                            placeholder="Confirm password"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          >
-                            {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {step === 1 && (
-                  <>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Personal information</p>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="firstName">First name</Label>
-                        <Input 
-                          id="firstName" 
-                          value={form.firstName} 
-                          onChange={e => update({ firstName: e.target.value })} 
-                          placeholder="Enter first name"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="lastName">Last name</Label>
-                        <Input 
-                          id="lastName" 
-                          value={form.lastName} 
-                          onChange={e => update({ lastName: e.target.value })} 
-                          placeholder="Enter last name"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="location">Location</Label>
-                      <Input 
-                        id="location" 
-                        value={form.location} 
-                        onChange={e => update({ location: e.target.value })} 
-                        placeholder="City, State/Country"
-                      />
-                    </div>
-                  </>
-                )}
-
-                {step === 2 && (
-                  <>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Choose your role</p>
-                    <div className="grid grid-cols-1 gap-4">
-                      {(['employee', 'employer', 'admin'] as Role[]).map((type) => (
-                        <div
-                          key={type}
-                          className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                            form.userType === type 
-                              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                              : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                          }`}
-                          onClick={() => update({ userType: type })}
-                        >
-                          <div className="flex items-center space-x-3">
-                            {getUserTypeIcon(type)}
-                            <div className="flex-1">
-                              <h3 className="font-medium capitalize">{type}</h3>
-                              <p className="text-sm text-muted-foreground">
-                                {getUserTypeDescription(type)}
-                              </p>
-                            </div>
-                            <div className={`w-4 h-4 rounded-full border-2 ${
-                              form.userType === type 
-                                ? 'border-blue-500 bg-blue-500' 
-                                : 'border-gray-300'
-                            }`}>
-                              {form.userType === type && (
-                                <div className="w-full h-full rounded-full bg-white scale-50"></div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {step === 3 && (
-                  <>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Professional details</p>
-                    <div>
-                      <Label htmlFor="title">Professional Title</Label>
-                      <Input 
-                        id="title" 
-                        value={form.title} 
-                        onChange={e => update({ title: e.target.value })} 
-                        placeholder="e.g. Software Engineer, Marketing Manager"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="bio">Bio</Label>
-                      <Textarea
-                        id="bio"
-                        value={form.bio}
-                        onChange={e => update({ bio: e.target.value })}
-                        placeholder="Tell us about yourself..."
-                        className="w-full px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 bg-transparent text-gray-900 dark:text-gray-100 min-h-[80px] resize-none"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="skills">Skills (comma separated)</Label>
-                      <Input 
-                        id="skills" 
-                        value={form.skills} 
-                        onChange={e => update({ skills: e.target.value })} 
-                        placeholder="React, Node.js, Python, Marketing"
-                      />
-                    </div>
-                  </>
-                )}
+                {steps[step]}
               </div>
 
               {/* Navigation */}
@@ -398,12 +377,12 @@ export default function Signup() {
 
                 <div className="flex items-center gap-3">
                   {step < 3 && (
-                    <Button onClick={next} className="bg-blue-600 hover:bg-blue-700">
+                    <Button onClick={next} disabled={isNextDisabled}>
                       Continue
                     </Button>
                   )}
                   {step === 3 && (
-                    <Button onClick={handleSubmit} className="bg-blue-600 hover:bg-blue-700" disabled={loading}>
+                    <Button onClick={handleSubmit} disabled={loading}>
                       {loading ? "Creating..." : "Create account"}
                     </Button>
                   )}
