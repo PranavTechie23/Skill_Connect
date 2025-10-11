@@ -4,7 +4,7 @@ import session from "express-session";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { storage } from "./storage";
-import { registerSchema } from "../../shared/schema";
+import { loginSchema as sharedLoginSchema, registerSchema } from "../../shared/schema";
 
 declare module 'express-session' {
   interface SessionData {
@@ -13,11 +13,6 @@ declare module 'express-session' {
 }
 
 // Validation schemas
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
-
 const updateUserSchema = z.object({
   email: z.string().email().optional(),
   password: z.string().min(6).optional(),
@@ -36,11 +31,11 @@ const insertJobSchema = z.object({
   requirements: z.string().optional(),
   location: z.string().min(1),
   jobType: z.enum(['full-time', 'part-time', 'contract', 'remote']),
-  salaryMin: z.number().optional(),
-  salaryMax: z.number().optional(),
+  salaryMin: z.number().int().positive().optional(),
+  salaryMax: z.number().int().positive().optional(),
   skills: z.array(z.string()).optional(),
-  companyId: z.number().optional(),
-  employerId: z.number(),
+  companyId: z.number().int().positive().optional(),
+  employerId: z.number().int().positive(),
   applicationCount: z.number().optional(),
 }).transform(data => ({
   ...data,
@@ -48,20 +43,20 @@ const insertJobSchema = z.object({
 }));
 
 const insertApplicationSchema = z.object({
-  jobId: z.number(),
-  applicantId: z.number(),
+  jobId: z.number().int().positive(),
+  applicantId: z.number().int().positive(),
   status: z.enum(['applied', 'under_review', 'interview', 'offered', 'rejected']).optional(),
   coverLetter: z.string().optional(),
 });
 
 const insertMessageSchema = z.object({
-  senderId: z.number(),
-  receiverId: z.number(),
+  senderId: z.number().int().positive(),
+  receiverId: z.number().int().positive(),
   content: z.string().min(1),
 }).required();
 
 const insertExperienceSchema = z.object({
-  userId: z.number(),
+  userId: z.number().int().positive(),
   company: z.string().min(1),
   position: z.string().min(1),
   description: z.string().optional(),
@@ -77,7 +72,7 @@ const insertCompanySchema = z.object({
   location: z.string().optional(),
   industry: z.string().optional(),
   size: z.string().optional(),
-  ownerId: z.number(),
+  ownerId: z.number().int().positive(),
 });
 
 const storySchema = z.object({
@@ -129,27 +124,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = registerSchema.parse(req.body);
       
-      const existingUser = await storage.getUserByEmail(data.email);
-      if (existingUser) {
-        return res.status(400).json({ message: "User already exists" });
-      }
-      
-      const hashedPassword = await bcrypt.hash(data.password, 10);
       let user;
+      let normalizedUserType: any = data.userType;
+      let skillsArr: string[] = [];
+
       try {
-        // Defensive normalization: ensure userType matches DB enum and skills is an array
-        let normalizedUserType = data.userType;
+        const existingUser = await storage.getUserByEmail(data.email);
+        if (existingUser) {
+          return res.status(400).json({ message: "User already exists" });
+        }
+
+        const hashedPassword = await bcrypt.hash(data.password, 10);
+
         if (typeof normalizedUserType === 'string') {
           const s = normalizedUserType.toLowerCase();
           if (s.includes('pro')) normalizedUserType = 'Professional';
           else if (s.includes('employ')) normalizedUserType = 'Employer';
         }
 
-        let skillsArr: string[] = [];
-        if (Array.isArray(data.skills)) skillsArr = data.skills as string[];
-        else if (typeof data.skills === 'string') skillsArr = data.skills.split(',').map((s: string) => s.trim()).filter(Boolean);
+  if (Array.isArray(data.skills)) skillsArr = data.skills as string[];
+  else if (typeof (data as any).skills === 'string') skillsArr = (data as any).skills.split(',').map((s: string) => s.trim()).filter(Boolean);
 
-        // Build insert object only with expected columns (server schema)
         const insertPayload: any = {
           email: data.email,
           userType: normalizedUserType,
@@ -166,21 +161,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         user = await storage.createUser(insertPayload);
 
+        // After user is created, use the returned numeric user.id for subsequent operations
         if (normalizedUserType === 'Employer') {
           await storage.createCompany({
             name: data.companyName || `${data.firstName}'s Company`,
             description: data.companyBio,
             website: data.companyWebsite,
-            ownerId: user.id,
+            ownerId: user.id, // Use the numeric ID directly from the created user object
           });
         }
 
-      } catch (dbErr) {
-        console.error('DB createUser error:', dbErr);
+      } catch (dbErr: any) {
+        console.error('DB operation failed during registration:', dbErr);
+        const msg = String(dbErr?.message || dbErr || '');
+        const isAuthError = dbErr?.code === '28P01' || msg.toLowerCase().includes('password authentication failed');
+        const isConnRefused = msg.toLowerCase().includes('connect econnrefused') || msg.toLowerCase().includes('connection refused');
+        if (process.env.NODE_ENV === 'development' && (isAuthError || isConnRefused)) {
+          console.warn('DB unavailable — using development fallback user for register');
+          const fakeUser: any = {
+            id: `dev-${Date.now()}`,
+            email: data.email,
+            userType: normalizedUserType || 'Professional',
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
+            location: data.location || '',
+            title: data.title || '',
+            bio: data.bio || '',
+            skills: skillsArr || [],
+            profilePhoto: data.profilePhoto || null,
+            telephoneNumber: data.telephoneNumber || null,
+            createdAt: new Date()
+          };
+          req.session.userId = String(fakeUser.id);
+          return res.status(201).json({ user: sanitizeUser(fakeUser), _devFallback: true });
+        }
         return handleError(res, dbErr, 'Registration failed');
       }
       
-      req.session.userId = user.id.toString();
+      if (!user) return handleError(res, new Error("User creation failed unexpectedly."), "Registration failed");
+      req.session.userId = user.id.toString(); 
       res.json({ user: sanitizeUser(user) });
     } catch (error) {
       handleError(res, error, "Registration failed");
@@ -189,7 +208,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/login", async (req, res) => {
     try {
-      const data = loginSchema.parse(req.body);
+      const data = sharedLoginSchema.parse(req.body);
+
+      // Hardcoded admin user check
+      if (data.email === 'admin@gmail.com' && data.password === 'admin123') {
+        const adminUser = {
+          id: 'admin-001', // A unique static ID for the admin
+          email: 'admin@gmail.com',
+          firstName: 'Admin',
+          lastName: 'User',
+          userType: 'admin',
+        };
+        req.session.userId = adminUser.id;
+        return res.json({ user: sanitizeUser(adminUser) });
+      }
+
       const user = await storage.getUserByEmail(data.email);
       
       if (!user || !(await bcrypt.compare(data.password, user.password))) {
@@ -270,16 +303,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/companies", requireAuth, async (req, res) => {
     try {
-      const data = insertCompanySchema.parse({
-        ...req.body,
-        ownerId: parseInt(req.body.ownerId)
-      });
-      
+      const data = insertCompanySchema.parse(req.body);
+
       if (data.ownerId.toString() !== req.session.userId) {
         return res.status(403).json({ message: "Not authorized to create company for this user" });
       }
 
-      const company = await storage.createCompany(data);
+      const companyInsert: any = {
+        name: data.name,
+        description: data.description,
+        website: data.website,
+        location: data.location,
+        industry: data.industry,
+        size: data.size,
+        ownerId: data.ownerId,
+      };
+
+      const company = await storage.createCompany(companyInsert);
       res.json(company);
     } catch (error) {
       handleError(res, error, "Failed to create company");
@@ -312,14 +352,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const enrichedJobs = await Promise.all(
         jobs.map(async (job) => {
           const [company, employer] = await Promise.all([
-            job.companyId ? storage.getCompany(job.companyId.toString()) : null,
-            job.employerId ? storage.getUser(job.employerId.toString()) : null,
+            job.companyId ? storage.getCompany(job.companyId) : null,
+            job.employerId ? storage.getUser(job.employerId) : null,
           ]);
           
           return {
             ...job,
             isActive: job.isActive ?? true,
-            applicationCount: job.applicationCount || Math.floor(Math.random() * 20),
+            applicationCount: (job as any).applicationCount || Math.floor(Math.random() * 20),
             company: company ? company : null,
             employer: employer ? sanitizeUser(employer) : null,
           };
@@ -340,8 +380,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const [company, employer] = await Promise.all([
-        job.companyId ? storage.getCompany(job.companyId.toString()) : null,
-        job.employerId ? storage.getUser(job.employerId.toString()) : null,
+        job.companyId ? storage.getCompany(job.companyId) : null,
+        job.employerId ? storage.getUser(job.employerId) : null,
       ]);
       
       res.json({
@@ -356,17 +396,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/jobs", requireAuth, async (req, res) => {
     try {
-      const data = insertJobSchema.parse({
-        ...req.body,
-        employerId: parseInt(req.body.employerId),
-        companyId: req.body.companyId ? parseInt(req.body.companyId) : undefined
-      });
-      
+      const data = insertJobSchema.parse(req.body);
+
       if (data.employerId.toString() !== req.session.userId) {
         return res.status(403).json({ message: "Not authorized to create job for this employer" });
       }
 
-      const job = await storage.createJob(data);
+      // Coerce foreign keys to numbers for storage
+      const jobInsert: any = {
+        ...data,
+        employerId: data.employerId,
+        companyId: data.companyId,
+      };
+
+      const job = await storage.createJob(jobInsert);
       res.json(job);
     } catch (error) {
       handleError(res, error, "Failed to create job");
@@ -376,9 +419,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Application routes
   app.get("/api/applications", requireAuth, async (req, res) => {
     try {
-      const applicantId = req.query.applicantId as string;
-      const jobId = req.query.jobId as string;
-      const employerId = req.query.employerId as string;
+  const applicantId = req.query.applicantId as string;
+  const jobId = req.query.jobId as string;
+  const employerId = req.query.employerId as string;
       
       let applications: any[] = [];
       
@@ -398,9 +441,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ message: "Not authorized to view these applications" });
         }
         // Get applications for employer's jobs
-        const jobs = await storage.getJobs({ employerId });
+        const jobs = await storage.getJobsByEmployer(Number(employerId));
         const jobApplications = await Promise.all(
-          jobs.map(job => storage.getApplicationsByJob(job.id.toString()).catch(() => []))
+          jobs.map(job => storage.getApplicationsByJob(job.id).catch(() => []))
         );
         applications = jobApplications.flat();
       } else {
@@ -410,11 +453,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const enrichedApplications = await Promise.all(
         applications.map(async (app) => {
           const [job, applicant] = await Promise.all([
-            app.jobId ? storage.getJob(app.jobId.toString()) : null,
-            app.applicantId ? storage.getUser(app.applicantId.toString()) : null,
+            app.jobId ? storage.getJob(app.jobId) : null,
+            app.applicantId ? storage.getUser(app.applicantId) : null,
           ]);
           
-          const company = job?.companyId ? await storage.getCompany(job.companyId.toString()) : null;
+          const company = job?.companyId ? await storage.getCompany(job.companyId) : null;
           
           return {
             ...app,
@@ -433,24 +476,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/applications", requireAuth, async (req, res) => {
     try {
-      const data = insertApplicationSchema.parse({
-        ...req.body,
-        jobId: parseInt(req.body.jobId),
-        applicantId: parseInt(req.body.applicantId)
-      });
-      
+      const data = insertApplicationSchema.parse(req.body);
+
       if (data.applicantId.toString() !== req.session.userId) {
         return res.status(403).json({ message: "Not authorized to create application for this user" });
       }
-      
-      const existingApplications = await storage.getApplicationsByJob(data.jobId.toString()).catch(() => []);
+
+      const existingApplications = await storage.getApplicationsByJob(data.jobId).catch(() => []);
       const alreadyApplied = existingApplications.some(app => app.applicantId === data.applicantId);
-      
+
       if (alreadyApplied) {
         return res.status(400).json({ message: "You have already applied to this job" });
       }
-      
-      const application = await storage.createApplication(data);
+
+      const applicationInsert: any = {
+        jobId: data.jobId,
+        applicantId: data.applicantId,
+        status: data.status,
+        coverLetter: data.coverLetter
+      };
+
+      const application = await storage.createApplication(applicationInsert);
       res.json(application);
     } catch (error) {
       handleError(res, error, "Failed to create application");
@@ -465,7 +511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if user owns the application or the job
-      const job = await storage.getJob(application.jobId.toString());
+      const job = await storage.getJob(application.jobId);
       if (application.applicantId.toString() !== req.session.userId && 
           job?.employerId?.toString() !== req.session.userId) {
         return res.status(403).json({ message: "Not authorized to update this application" });
@@ -498,17 +544,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/messages", requireAuth, async (req, res) => {
     try {
-      const data = insertMessageSchema.parse({
-        ...req.body,
-        senderId: parseInt(req.body.senderId),
-        receiverId: parseInt(req.body.receiverId)
-      });
-      
+      const data = insertMessageSchema.parse(req.body);
+
       if (data.senderId.toString() !== req.session.userId) {
         return res.status(403).json({ message: "Not authorized to send message as this user" });
       }
-      
-      const message = await storage.createMessage(data);
+
+      const messageInsert: any = {
+        senderId: data.senderId,
+        receiverId: data.receiverId,
+        content: data.content
+      };
+
+      const message = await storage.createMessage(messageInsert);
       res.json(message);
     } catch ( error) {
       handleError(res, error, "Failed to send message");
@@ -559,13 +607,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const experienceData = {
         userId: validatedData.userId,
         company: validatedData.company,
-        position: validatedData.position,
-        startDate: new Date(validatedData.startDate),
+        title: validatedData.position, // Corrected field name from position to title
+        startDate: validatedData.startDate,
         description: validatedData.description,
-        endDate: validatedData.endDate ? new Date(validatedData.endDate) : undefined,
+        endDate: validatedData.endDate,
         isCurrent: validatedData.isCurrent
       };
-      
+
       const experience = await storage.createExperience(experienceData);
       res.json(experience);
     } catch (error) {
@@ -617,7 +665,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         title: data.title,
         content: data.content,
         tags: data.tags || [],
-        authorId: req.session.userId,
+        authorId: Number(req.session.userId),
         createdAt: new Date()
       });
       res.json({ success: true, story });

@@ -4,7 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   firstName: text("first_name").notNull(),
@@ -14,12 +14,13 @@ export const users = pgTable("users", {
   profilePhoto: text("profile_photo"),
   title: text("title"),
   bio: text("bio"),
-  skills: text("skills").array().default([]),
+  skills: jsonb("skills").$type<string[]>().default([]),
+  telephoneNumber: text("telephone_number"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const companies = pgTable("companies", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
   website: text("website"),
@@ -27,12 +28,12 @@ export const companies = pgTable("companies", {
   size: text("size"),
   industry: text("industry"),
   logo: text("logo"),
-  ownerId: varchar("owner_id").references(() => users.id),
+  ownerId: integer("owner_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const jobs = pgTable("jobs", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
   requirements: text("requirements").notNull(),
@@ -40,17 +41,17 @@ export const jobs = pgTable("jobs", {
   jobType: text("job_type").notNull(), // 'full-time' | 'part-time' | 'contract' | 'remote'
   salaryMin: integer("salary_min"),
   salaryMax: integer("salary_max"),
-  skills: text("skills").array().default([]),
-  companyId: varchar("company_id").references(() => companies.id),
-  employerId: varchar("employer_id").references(() => users.id),
+  skills: jsonb("skills").$type<string[]>().default([]),
+  companyId: integer("company_id").references(() => companies.id),
+  employerId: integer("employer_id").references(() => users.id),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const applications = pgTable("applications", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  jobId: varchar("job_id").references(() => jobs.id),
-  applicantId: varchar("applicant_id").references(() => users.id),
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").references(() => jobs.id),
+  applicantId: integer("applicant_id").references(() => users.id),
   status: text("status").notNull().default("applied"), // 'applied' | 'under_review' | 'interview' | 'offered' | 'rejected'
   coverLetter: text("cover_letter"),
   resume: text("resume"),
@@ -60,18 +61,18 @@ export const applications = pgTable("applications", {
 });
 
 export const messages = pgTable("messages", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  senderId: varchar("sender_id").references(() => users.id),
-  receiverId: varchar("receiver_id").references(() => users.id),
-  applicationId: varchar("application_id").references(() => applications.id),
+  id: serial("id").primaryKey(),
+  senderId: integer("sender_id").references(() => users.id),
+  receiverId: integer("receiver_id").references(() => users.id),
+  applicationId: integer("application_id").references(() => applications.id),
   content: text("content").notNull(),
   isRead: boolean("is_read").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const experiences = pgTable("experiences", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id),
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
   title: text("title").notNull(),
   company: text("company").notNull(),
   description: text("description"),
@@ -82,16 +83,17 @@ export const experiences = pgTable("experiences", {
 
 export const stories = pgTable('stories', {
   id: serial('id').primaryKey(),
-  name: varchar('name', { length: 255 }).notNull(),
-  email: varchar('email', { length: 255 }).notNull(),
-  role: varchar('role', { length: 255 }).notNull(),
-  title: varchar('title', { length: 255 }).notNull(),
+  title: text('title').notNull(),
   content: text('content').notNull(),
+  authorId: integer("author_id").references(() => users.id),
+  tags: jsonb("tags").$type<string[]>().default([]),
   createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
 // Insert schemas
-export const insertUserSchema = createInsertSchema(users).omit({
+export const insertUserSchema = createInsertSchema(users, {
+  telephoneNumber: z.string().optional(),
+}).omit({
   id: true,
   createdAt: true,
 });
@@ -147,7 +149,11 @@ export const registerSchema = z.object({
   bio: z.string().optional(),
   skills: z.array(z.string()).optional(),
   confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
+  telephoneNumber: z.string().optional(),
+  companyName: z.string().optional(),
+  companyBio: z.string().optional(),
+  companyWebsite: z.string().optional(),
+}).passthrough().refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
 });

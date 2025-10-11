@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import {
-  Shield, Users, Building2, Briefcase, TrendingUp, Activity, Settings, 
-  LogOut, Moon, Sun, Menu, X, Search, Filter, MoreVertical, Eye, Edit, 
-  Trash2, CheckCircle, XCircle, AlertCircle, Clock, Mail, Phone, MapPin,
-  DollarSign, Calendar, Download, Upload, BarChart3, PieChart, FileText,
-  UserCheck, UserX, Pause, Play, Ban, ChevronDown, ArrowRight, Zap,
-  Target, Award, MessageSquare, Bell, Home, Database
+  Shield, Users, Building2, Briefcase, TrendingUp, Activity, 
+  LogOut, Search, Eye, Edit, Trash2, CheckCircle, XCircle, 
+  AlertCircle, Clock, Mail, Calendar, Download, BarChart3,
+  UserCheck, Ban, ChevronRight, Zap, Sparkles, Crown, Rocket,
+  Star, MessageSquare, Bell, Home, Settings, Filter, ArrowUpRight
 } from 'lucide-react';
 
 interface AdminStats {
@@ -27,17 +26,6 @@ interface User {
   status: 'active' | 'suspended' | 'pending';
   joinDate: string;
   lastActive: string;
-  location?: string;
-}
-
-interface Job {
-  id: string;
-  title: string;
-  company: string;
-  status: 'active' | 'paused' | 'closed';
-  applications: number;
-  postedDate: string;
-  salary: string;
 }
 
 const mockStats: AdminStats = {
@@ -59,8 +47,7 @@ const mockUsers: User[] = [
     type: 'employee',
     status: 'active',
     joinDate: '2024-01-15',
-    lastActive: '2 hours ago',
-    location: 'San Francisco, CA'
+    lastActive: '2 hours ago'
   },
   {
     id: '2',
@@ -69,8 +56,7 @@ const mockUsers: User[] = [
     type: 'employer',
     status: 'active',
     joinDate: '2024-01-10',
-    lastActive: '1 day ago',
-    location: 'New York, NY'
+    lastActive: '1 day ago'
   },
   {
     id: '3',
@@ -79,843 +65,431 @@ const mockUsers: User[] = [
     type: 'employee',
     status: 'pending',
     joinDate: '2024-01-20',
-    lastActive: '5 minutes ago',
-    location: 'Austin, TX'
-  }
-];
-
-const mockJobs: Job[] = [
-  {
-    id: '1',
-    title: 'Senior Frontend Developer',
-    company: 'TechCorp Inc.',
-    status: 'active',
-    applications: 45,
-    postedDate: '2024-01-15',
-    salary: '$120k - $150k'
+    lastActive: '5 minutes ago'
   },
   {
-    id: '2',
-    title: 'Product Manager',
-    company: 'StartupXYZ',
+    id: '4',
+    name: 'StartupXYZ',
+    email: 'contact@startupxyz.com',
+    type: 'employer',
     status: 'active',
-    applications: 67,
-    postedDate: '2024-01-18',
-    salary: '$100k - $130k'
+    joinDate: '2024-01-18',
+    lastActive: '3 hours ago'
   }
 ];
 
 const AdminDashboard: React.FC = () => {
-  const [darkMode, setDarkMode] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState('all');
-
-  const admin = {
-    name: 'Admin User',
-    email: 'admin@localskills.com',
-    avatar: 'AD'
-  };
-
-  const NavItem = ({ icon: Icon, label, id, badge }: any) => (
-    <button
-      onClick={() => setActiveTab(id)}
-      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all group ${
-        activeTab === id
-          ? darkMode
-            ? 'bg-red-500/20 text-red-400'
-            : 'bg-red-50 text-red-700'
-          : darkMode
-          ? 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-      }`}
-    >
-      <div className="flex items-center gap-3">
-        <Icon className="w-5 h-5" />
-        <span className="font-medium">{label}</span>
-      </div>
-      {badge && (
-        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-          darkMode ? 'bg-red-500 text-white' : 'bg-red-600 text-white'
-        }`}>
-          {badge}
-        </span>
-      )}
-    </button>
-  );
-
-  const getStatusBadge = (status: string) => {
-    const configs = {
-      active: { 
-        color: darkMode ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border-emerald-200', 
-        icon: CheckCircle 
-      },
-      suspended: { 
-        color: darkMode ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-red-50 text-red-700 border-red-200', 
-        icon: Ban 
-      },
-      pending: { 
-        color: darkMode ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-amber-50 text-amber-700 border-amber-200', 
-        icon: Clock 
-      },
-      paused: { 
-        color: darkMode ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-blue-700 border-blue-200', 
-        icon: Pause 
-      },
-      closed: { 
-        color: darkMode ? 'bg-gray-500/20 text-gray-400 border-gray-500/30' : 'bg-gray-50 text-gray-700 border-gray-200', 
-        icon: XCircle 
-      }
-    };
-    const config = configs[status as keyof typeof configs] || configs.active;
-    const Icon = config.icon;
-    return { ...config, Icon };
-  };
+  const [selectedFilter, setSelectedFilter] = useState('all');
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      {/* Top Navbar */}
-      <nav className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b sticky top-0 z-50 backdrop-blur-lg bg-opacity-80`}>
-        <div className="px-6 py-4">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+      {/* Floating Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-20 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
+        <div className="absolute top-40 right-20 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
+      </div>
+
+      {/* Top Navigation */}
+      <nav className="relative bg-white/80 backdrop-blur-xl border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
+            {/* Logo & Title */}
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`}
-              >
-                {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
-              
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-rose-600 rounded-xl flex items-center justify-center text-white shadow-lg">
-                  <Shield className="w-6 h-6" />
+              <div className="relative">
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-600 via-pink-600 to-red-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/50 animate-pulse-slow">
+                  <Shield className="w-7 h-7 text-white" />
                 </div>
-                <div>
-                  <h1 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                    Admin Control Panel
-                  </h1>
-                  <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    Local Skills Job Board
-                  </p>
-                </div>
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-ping"></div>
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+              </div>
+              <div>
+                <h1 className="text-2xl font-black bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  Admin Control
+                </h1>
+                <p className="text-xs text-gray-500 font-medium">Local Skills Job Board</p>
               </div>
             </div>
 
+            {/* Right Actions */}
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => setDarkMode(!darkMode)}
-                className={`p-2.5 rounded-xl ${darkMode ? 'bg-gray-700 text-yellow-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'} transition-all`}
-              >
-                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              <button className="relative p-3 hover:bg-purple-50 rounded-xl transition-all group">
+                <Bell className="w-5 h-5 text-gray-600 group-hover:text-purple-600 transition-colors" />
+                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
               </button>
 
-              <button className={`relative p-2.5 rounded-xl transition-all ${darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'}`}>
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
-
-              <button className={`relative p-2.5 rounded-xl transition-all ${darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'}`}>
-                <MessageSquare className="w-5 h-5" />
-                <span className="absolute top-1 right-1 bg-blue-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
+              <button className="relative p-3 hover:bg-purple-50 rounded-xl transition-all group">
+                <MessageSquare className="w-5 h-5 text-gray-600 group-hover:text-purple-600 transition-colors" />
+                <span className="absolute top-1.5 right-1.5 bg-purple-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
                   5
                 </span>
               </button>
 
-              <div className="relative group">
-                <button className="flex items-center gap-2 p-2 pr-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all">
-                  <div className="w-9 h-9 bg-gradient-to-br from-red-500 to-rose-600 rounded-xl flex items-center justify-center text-white font-bold">
-                    {admin.avatar}
-                  </div>
-                  <ChevronDown className={`w-4 h-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
-                </button>
+              <div className="w-px h-8 bg-gray-200"></div>
 
-                <div className={`absolute right-0 mt-2 w-56 rounded-xl shadow-xl border py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all ${
-                  darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-                }`}>
-                  <div className={`px-4 py-3 border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-                    <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{admin.name}</p>
-                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{admin.email}</p>
-                  </div>
-                  <button className={`w-full px-4 py-2 text-left flex items-center gap-3 ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'}`}>
-                    <Settings className="w-4 h-4" />
-                    Settings
-                  </button>
-                  <div className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'} mt-2 pt-2`}>
-                    <button className={`w-full px-4 py-2 text-left flex items-center gap-3 ${darkMode ? 'hover:bg-red-500/10 text-red-400' : 'hover:bg-red-50 text-red-600'}`}>
-                      <LogOut className="w-4 h-4" />
-                      Logout
-                    </button>
-                  </div>
+              <div className="flex items-center gap-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl px-4 py-2 shadow-lg shadow-purple-500/30 cursor-pointer hover:shadow-xl transition-all group">
+                <div className="w-9 h-9 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center text-white font-bold">
+                  AD
                 </div>
+                <div>
+                  <p className="text-white font-semibold text-sm">Admin User</p>
+                  <p className="text-white/80 text-xs">Super Admin</p>
+                </div>
+                <LogOut className="w-4 h-4 text-white/80 group-hover:text-white transition-colors ml-2" />
               </div>
             </div>
           </div>
         </div>
       </nav>
 
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} transition-all duration-300 overflow-hidden border-r ${
-          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        }`}>
-          <div className="p-6 space-y-6">
-            {/* Quick Stats */}
-            <div>
-              <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                System Overview
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-red-50'}`}>
-                  <Users className={`w-5 h-5 mb-1 ${darkMode ? 'text-red-400' : 'text-red-600'}`} />
-                  <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {mockStats.totalUsers}
-                  </p>
-                  <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Users</p>
+      {/* Main Content */}
+      <div className="relative max-w-7xl mx-auto px-6 py-8">
+        {/* Welcome Banner */}
+        <div className="mb-8 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 rounded-3xl p-8 text-white shadow-2xl shadow-purple-500/50 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full -ml-24 -mb-24"></div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-4">
+              <Crown className="w-8 h-8 animate-bounce" />
+              <h2 className="text-3xl font-black">Welcome Back, Admin! 👋</h2>
+            </div>
+            <p className="text-white/90 text-lg mb-6">
+              You have {mockStats.pendingApprovals} pending approvals and {mockStats.newUsersToday} new users today!
+            </p>
+            <div className="flex gap-3">
+              <button className="bg-white text-purple-600 px-6 py-3 rounded-xl font-bold hover:bg-white/90 transition-all flex items-center gap-2 shadow-lg">
+                <Rocket className="w-5 h-5" />
+                Review Approvals
+              </button>
+              <button className="bg-white/20 backdrop-blur-sm text-white px-6 py-3 rounded-xl font-bold hover:bg-white/30 transition-all">
+                View Analytics
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Total Users */}
+          <div className="group bg-white rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all duration-500 border-2 border-transparent hover:border-purple-300 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-200 to-transparent rounded-full -mr-16 -mt-16 opacity-50 group-hover:scale-150 transition-transform duration-500"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-lg shadow-purple-500/50 group-hover:scale-110 transition-transform">
+                  <Users className="w-6 h-6 text-white" />
                 </div>
-                <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-blue-50'}`}>
-                  <Briefcase className={`w-5 h-5 mb-1 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                  <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {mockStats.activeJobs}
-                  </p>
-                  <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Active Jobs</p>
+                <div className="flex items-center gap-1 text-green-600 text-sm font-bold">
+                  <TrendingUp className="w-4 h-4" />
+                  +{mockStats.newUsersToday}
                 </div>
+              </div>
+              <p className="text-gray-500 text-sm font-semibold mb-1">Total Users</p>
+              <p className="text-4xl font-black text-gray-900 mb-2">{mockStats.totalUsers.toLocaleString()}</p>
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+                  <div className="bg-gradient-to-r from-purple-500 to-pink-500 h-1.5 rounded-full" style={{width: '75%'}}></div>
+                </div>
+                <span className="font-semibold">75%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Employers */}
+          <div className="group bg-white rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all duration-500 border-2 border-transparent hover:border-pink-300 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-pink-200 to-transparent rounded-full -mr-16 -mt-16 opacity-50 group-hover:scale-150 transition-transform duration-500"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl shadow-lg shadow-pink-500/50 group-hover:scale-110 transition-transform">
+                  <Building2 className="w-6 h-6 text-white" />
+                </div>
+                <Sparkles className="w-5 h-5 text-pink-500 animate-pulse" />
+              </div>
+              <p className="text-gray-500 text-sm font-semibold mb-1">Employers</p>
+              <p className="text-4xl font-black text-gray-900 mb-2">{mockStats.totalEmployers}</p>
+              <p className="text-xs text-pink-600 font-bold">
+                {Math.round((mockStats.totalEmployers / mockStats.totalUsers) * 100)}% of total users
+              </p>
+            </div>
+          </div>
+
+          {/* Employees */}
+          <div className="group bg-white rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all duration-500 border-2 border-transparent hover:border-blue-300 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-200 to-transparent rounded-full -mr-16 -mt-16 opacity-50 group-hover:scale-150 transition-transform duration-500"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg shadow-blue-500/50 group-hover:scale-110 transition-transform">
+                  <UserCheck className="w-6 h-6 text-white" />
+                </div>
+                <Star className="w-5 h-5 text-yellow-500 animate-spin-slow" />
+              </div>
+              <p className="text-gray-500 text-sm font-semibold mb-1">Employees</p>
+              <p className="text-4xl font-black text-gray-900 mb-2">{mockStats.totalEmployees}</p>
+              <p className="text-xs text-blue-600 font-bold">
+                {Math.round((mockStats.totalEmployees / mockStats.totalUsers) * 100)}% of total users
+              </p>
+            </div>
+          </div>
+
+          {/* Active Jobs */}
+          <div className="group bg-white rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all duration-500 border-2 border-transparent hover:border-orange-300 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-200 to-transparent rounded-full -mr-16 -mt-16 opacity-50 group-hover:scale-150 transition-transform duration-500"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl shadow-lg shadow-orange-500/50 group-hover:scale-110 transition-transform">
+                  <Briefcase className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex items-center gap-1 text-orange-600 text-sm font-bold">
+                  <Zap className="w-4 h-4" />
+                  +{mockStats.newJobsToday}
+                </div>
+              </div>
+              <p className="text-gray-500 text-sm font-semibold mb-1">Active Jobs</p>
+              <p className="text-4xl font-black text-gray-900 mb-2">{mockStats.activeJobs}</p>
+              <p className="text-xs text-orange-600 font-bold">Posted today: {mockStats.newJobsToday}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Users List */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-2xl font-black text-gray-900 mb-1">User Management</h3>
+                  <p className="text-gray-500 text-sm">Manage all platform users</p>
+                </div>
+                <button className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2">
+                  <Download className="w-4 h-4" />
+                  Export
+                </button>
+              </div>
+
+              {/* Search & Filter */}
+              <div className="flex gap-3 mb-6">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search users by name or email..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent focus:border-purple-500 rounded-xl outline-none transition-all font-medium"
+                  />
+                </div>
+                <select
+                  value={selectedFilter}
+                  onChange={(e) => setSelectedFilter(e.target.value)}
+                  className="px-6 py-4 bg-gray-50 border-2 border-transparent focus:border-purple-500 rounded-xl outline-none font-semibold cursor-pointer"
+                >
+                  <option value="all">All Users</option>
+                  <option value="employee">Employees</option>
+                  <option value="employer">Employers</option>
+                  <option value="pending">Pending</option>
+                </select>
+              </div>
+
+              {/* Users Grid */}
+              <div className="space-y-4">
+                {mockUsers.map((user, index) => (
+                  <div
+                    key={user.id}
+                    className="group bg-gradient-to-br from-gray-50 to-white p-5 rounded-2xl border-2 border-gray-100 hover:border-purple-300 hover:shadow-lg transition-all duration-300"
+                    style={{animationDelay: `${index * 100}ms`}}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-lg ${
+                          user.type === 'employee' 
+                            ? 'bg-gradient-to-br from-blue-500 to-indigo-600' 
+                            : 'bg-gradient-to-br from-purple-500 to-pink-600'
+                        }`}>
+                          {user.name.substring(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-bold text-gray-900 text-lg">{user.name}</h4>
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                              user.type === 'employee'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-purple-100 text-purple-700'
+                            }`}>
+                              {user.type}
+                            </span>
+                            {user.status === 'pending' && (
+                              <span className="flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-bold animate-pulse">
+                                <Clock className="w-3 h-3" />
+                                Pending
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-gray-600 text-sm">{user.email}</p>
+                          <p className="text-gray-400 text-xs mt-1">
+                            Joined {user.joinDate} • Active {user.lastActive}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {user.status === 'active' && (
+                          <div className="flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-700 rounded-lg">
+                            <CheckCircle className="w-4 h-4" />
+                            <span className="text-xs font-bold">Active</span>
+                          </div>
+                        )}
+                        <button className="p-2 hover:bg-purple-50 rounded-lg transition-all group-hover:scale-110">
+                          <Eye className="w-5 h-5 text-gray-400 hover:text-purple-600" />
+                        </button>
+                        <button className="p-2 hover:bg-purple-50 rounded-lg transition-all group-hover:scale-110">
+                          <Edit className="w-5 h-5 text-gray-400 hover:text-blue-600" />
+                        </button>
+                        <button className="p-2 hover:bg-red-50 rounded-lg transition-all group-hover:scale-110">
+                          <Trash2 className="w-5 h-5 text-gray-400 hover:text-red-600" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button className="w-full mt-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 rounded-2xl font-bold text-gray-700 transition-all flex items-center justify-center gap-2 group">
+                View All Users
+                <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Pending Approvals */}
+            <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-3xl p-6 text-white shadow-2xl shadow-orange-500/50 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl animate-pulse">
+                    <AlertCircle className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-black">Pending Actions</h3>
+                </div>
+                <div className="space-y-3 mb-6">
+                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-bold">New Employers</span>
+                      <span className="bg-white text-orange-600 text-sm font-black px-3 py-1 rounded-full">3</span>
+                    </div>
+                    <p className="text-white/80 text-sm">Awaiting verification</p>
+                  </div>
+                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-bold">Job Postings</span>
+                      <span className="bg-white text-orange-600 text-sm font-black px-3 py-1 rounded-full">5</span>
+                    </div>
+                    <p className="text-white/80 text-sm">Content review needed</p>
+                  </div>
+                </div>
+                <button className="w-full bg-white text-orange-600 py-3 rounded-xl font-black hover:bg-white/90 transition-all shadow-lg flex items-center justify-center gap-2">
+                  Review Now
+                  <ArrowUpRight className="w-5 h-5" />
+                </button>
               </div>
             </div>
 
-            {/* Navigation */}
-            <div>
-              <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                Navigation
+            {/* Quick Stats */}
+            <div className="bg-white rounded-3xl p-6 shadow-xl border border-gray-100">
+              <h3 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
+                <BarChart3 className="w-6 h-6 text-purple-600" />
+                Quick Stats
               </h3>
-              <div className="space-y-1">
-                <NavItem icon={Home} label="Overview" id="overview" />
-                <NavItem icon={Users} label="User Management" id="users" badge={mockStats.newUsersToday} />
-                <NavItem icon={Building2} label="Employers" id="employers" />
-                <NavItem icon={UserCheck} label="Employees" id="employees" />
-                <NavItem icon={Briefcase} label="Job Postings" id="jobs" badge={mockStats.newJobsToday} />
-                <NavItem icon={FileText} label="Applications" id="applications" />
-                <NavItem icon={AlertCircle} label="Pending Approvals" id="approvals" badge={mockStats.pendingApprovals} />
-                <NavItem icon={BarChart3} label="Analytics" id="analytics" />
-                <NavItem icon={Settings} label="System Settings" id="settings" />
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-sm font-semibold text-gray-600">Success Rate</span>
+                    <span className="text-sm font-black text-gray-900">89%</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                    <div className="bg-gradient-to-r from-green-500 to-emerald-600 h-3 rounded-full shadow-lg" style={{width: '89%'}}></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-sm font-semibold text-gray-600">User Satisfaction</span>
+                    <span className="text-sm font-black text-gray-900">94%</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full shadow-lg" style={{width: '94%'}}></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-sm font-semibold text-gray-600">Platform Growth</span>
+                    <span className="text-sm font-black text-gray-900">76%</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                    <div className="bg-gradient-to-r from-purple-500 to-pink-600 h-3 rounded-full shadow-lg" style={{width: '76%'}}></div>
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* System Status */}
-            <div className={`p-4 rounded-xl ${
-              darkMode ? 'bg-gradient-to-br from-emerald-600 to-green-600' : 'bg-gradient-to-br from-emerald-500 to-green-600'
-            } text-white`}>
-              <div className="flex items-center gap-2 mb-2">
-                <Activity className="w-5 h-5" />
-                <h3 className="font-bold">System Status</h3>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-white/90">Server</span>
-                  <span className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                    Online
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-white/90">Database</span>
-                  <span className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                    Connected
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-white/90">API</span>
-                  <span className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                    Running
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 p-8 overflow-auto">
-          <div className="max-w-7xl mx-auto space-y-8">
-            {/* Header */}
-            <div>
-              <h1 className={`text-3xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                Dashboard Overview
-              </h1>
-              <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-                Monitor and manage all platform activities
-              </p>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className={`rounded-2xl border p-6 hover:shadow-xl transition-all group ${
-                darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-              }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                    <Users className="w-6 h-6 text-white" />
-                  </div>
-                  <Zap className="w-5 h-5 text-blue-500" />
-                </div>
-                <p className={`text-sm font-medium mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Total Users
-                </p>
-                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {mockStats.totalUsers}
-                </p>
-                <p className="text-xs text-emerald-600 font-semibold mt-2">
-                  ↑ {mockStats.newUsersToday} new today
-                </p>
-              </div>
-
-              <div className={`rounded-2xl border p-6 hover:shadow-xl transition-all group ${
-                darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-              }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                    <Building2 className="w-6 h-6 text-white" />
-                  </div>
-                  <Target className="w-5 h-5 text-purple-500" />
-                </div>
-                <p className={`text-sm font-medium mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Employers
-                </p>
-                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {mockStats.totalEmployers}
-                </p>
-                <p className="text-xs text-blue-600 font-semibold mt-2">
-                  {Math.round((mockStats.totalEmployers / mockStats.totalUsers) * 100)}% of users
-                </p>
-              </div>
-
-              <div className={`rounded-2xl border p-6 hover:shadow-xl transition-all group ${
-                darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-              }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-500 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                    <UserCheck className="w-6 h-6 text-white" />
-                  </div>
-                  <Award className="w-5 h-5 text-emerald-500" />
-                </div>
-                <p className={`text-sm font-medium mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Employees
-                </p>
-                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {mockStats.totalEmployees}
-                </p>
-                <p className="text-xs text-emerald-600 font-semibold mt-2">
-                  {Math.round((mockStats.totalEmployees / mockStats.totalUsers) * 100)}% of users
-                </p>
-              </div>
-
-              <div className={`rounded-2xl border p-6 hover:shadow-xl transition-all group ${
-                darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-              }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                    <Briefcase className="w-6 h-6 text-white" />
-                  </div>
-                  <TrendingUp className="w-5 h-5 text-amber-500" />
-                </div>
-                <p className={`text-sm font-medium mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Active Jobs
-                </p>
-                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {mockStats.activeJobs}
-                </p>
-                <p className="text-xs text-amber-600 font-semibold mt-2">
-                  ↑ {mockStats.newJobsToday} posted today
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Recent Users Table */}
-              <div className="lg:col-span-2">
-                <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${darkMode ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
-                        <Users className={`w-5 h-5 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                      </div>
-                      <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Recent Users
-                      </h2>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} />
-                        <input
-                          type="text"
-                          placeholder="Search users..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className={`pl-10 pr-4 py-2 rounded-lg border text-sm ${
-                            darkMode 
-                              ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-500'
-                              : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400'
-                          }`}
-                        />
-                      </div>
-                      <select
-                        value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
-                        className={`px-3 py-2 rounded-lg border text-sm ${
-                          darkMode
-                            ? 'bg-gray-700 border-gray-600 text-white'
-                            : 'bg-white border-gray-200 text-gray-900'
-                        }`}
-                      >
-                        <option value="all">All Users</option>
-                        <option value="employee">Employees</option>
-                        <option value="employer">Employers</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    {mockUsers.map(user => {
-                      const statusBadge = getStatusBadge(user.status);
-                      const StatusIcon = statusBadge.Icon;
-
-                      return (
-                        <div
-                          key={user.id}
-                          className={`p-4 rounded-xl border transition-all ${
-                            darkMode 
-                              ? 'bg-gray-700/50 border-gray-600 hover:bg-gray-700'
-                              : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold shadow-lg ${
-                                user.type === 'employee' 
-                                  ? 'bg-gradient-to-br from-blue-500 to-indigo-600'
-                                  : 'bg-gradient-to-br from-purple-500 to-pink-600'
-                              }`}>
-                                {user.name.substring(0, 2).toUpperCase()}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h3 className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                    {user.name}
-                                  </h3>
-                                  <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
-                                    user.type === 'employee'
-                                      ? darkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700'
-                                      : darkMode ? 'bg-purple-500/20 text-purple-400' : 'bg-purple-100 text-purple-700'
-                                  }`}>
-                                    {user.type}
-                                  </span>
-                                </div>
-                                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                  {user.email}
-                                </p>
-                                <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'} mt-1`}>
-                                  Joined {user.joinDate} • Last active {user.lastActive}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-3">
-                              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${statusBadge.color}`}>
-                                <StatusIcon className="w-3.5 h-3.5" />
-                                {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
-                              </span>
-
-                              <div className="relative group/menu">
-                                <button className={`p-2 rounded-lg transition-colors ${
-                                  darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
-                                }`}>
-                                  <MoreVertical className="w-5 h-5" />
-                                </button>
-                                <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl border py-2 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-10 ${
-                                  darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-                                }`}>
-                                  <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                    darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
-                                  }`}>
-                                    <Eye className="w-4 h-4" />
-                                    View Details
-                                  </button>
-                                  <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                    darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
-                                  }`}>
-                                    <Edit className="w-4 h-4" />
-                                    Edit User
-                                  </button>
-                                  <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                    darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
-                                  }`}>
-                                    <Mail className="w-4 h-4" />
-                                    Send Message
-                                  </button>
-                                  <div className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'} my-2`}></div>
-                                  {user.status === 'active' ? (
-                                    <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                      darkMode ? 'hover:bg-amber-500/10 text-amber-400' : 'hover:bg-amber-50 text-amber-600'
-                                    }`}>
-                                      <Ban className="w-4 h-4" />
-                                      Suspend User
-                                    </button>
-                                  ) : (
-                                    <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                      darkMode ? 'hover:bg-emerald-500/10 text-emerald-400' : 'hover:bg-emerald-50 text-emerald-600'
-                                    }`}>
-                                      <CheckCircle className="w-4 h-4" />
-                                      Activate User
-                                    </button>
-                                  )}
-                                  <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                    darkMode ? 'hover:bg-red-500/10 text-red-400' : 'hover:bg-red-50 text-red-600'
-                                  }`}>
-                                    <Trash2 className="w-4 h-4" />
-                                    Delete User
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <button className={`w-full mt-4 py-3 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${
-                    darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                  }`}>
-                    View All Users
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Sidebar - Stats & Actions */}
-              <div className="space-y-6">
-                {/* Pending Approvals */}
-                <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className={`p-2 rounded-lg ${darkMode ? 'bg-amber-500/20' : 'bg-amber-100'}`}>
-                      <AlertCircle className={`w-5 h-5 ${darkMode ? 'text-amber-400' : 'text-amber-600'}`} />
-                    </div>
-                    <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      Pending Approvals
-                    </h3>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className={`p-3 rounded-lg ${darkMode ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-200'} border`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`text-sm font-semibold ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>
-                          New Employers
-                        </span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                          darkMode ? 'bg-amber-500 text-white' : 'bg-amber-600 text-white'
-                        }`}>
-                          3
-                        </span>
-                      </div>
-                      <p className={`text-xs ${darkMode ? 'text-amber-300' : 'text-amber-600'}`}>
-                        Pending company verification
-                      </p>
-                    </div>
-
-                    <div className={`p-3 rounded-lg ${darkMode ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-200'} border`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`text-sm font-semibold ${darkMode ? 'text-blue-400' : 'text-blue-700'}`}>
-                          Job Postings
-                        </span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                          darkMode ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'
-                        }`}>
-                          5
-                        </span>
-                      </div>
-                      <p className={`text-xs ${darkMode ? 'text-blue-300' : 'text-blue-600'}`}>
-                        Awaiting content review
-                      </p>
-                    </div>
-
-                    <button className="w-full py-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg hover:from-red-700 hover:to-rose-700 transition-all font-semibold text-sm flex items-center justify-center gap-2">
-                      Review All
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Recent Activity */}
-                <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className={`p-2 rounded-lg ${darkMode ? 'bg-green-500/20' : 'bg-green-100'}`}>
-                      <Activity className={`w-5 h-5 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
-                    </div>
-                    <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      Recent Activity
-                    </h3>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className={`p-3 rounded-xl border ${
-                      darkMode ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-200'
-                    }`}>
-                      <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-lg ${darkMode ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
-                          <Users className={`w-4 h-4 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                        </div>
-                        <div className="flex-1">
-                          <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                            New User Registered
-                          </p>
-                          <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            Jane Smith joined as employee
-                          </p>
-                          <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'} mt-1`}>
-                            5 minutes ago
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className={`p-3 rounded-xl border ${
-                      darkMode ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-200'
-                    }`}>
-                      <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-lg ${darkMode ? 'bg-emerald-500/20' : 'bg-emerald-100'}`}>
-                          <Briefcase className={`w-4 h-4 ${darkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
-                        </div>
-                        <div className="flex-1">
-                          <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                            Job Posted
-                          </p>
-                          <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            Senior Developer at TechCorp
-                          </p>
-                          <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'} mt-1`}>
-                            1 hour ago
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className={`p-3 rounded-xl border ${
-                      darkMode ? 'bg-purple-500/10 border-purple-500/20' : 'bg-purple-50 border-purple-200'
-                    }`}>
-                      <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-lg ${darkMode ? 'bg-purple-500/20' : 'bg-purple-100'}`}>
-                          <Building2 className={`w-4 h-4 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-                        </div>
-                        <div className="flex-1">
-                          <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                            Company Verified
-                          </p>
-                          <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            StartupXYZ approved
-                          </p>
-                          <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'} mt-1`}>
-                            3 hours ago
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quick Actions */}
-                <div className={`rounded-2xl border p-6 ${
-                  darkMode ? 'bg-gradient-to-br from-red-600 to-rose-600' : 'bg-gradient-to-br from-red-500 to-rose-600'
-                } text-white`}>
-                  <div className="flex items-center gap-2 mb-4">
-                    <Zap className="w-5 h-5" />
-                    <h3 className="text-lg font-bold">Quick Actions</h3>
-                  </div>
-
-                  <div className="space-y-2">
-                    <button className="w-full py-2.5 bg-white/20 backdrop-blur-sm rounded-lg hover:bg-white/30 transition-all font-medium text-sm flex items-center justify-center gap-2">
-                      <Download className="w-4 h-4" />
-                      Export Data
-                    </button>
-                    <button className="w-full py-2.5 bg-white/20 backdrop-blur-sm rounded-lg hover:bg-white/30 transition-all font-medium text-sm flex items-center justify-center gap-2">
-                      <Upload className="w-4 h-4" />
-                      Import Users
-                    </button>
-                    <button className="w-full py-2.5 bg-white/20 backdrop-blur-sm rounded-lg hover:bg-white/30 transition-all font-medium text-sm flex items-center justify-center gap-2">
-                      <Database className="w-4 h-4" />
-                      Backup Database
-                    </button>
-                  </div>
-                </div>
-
-                {/* Platform Stats */}
-                <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className={`p-2 rounded-lg ${darkMode ? 'bg-indigo-500/20' : 'bg-indigo-100'}`}>
-                      <PieChart className={`w-5 h-5 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
-                    </div>
-                    <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      Platform Metrics
-                    </h3>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                          Applications Success Rate
-                        </span>
-                        <span className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                          68%
-                        </span>
-                      </div>
-                      <div className={`w-full rounded-full h-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
-                        <div className="bg-gradient-to-r from-emerald-500 to-green-500 h-2 rounded-full" style={{ width: '68%' }}></div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                          Employer Satisfaction
-                        </span>
-                        <span className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                          85%
-                        </span>
-                      </div>
-                      <div className={`w-full rounded-full h-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
-                        <div className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full" style={{ width: '85%' }}></div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                          Platform Uptime
-                        </span>
-                        <span className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                          99.9%
-                        </span>
-                      </div>
-                      <div className={`w-full rounded-full h-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
-                        <div className="bg-gradient-to-r from-emerald-500 to-green-500 h-2 rounded-full" style={{ width: '99.9%' }}></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Recent Jobs Table */}
-            <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${darkMode ? 'bg-purple-500/20' : 'bg-purple-100'}`}>
-                    <Briefcase className={`w-5 h-5 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-                  </div>
-                  <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                    Recent Job Postings
-                  </h2>
-                </div>
-                <button className="text-blue-600 hover:text-blue-700 font-semibold text-sm flex items-center gap-2 group">
-                  View All
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </button>
-              </div>
-
+            <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-3xl p-6 text-white shadow-2xl shadow-green-500/50">
+              <h3 className="text-xl font-black mb-4 flex items-center gap-2">
+                <Activity className="w-6 h-6 animate-pulse" />
+                System Status
+              </h3>
               <div className="space-y-3">
-                {mockJobs.map(job => {
-                  const statusBadge = getStatusBadge(job.status);
-                  const StatusIcon = statusBadge.Icon;
-
-                  return (
-                    <div
-                      key={job.id}
-                      className={`p-4 rounded-xl border transition-all ${
-                        darkMode 
-                          ? 'bg-gray-700/50 border-gray-600 hover:bg-gray-700'
-                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
-                            {job.company.substring(0, 2)}
-                          </div>
-                          <div className="flex-1">
-                            <h3 className={`font-bold mb-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                              {job.title}
-                            </h3>
-                            <div className={`flex items-center gap-4 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                              <span className="flex items-center gap-1">
-                                <Building2 className="w-4 h-4" />
-                                {job.company}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Users className="w-4 h-4" />
-                                {job.applications} applications
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-4 h-4" />
-                                {job.postedDate}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${statusBadge.color}`}>
-                            <StatusIcon className="w-3.5 h-3.5 inline mr-1" />
-                            {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-                          </span>
-
-                          <div className="relative group/menu">
-                            <button className={`p-2 rounded-lg transition-colors ${
-                              darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
-                            }`}>
-                              <MoreVertical className="w-5 h-5" />
-                            </button>
-                            <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl border py-2 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-10 ${
-                              darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-                            }`}>
-                              <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
-                              }`}>
-                                <Eye className="w-4 h-4" />
-                                View Details
-                              </button>
-                              <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
-                              }`}>
-                                <Edit className="w-4 h-4" />
-                                Edit Job
-                              </button>
-                              <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                darkMode ? 'hover:bg-amber-500/10 text-amber-400' : 'hover:bg-amber-50 text-amber-600'
-                              }`}>
-                                {job.status === 'active' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                                {job.status === 'active' ? 'Pause' : 'Resume'} Job
-                              </button>
-                              <div className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'} my-2`}></div>
-                              <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                darkMode ? 'hover:bg-red-500/10 text-red-400' : 'hover:bg-red-50 text-red-600'
-                              }`}>
-                                <Trash2 className="w-4 h-4" />
-                                Delete Job
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                <div className="flex items-center justify-between bg-white/20 backdrop-blur-sm rounded-xl p-3">
+                  <span className="font-bold">Server</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                    <span className="text-sm font-bold">Online</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between bg-white/20 backdrop-blur-sm rounded-xl p-3">
+                  <span className="font-bold">Database</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                    <span className="text-sm font-bold">Connected</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between bg-white/20 backdrop-blur-sm rounded-xl p-3">
+                  <span className="font-bold">API</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                    <span className="text-sm font-bold">Running</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </main>
+        </div>
       </div>
+
+      <style>{`
+        @keyframes blob {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          25% { transform: translate(20px, -50px) scale(1.1); }
+          50% { transform: translate(-20px, 20px) scale(0.9); }
+          75% { transform: translate(50px, 50px) scale(1.05); }
+        }
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+        .animate-pulse-slow {
+          animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        .animate-spin-slow {
+          animation: spin 3s linear infinite;
+        }
+      `}</style>
     </div>
   );
 };

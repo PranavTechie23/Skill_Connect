@@ -8,6 +8,13 @@
       "when": 1759590684534,
       "tag": "0000_previous_lord_hawal",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1760196766252,
+      "tag": "0001_cheerful_goblin_queen",
+      "breakpoints": true
     }
   ]
 }
