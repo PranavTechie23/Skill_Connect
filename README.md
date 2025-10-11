@@ -16,102 +16,68 @@ SkillConnect is a modern, full-stack job platform designed to connect skilled pr
 - **Secure Authentication:** Robust authentication with password hashing and session management.
 - **RESTful API:** A well-structured backend API built with Express and Node.js.
 
-## 🛠️ Tech Stack
+## Stack
+- Frontend: React, TypeScript, TailwindCSS, Radix UI
+- Backend: Node.js, Express
+- Database: PostgreSQL via Drizzle ORM
 
-### Frontend
+## Prerequisites
+- Node.js 18+
+- PostgreSQL 14+
 
-- **Framework:** React with TypeScript
-- **Build Tool:** Vite
-- **Styling:** Tailwind CSS with shadcn/ui
-- **UI Components:** Radix UI
-- **Animations:** Framer Motion
-- **Routing:** React Router
+## Setup
+1) Install dependencies:
+```bash
+npm install
+```
+2) Create `.env` in the project root:
+```env
+PORT=5000
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/graphicgenie
+# For managed Postgres with SSL:
+# PGSSLMODE=require
+# DATABASE_SSL=true
+```
+3) Create the database:
+```sql
+CREATE DATABASE graphicgenie;
+```
+4) Generate and push schema:
+```bash
+npm run db:generate
+npm run db:push
+```
 
-### Backend
+## Development
+```bash
+npm run dev
+```
+- App served at http://127.0.0.1:5000
 
-- **Framework:** Express.js with TypeScript
-- **Database:** PostgreSQL
-- **ORM:** Drizzle ORM
-- **Authentication:** bcrypt for password hashing, express-session for session management
-- **Validation:** Zod
+## Production
+```bash
+npm run build
+npm start
+```
 
-## 🚀 Getting Started
+## Deploy
+- Recommended single deploy (Railway/Render/Fly):
+  - Set `DATABASE_URL` (and `PGSSLMODE=require` if needed)
+  - Expose port 5000
+- Split deploy (Vercel/Netlify + external API):
+  - Build client: `npm run build`, deploy `server/public` as static
+  - Deploy API to Railway/Render with `npm start`
+  - Optionally wire a `VITE_API_URL` for the client; I can add this if requested
 
-Follow these instructions to get a copy of the project up and running on your local machine for development and testing purposes.
+## Security Notes
+- Passwords are hashed with bcrypt
+- Optional Postgres SSL via `PGSSLMODE=require` or `DATABASE_SSL=true`
+- You can add a migration enabling `pgcrypto` and RLS for stricter isolation. Create `migrations/0001_security.sql` with policies and run `npm run db:push`.
 
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) (v18 or later recommended)
-- [npm](https://www.npmjs.com/)
-- [PostgreSQL](https://www.postgresql.org/)
-
-### 1. Installation
-
-1.  **Clone the repository:**
-    ```sh
-    git clone <your-repository-url>
-    cd <repository-folder>
-    ```
-
-2.  **Install dependencies for all workspaces:**
-    ```sh
-    npm install
-    cd client && npm install
-    cd ../server && npm install
-    ```
-
-### 2. Database Setup
-
-1.  **Start your PostgreSQL server.**
-
-2.  **Create a new database.** For example, `skillconnect`.
-
-3.  **Configure the database connection:**
-    Create a `.env` file in the `server` directory and add your database connection string:
-    ```env
-    DATABASE_URL="postgresql://<user>:<password>@<host>:<port>/<database>"
-    ```
-    Example:
-    ```env
-    DATABASE_URL="postgresql://user:pass@localhost:5432/skillconnect"
-    ```
-
-4.  **Run database migrations:**
-    The project uses Drizzle ORM for database management. Run the following command from the **root** directory to apply the schema changes to your database:
-    ```sh
-    npm run db:push
-    ```
-    *Note: `db:push` is great for development. For production, you might want to use `db:generate` and `db:migrate`.*
-
-### 3. Running the Application
-
-1.  **Start the backend server:**
-    From the **root** directory:
-    ```sh
-    npm run dev:server
-    ```
-    The server will start on the port configured in `server/src/index.ts` (e.g., 3000).
-
-2.  **Start the frontend client:**
-    In a **new terminal**, from the **root** directory:
-    ```sh
-    npm run dev:client
-    ```
-    The client will start on `http://localhost:5173` (or another port if 5173 is busy).
-
-3.  **Open the application:**
-    Open your browser and navigate to the address provided by the Vite development server.
-
-## 🤝 Contributing
-
-Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
-
-1.  Fork the Project
-2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4.  Push to the Branch (`git push origin feature/AmazingFeature`)
-5.  Open a Pull Request
-
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
+## Scripts
+- `npm run dev` – dev server
+- `npm run build` – build client and bundle server
+- `npm start` – start production server
+- `npm run db:generate` – generate migrations
+- `npm run db:push` – push schema
+ 68b2fa9 (Normalize line endings)
