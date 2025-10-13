@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/components/theme-provider';
 import {
   Search, MapPin, Bookmark, Bell, MessageSquare, User, FileText,
   TrendingUp, Clock, CheckCircle, XCircle, Briefcase, Filter,
@@ -124,7 +125,8 @@ const mockApplications: Application[] = [
 ];
 
 const EmployeeDashboard: React.FC = () => {
-  const [darkMode, setDarkMode] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const darkMode = theme === 'dark';
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
@@ -462,7 +464,15 @@ const EmployeeDashboard: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-3">
-
+              <button
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className={`p-2.5 rounded-xl transition-all ${
+                  darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+                title={`Switch to ${darkMode ? 'light' : 'dark'} mode`}
+              >
+                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
 
               <div className="relative">
                 <button 

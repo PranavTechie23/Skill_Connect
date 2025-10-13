@@ -244,13 +244,13 @@ export default function App() {
   return (
     <ErrorBoundary>
       <React.Suspense fallback={<AppLoading />}>
-        <Router>
-          <AuthProvider>
-            <SavedJobsProvider> {/* Add this if using saved jobs context */}
-              <AppContent />
-            </SavedJobsProvider>
-          </AuthProvider>
-        </Router>
+          <Router>
+            <AuthProvider>
+              <SavedJobsProvider>
+                <AppContent />
+              </SavedJobsProvider>
+            </AuthProvider>
+          </Router>
       </React.Suspense>
     </ErrorBoundary>
   );
