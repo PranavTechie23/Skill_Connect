@@ -204,32 +204,52 @@ const EmployeeDashboard: React.FC = () => {
     return configs[status as keyof typeof configs] || configs.pending;
   };
 
-  const NavItem = ({ icon: Icon, label, id, badge }: any) => (
-    <button
-      onClick={() => setActiveTab(id)}
-      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all group ${
-        activeTab === id
-          ? darkMode
-            ? 'bg-blue-500/20 text-blue-400'
-            : 'bg-blue-50 text-blue-700'
-          : darkMode
-          ? 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-      }`}
-    >
-      <div className="flex items-center gap-3">
-        <Icon className="w-5 h-5" />
-        <span className="font-medium">{label}</span>
-      </div>
-      {badge && (
-        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-          darkMode ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'
-        }`}>
-          {badge}
-        </span>
-      )}
-    </button>
-  );
+  const NavItem = ({ icon: Icon, label, id, badge }: any) => {
+    // Map sidebar ids to employee routes
+    const routeMap: Record<string, string> = {
+      overview: '/employee/dashboard',
+      jobs: '/employee/jobs',
+      applications: '/employee/applications',
+      saved: '/employee/saved-jobs',
+      messages: '/employee/messages',
+      profile: '/employee/profile',
+      story: '/employee/story',
+      settings: '/employee/settings'
+    };
+    
+    const handleNavClick = () => {
+      setActiveTab(id);
+      const to = routeMap[id] || '/employee/dashboard';
+      navigate(to);
+    };
+
+    return (
+      <button
+        onClick={handleNavClick}
+        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all group ${
+          activeTab === id
+            ? darkMode
+              ? 'bg-blue-500/20 text-blue-400'
+              : 'bg-blue-50 text-blue-700'
+            : darkMode
+            ? 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <Icon className="w-5 h-5" />
+          <span className="font-medium">{label}</span>
+        </div>
+        {badge && (
+          <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+            darkMode ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'
+          }`}>
+            {badge}
+          </span>
+        )}
+      </button>
+    );
+  };
 
   const JobCard: React.FC<{ job: Job }> = ({ job }) => {
     const isSaved = savedJobs.includes(job.id);
@@ -371,7 +391,7 @@ const EmployeeDashboard: React.FC = () => {
   }
 
   return (
-    <div className={`min-h-screen w-screen transition-colors duration-300 ${
+    <div className={`min-h-screen w-screen transition-colors duration-300 fixed inset-0 ${
       darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50'
     } overflow-x-hidden`}>
   {/* Top Navbar */}
@@ -473,12 +493,12 @@ const EmployeeDashboard: React.FC = () => {
         </div>
       </nav>
 
-  <div className="flex mt-16">
+  <div className="flex mt-16 relative">
         {/* Sidebar */}
-        <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} transition-all duration-300 overflow-hidden border-r ${
+        <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} h-[calc(100vh-4rem)] sticky top-16 transition-all duration-300 overflow-hidden border-r ${
           darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
         }`}>
-          <div className="p-6 space-y-6">
+          <div className="p-6 space-y-6 h-full overflow-y-auto">
             {/* Quick Stats */}
             <div>
               <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${
@@ -546,8 +566,8 @@ const EmployeeDashboard: React.FC = () => {
         </aside>
 
         {/* Main Content */}
-  <main className="flex-1 px-0 overflow-auto">
-          <div className="w-full space-y-8">
+        <main className="flex-1 px-6 py-6 overflow-y-auto min-h-[calc(100vh-4rem)]">
+          <div className="max-w-7xl mx-auto space-y-8">
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className={`rounded-2xl shadow-lg p-6 border hover:shadow-xl transition-all group ${

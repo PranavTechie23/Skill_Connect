@@ -28,11 +28,11 @@ export default function App() {
     const isAdminRoute = /^\/admin(\/|$)/.test(location.pathname);
 
     return (
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen w-screen flex flex-col overflow-x-hidden">
         {/* Hide global Navbar on employee and admin dashboard routes to show specialized layouts */}
         {!(isEmployeeRoute || isAdminRoute) && <Navbar />}
   {/* only add top padding when the global Navbar is shown */}
-  <main className={"flex-1 " + (isEmployeeRoute || isAdminRoute ? "" : "pt-20")}>
+  <main className={"flex-1 " + (isEmployeeRoute || isAdminRoute ? "p-0" : "pt-20")}>
           <Routes>
               {/* Public routes */}
               <Route path="/" element={<Home />} />

@@ -1,6 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import Applications from './applications';
-import JobSearch from './job-search';
+import JobSearch from './browse-jobs';
 import Profile from './profile';
 import Home from '../home';
 

@@ -140,32 +140,52 @@ const EmployerDashboard: React.FC = () => {
     return colors[status as keyof typeof colors] || colors.active;
   };
 
-  const NavItem = ({ icon: Icon, label, id, badge }: any) => (
-    <button
-      onClick={() => setActiveTab(id)}
-      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all group ${
-        activeTab === id
-          ? darkMode
-            ? 'bg-blue-500/20 text-blue-400'
-            : 'bg-blue-50 text-blue-700'
-          : darkMode
-          ? 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-      }`}
-    >
-      <div className="flex items-center gap-3">
-        <Icon className="w-5 h-5" />
-        <span className="font-medium">{label}</span>
-      </div>
-      {badge && (
-        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-          darkMode ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'
-        }`}>
-          {badge}
-        </span>
-      )}
-    </button>
-  );
+  const NavItem = ({ icon: Icon, label, id, badge }: any) => {
+    // Map sidebar ids to employer routes
+    const routeMap: Record<string, string> = {
+      overview: '/employer/dashboard',
+      jobs: '/employer/jobs',
+      applications: '/employer/applications',
+      candidates: '/employer/candidates',
+      messages: '/employer/messages',
+      analytics: '/employer/analytics',
+      stories: '/employer/stories',
+      settings: '/employer/settings'
+    };
+    
+    const handleNavClick = () => {
+      setActiveTab(id);
+      const to = routeMap[id] || '/employer/dashboard';
+      navigate(to);
+    };
+
+    return (
+      <button
+        onClick={handleNavClick}
+        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all group ${
+          activeTab === id
+            ? darkMode
+              ? 'bg-blue-500/20 text-blue-400'
+              : 'bg-blue-50 text-blue-700'
+            : darkMode
+            ? 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <Icon className="w-5 h-5" />
+          <span className="font-medium">{label}</span>
+        </div>
+        {badge && (
+          <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+            darkMode ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'
+          }`}>
+            {badge}
+          </span>
+        )}
+      </button>
+    );
+  };
 
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -180,7 +200,7 @@ const EmployerDashboard: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen w-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} overflow-x-hidden`}>
+    <div className={`min-h-screen w-screen transition-colors duration-300 fixed inset-0 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} overflow-x-hidden`}>
   {/* Top Navbar */}
   <nav className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b fixed top-0 left-0 right-0 z-50 backdrop-blur-lg bg-opacity-80`}>
         <div className="px-0 py-4">
@@ -264,10 +284,10 @@ const EmployerDashboard: React.FC = () => {
         </div>
       </nav>
 
-  <div className="flex mt-16">
+  <div className="flex mt-16 relative">
         {/* Sidebar */}
-        <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} ${darkMode ? 'bg-gray-800' : 'bg-white'} border-r ${darkMode ? 'border-gray-700' : 'border-gray-200'} transition-all duration-300 overflow-hidden`}>
-          <div className="p-6 space-y-6">
+        <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} h-[calc(100vh-4rem)] sticky top-16 ${darkMode ? 'bg-gray-800' : 'bg-white'} border-r ${darkMode ? 'border-gray-700' : 'border-gray-200'} transition-all duration-300 overflow-hidden`}>
+          <div className="p-6 space-y-6 h-full overflow-y-auto">
             {/* Quick Stats */}
             <div>
               <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -318,8 +338,8 @@ const EmployerDashboard: React.FC = () => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 px-0 overflow-auto">
-          <div className="w-full space-y-8">
+        <main className="flex-1 px-6 py-6 overflow-y-auto min-h-[calc(100vh-4rem)]">
+          <div className="max-w-7xl mx-auto space-y-8">
             {/* Header */}
             <div>
               <h1 className={`text-3xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
