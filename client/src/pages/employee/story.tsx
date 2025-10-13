@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 const StoriesPage = () => {
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
   const [showCreateStory, setShowCreateStory] = useState(false);
   const [activeStory, setActiveStory] = useState(null);
   const [newStory, setNewStory] = useState({
@@ -531,15 +531,38 @@ const StoriesPage = () => {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className={`text-3xl font-black ${
-              darkMode ? 'text-white' : 'bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent'
-            }`}>
-              Stories
-            </h1>
-            <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-              Share moments and connect with your team
-            </p>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => window.history.back()}
+              className={`p-2 rounded-lg transition-all ${
+                darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'
+              }`}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className={`w-6 h-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
+                />
+              </svg>
+            </button>
+            <div>
+              <h1 className={`text-3xl font-black ${
+                darkMode ? 'text-white' : 'bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent'
+              }`}>
+                Stories
+              </h1>
+              <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                Share moments and connect with your team
+              </p>
+            </div>
           </div>
           
           <div className="flex items-center gap-3">

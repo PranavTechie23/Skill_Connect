@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 
 const EmployeeMessages: React.FC = () => {
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
   const [selectedChat, setSelectedChat] = useState('1');
   const [messageInput, setMessageInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -305,15 +305,29 @@ const EmployeeMessages: React.FC = () => {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className={`text-3xl font-black ${
-              darkMode ? 'text-white' : 'bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent'
-            }`}>
-              Messages
-            </h1>
-            <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-              Connect and collaborate with your team
-            </p>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => window.history.back()}
+              className={`p-2 rounded-xl transition-all ${
+                darkMode
+                  ? 'hover:bg-gray-700 text-gray-400'
+                  : 'hover:bg-gray-100 text-gray-600'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+            </button>
+            <div>
+              <h1 className={`text-3xl font-black ${
+                darkMode ? 'text-white' : 'bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent'
+              }`}>
+                Messages
+              </h1>
+              <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                Connect and collaborate with your team
+              </p>
+            </div>
           </div>
           
           <div className="flex items-center gap-3">
