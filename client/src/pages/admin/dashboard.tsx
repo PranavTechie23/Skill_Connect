@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '@/components/theme-provider';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -126,7 +127,9 @@ const mockJobs: Job[] = [
 ];
 
 const AdminDashboard: React.FC = () => {
-  const [darkMode, setDarkMode] = useState(false);
+  // use global theme provider so toggling here applies across the app
+  const { theme, setTheme } = useTheme();
+  const darkMode = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
@@ -315,7 +318,7 @@ const AdminDashboard: React.FC = () => {
 
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setDarkMode(!darkMode)}
+                onClick={() => setTheme(darkMode ? 'light' : 'dark')}
                 className={`p-2.5 rounded-xl ${darkMode ? 'bg-gray-700 text-yellow-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'} transition-all`}
               >
                 {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}

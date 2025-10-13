@@ -89,6 +89,18 @@ const requireAuth = (req: any, res: any, next: any) => {
   next();
 };
 
+const requireAdmin = async (req: any, res: any, next: any) => {
+  if (!req.session?.userId) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+
+  // Check if user is admin (hardcoded check for demo)
+  if (req.session.userId !== 'admin-001') {
+    return res.status(403).json({ message: "Not authorized. Admin access required." });
+  }
+  next();
+};
+
 const sanitizeUser = (user: any) => {
   const { password, ...sanitizedUser } = user;
   return sanitizedUser;
@@ -701,19 +713,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin routes (simplified for demo)
-  app.get("/api/admin/stats", requireAuth, async (req, res) => {
+  // Admin routes
+  // Get all users
+  app.get("/api/admin/users", requireAdmin, async (req, res) => {
     try {
-      // In a real app, you'd check if user is admin
+      const users = await storage.getAllUsers();
+      res.json(users.map(sanitizeUser));
+    } catch (error) {
+      handleError(res, error, "Failed to fetch users");
+    }
+  });
+
+  // Get specific user
+  app.get("/api/admin/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(sanitizeUser(user));
+    } catch (error) {
+      handleError(res, error, "Failed to fetch user");
+    }
+  });
+
+  // Create new user
+  app.post("/api/admin/users", requireAdmin, async (req, res) => {
+    try {
+      const data = registerSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(data.email);
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+
+      const hashedPassword = await bcrypt.hash(data.password, 10);
+      
+      const user = await storage.createUser({
+        ...data,
+        password: hashedPassword,
+        skills: Array.isArray(data.skills) ? data.skills : [],
+      });
+
+      res.status(201).json(sanitizeUser(user));
+    } catch (error) {
+      handleError(res, error, "Failed to create user");
+    }
+  });
+
+  // Update user
+  app.put("/api/admin/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const updates = updateUserSchema.parse(req.body);
+      
+      // If updating password, hash it
+      if (updates.password) {
+        updates.password = await bcrypt.hash(updates.password, 10);
+      }
+
+      const user = await storage.updateUser(req.params.id, updates);
+      res.json(sanitizeUser(user));
+    } catch (error) {
+      handleError(res, error, "Failed to update user");
+    }
+  });
+
+  // Delete user
+  app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
+    try {
+      // Don't allow deleting the admin user
+      if (req.params.id === 'admin-001') {
+        return res.status(403).json({ message: "Cannot delete admin user" });
+      }
+
+      await storage.deleteUser(req.params.id);
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      handleError(res, error, "Failed to delete user");
+    }
+  });
+
+  // Admin statistics
+  app.get("/api/admin/stats", requireAdmin, async (req, res) => {
+    try {
+      const [users, jobs, companies, applications] = await Promise.all([
+        storage.getAllUsers(),
+        storage.getJobs(),
+        storage.getAllCompanies(),
+        storage.getApplicationsByJob("all"),
+      ]);
+
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
       const stats = {
-        totalUsers: 150,
-        activeJobs: 12,
-        totalCompanies: 3,
-        totalApplications: 25,
-        newUsersThisWeek: 3,
-        newJobsThisWeek: 5,
-        newCompaniesThisWeek: 1,
-        newApplicationsThisWeek: 8
+        totalUsers: users.length,
+        activeJobs: jobs.filter(job => job.isActive).length,
+        totalCompanies: companies.length,
+        totalApplications: applications.length,
+        newUsersThisWeek: users.filter(user => new Date(user.createdAt) >= oneWeekAgo).length,
+        newJobsThisWeek: jobs.filter(job => new Date(job.createdAt) >= oneWeekAgo).length,
+        newCompaniesThisWeek: companies.filter(company => new Date(company.createdAt) >= oneWeekAgo).length,
+        newApplicationsThisWeek: applications.filter(app => new Date(app.appliedAt) >= oneWeekAgo).length
       };
       
       res.json(stats);

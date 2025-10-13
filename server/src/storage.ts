@@ -98,6 +98,15 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  async deleteUser(id: string | number): Promise<void> {
+    const nid = typeof id === 'string' ? parseInt(id, 10) : id;
+    await db.delete(users).where(eq(users.id, nid as number));
+  }
+
   // Companies
   async getCompany(id: string | number): Promise<Company | undefined> {
     const nid = typeof id === 'string' ? parseInt(id, 10) : id;
@@ -127,6 +136,11 @@ export class DatabaseStorage implements IStorage {
       .returning();
     if (!company) throw new Error("Company not found");
     return company;
+  }
+
+  async deleteCompany(id: string | number): Promise<void> {
+    const nid = typeof id === 'string' ? parseInt(id, 10) : id;
+    await db.delete(companies).where(eq(companies.id, nid as number));
   }
 
   // Jobs
@@ -202,6 +216,11 @@ export class DatabaseStorage implements IStorage {
       .returning();
     if (!job) throw new Error("Job not found");
     return job;
+  }
+
+  async deleteJob(id: string | number): Promise<void> {
+    const nid = typeof id === 'string' ? parseInt(id, 10) : id;
+    await db.delete(jobs).where(eq(jobs.id, nid as number));
   }
 
   // Applications

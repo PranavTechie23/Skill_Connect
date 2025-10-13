@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import AdminBackButton from '@/components/AdminBackButton';
+import { useTheme } from '@/components/theme-provider';
 import { Building2, Search, Plus, Edit, Trash2, MoreVertical, Mail, Calendar, MapPin, Users, TrendingUp, Eye, Award, Briefcase, Globe } from 'lucide-react';
 
 export default function Employers() {
@@ -151,13 +153,18 @@ export default function Employers() {
     return matchesSearch && matchesFilter;
   });
 
+  const { theme } = useTheme();
+
+  const darkMode = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
+              <div className="mr-4"><AdminBackButton /></div>
               <div className="bg-gradient-to-br from-purple-400 to-purple-600 p-4 rounded-2xl shadow-lg">
                 <Building2 className="w-8 h-8 text-white" />
               </div>
@@ -239,7 +246,7 @@ export default function Employers() {
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-bold text-gray-900 text-lg">{company.name}</h3>
                         {company.verified && (
-                          <Award className="w-5 h-5 text-blue-500" title="Verified Company" />
+                          <Award className="w-5 h-5 text-blue-500" aria-label="Verified Company" />
                         )}
                       </div>
                       <p className="text-gray-500 text-sm flex items-center gap-1 mb-1">

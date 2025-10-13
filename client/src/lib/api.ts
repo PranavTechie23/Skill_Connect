@@ -1,8 +1,7 @@
 // API configuration
-// FIX: Changed default port from 5001 to 5000 to match the running backend server.
-// In development, default to localhost:5000 so Vite proxy issues or missing env don't block requests
-// API_BASE_URL: only use when explicitly provided via VITE_API_URL.
-// In development prefer relative paths so Vite's dev-server proxy can forward requests.
+// In development, use relative paths to let Vite's dev-server proxy (localhost:5001) handle requests
+// API_BASE_URL: only use when explicitly provided via VITE_API_URL
+// In production, API_BASE_URL should be set to the actual API server URL
 export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "";
 
 export const apiFetch = (url: string, options?: RequestInit) => {
