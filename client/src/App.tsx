@@ -31,7 +31,8 @@ export default function App() {
       <div className="min-h-screen flex flex-col">
         {/* Hide global Navbar on employee and admin dashboard routes to show specialized layouts */}
         {!(isEmployeeRoute || isAdminRoute) && <Navbar />}
-  <main className={"flex-1 " + (isAdminRoute ? "" : "pt-20")}>
+  {/* only add top padding when the global Navbar is shown */}
+  <main className={"flex-1 " + (isEmployeeRoute || isAdminRoute ? "" : "pt-20")}>
           <Routes>
               {/* Public routes */}
               <Route path="/" element={<Home />} />

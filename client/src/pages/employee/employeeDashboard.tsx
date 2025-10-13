@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import AdminBackButton from '@/components/AdminBackButton';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import {
-  Search, MapPin, Bookmark, Bell, MessageSquare, User, FileText, 
-  TrendingUp, Clock, CheckCircle, XCircle, Briefcase, Filter, Plus, 
-  Settings, Mail, Star, ArrowRight, LogOut, ChevronDown, Zap, Target, 
-  Award, Heart, ExternalLink, Moon, Sun, Menu, X, Home, BarChart3,
+  Search, MapPin, Bookmark, Bell, MessageSquare, User, FileText,
+  TrendingUp, Clock, CheckCircle, XCircle, Briefcase, Filter,
+  Settings, Star, ArrowRight, LogOut, ChevronDown, Zap, Target,
+  Award, Heart, Moon, Sun, Menu, X, Home, BarChart3,
   Upload, Calendar, Building2
 } from 'lucide-react';
 
@@ -128,7 +129,7 @@ const EmployeeDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
   const [recentApplications, setRecentApplications] = useState<Application[]>([]);
-  const [stats, setStats] = useState<UserStats>({
+  const [stats] = useState<UserStats>({
     totalApplications: 12,
     pendingApplications: 3,
     interviewInvitations: 2,
@@ -148,6 +149,18 @@ const EmployeeDashboard: React.FC = () => {
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (e) {
+      console.warn('Logout failed:', e);
+    }
+    navigate('/', { replace: true });
+  };
 
   const fetchDashboardData = async () => {
     setTimeout(() => {
@@ -358,17 +371,15 @@ const EmployeeDashboard: React.FC = () => {
   }
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${
+    <div className={`min-h-screen w-screen transition-colors duration-300 ${
       darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50'
-    }`}>
-      {/* Top Navbar */}
-      <nav className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white/80 border-gray-200'} backdrop-blur-lg border-b sticky top-0 z-50`}>
-        <div className="px-6 py-4">
+    } overflow-x-hidden`}>
+  {/* Top Navbar */}
+  <nav className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white/80 border-gray-200'} backdrop-blur-lg border-b fixed top-0 left-0 right-0 z-50`}>
+        <div className="px-0 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-                    <div className="mr-3">
-                      <AdminBackButton fallback="/employee" className="!px-2 !py-1" />
-                    </div>
+                    {/* back button removed */}
                     <button
                       onClick={() => setSidebarOpen(!sidebarOpen)}
                       className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`}
@@ -448,7 +459,7 @@ const EmployeeDashboard: React.FC = () => {
                     Settings
                   </button>
                   <div className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'} mt-2 pt-2`}>
-                    <button className={`w-full px-4 py-2 text-left flex items-center gap-3 ${
+                    <button onClick={handleLogout} className={`w-full px-4 py-2 text-left flex items-center gap-3 ${
                       darkMode ? 'hover:bg-red-500/10 text-red-400' : 'hover:bg-red-50 text-red-600'
                     }`}>
                       <LogOut className="w-4 h-4" />
@@ -462,7 +473,7 @@ const EmployeeDashboard: React.FC = () => {
         </div>
       </nav>
 
-      <div className="flex">
+  <div className="flex mt-16">
         {/* Sidebar */}
         <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} transition-all duration-300 overflow-hidden border-r ${
           darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
@@ -507,6 +518,8 @@ const EmployeeDashboard: React.FC = () => {
                 <NavItem icon={Bookmark} label="Saved Jobs" id="saved" badge={savedJobs.length} />
                 <NavItem icon={MessageSquare} label="Messages" id="messages" badge="2" />
                 <NavItem icon={User} label="Profile" id="profile" />
+                <NavItem icon={TrendingUp} label="Story" id="story" />
+                <NavItem icon={Settings} label="Settings" id="settings" />
               </div>
             </div>
 
@@ -533,8 +546,8 @@ const EmployeeDashboard: React.FC = () => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-8 overflow-auto">
-          <div className="max-w-7xl mx-auto space-y-8">
+  <main className="flex-1 px-0 overflow-auto">
+          <div className="w-full space-y-8">
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className={`rounded-2xl shadow-lg p-6 border hover:shadow-xl transition-all group ${
@@ -717,7 +730,7 @@ const EmployeeDashboard: React.FC = () => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {recommendedJobs.map(job => (
                   <JobCard key={job.id} job={job} />
                 ))}

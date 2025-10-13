@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Briefcase, Users, TrendingUp, Clock, Search, Plus, MoreVertical, 
   MapPin, DollarSign, Calendar, Eye, Mail, MessageSquare, Bell, 
@@ -165,11 +167,23 @@ const EmployerDashboard: React.FC = () => {
     </button>
   );
 
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (e) {
+      console.warn('Logout failed:', e);
+    }
+    navigate('/', { replace: true });
+  };
+
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} transition-colors duration-300`}>
-      {/* Top Navbar */}
-      <nav className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b sticky top-0 z-50 backdrop-blur-lg bg-opacity-80`}>
-        <div className="px-6 py-4">
+    <div className={`min-h-screen w-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} overflow-x-hidden`}>
+  {/* Top Navbar */}
+  <nav className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b fixed top-0 left-0 right-0 z-50 backdrop-blur-lg bg-opacity-80`}>
+        <div className="px-0 py-4">
           <div className="flex items-center justify-between">
             {/* Left side */}
             <div className="flex items-center gap-4">
@@ -219,15 +233,15 @@ const EmployerDashboard: React.FC = () => {
               <div className="relative group">
                 <button className="flex items-center gap-2 p-2 pr-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all">
                   <div className="w-9 h-9 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center text-white font-bold">
-                    A
+                    HR
                   </div>
                   <ChevronDown className={`w-4 h-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
                 </button>
 
                 <div className={`absolute right-0 mt-2 w-56 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-xl shadow-xl border py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all`}>
                   <div className={`px-4 py-3 border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-                    <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Admin User</p>
-                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>admin@techcorp.com</p>
+                    <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>HR</p>
+                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>hr@techcorp.com</p>
                   </div>
                   <button className={`w-full px-4 py-2 text-left flex items-center gap-3 ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'}`}>
                     <User className="w-4 h-4" />
@@ -238,7 +252,7 @@ const EmployerDashboard: React.FC = () => {
                     Settings
                   </button>
                   <div className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'} mt-2 pt-2`}>
-                    <button className={`w-full px-4 py-2 text-left flex items-center gap-3 ${darkMode ? 'hover:bg-red-500/10 text-red-400' : 'hover:bg-red-50 text-red-600'}`}>
+                    <button onClick={handleLogout} className={`w-full px-4 py-2 text-left flex items-center gap-3 ${darkMode ? 'hover:bg-red-500/10 text-red-400' : 'hover:bg-red-50 text-red-600'}`}>
                       <LogOut className="w-4 h-4" />
                       Logout
                     </button>
@@ -250,7 +264,7 @@ const EmployerDashboard: React.FC = () => {
         </div>
       </nav>
 
-      <div className="flex">
+  <div className="flex mt-16">
         {/* Sidebar */}
         <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} ${darkMode ? 'bg-gray-800' : 'bg-white'} border-r ${darkMode ? 'border-gray-700' : 'border-gray-200'} transition-all duration-300 overflow-hidden`}>
           <div className="p-6 space-y-6">
@@ -285,6 +299,8 @@ const EmployerDashboard: React.FC = () => {
                 <NavItem icon={Star} label="Candidates" id="candidates" />
                 <NavItem icon={MessageSquare} label="Messages" id="messages" badge="3" />
                 <NavItem icon={BarChart3} label="Analytics" id="analytics" />
+                <NavItem icon={TrendingUp} label="Stories" id="stories" />
+                <NavItem icon={Settings} label="Settings" id="settings" />
               </div>
             </div>
 
@@ -302,8 +318,8 @@ const EmployerDashboard: React.FC = () => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-8 overflow-auto">
-          <div className="max-w-7xl mx-auto space-y-8">
+        <main className="flex-1 px-0 overflow-auto">
+          <div className="w-full space-y-8">
             {/* Header */}
             <div>
               <h1 className={`text-3xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
