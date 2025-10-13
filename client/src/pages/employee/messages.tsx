@@ -83,7 +83,20 @@ const EmployeeMessages: React.FC = () => {
     }
   ];
 
-  const messages = {
+  type Message = {
+    id: string;
+    sender: string;
+    content: string;
+    timestamp: string;
+    status: string;
+    type: string;
+  };
+  
+  type Messages = {
+    [key: string]: Message[];
+  };
+  
+  const messages: Messages = {
     '1': [
       {
         id: '1',
@@ -176,7 +189,21 @@ const EmployeeMessages: React.FC = () => {
     console.log('Toggle pin:', chatId);
   };
 
-  const ConversationItem = ({ conversation }) => (
+  type Conversation = {
+    id: string;
+    userId: string;
+    userName: string;
+    userRole: string;
+    userAvatar: string | null;
+    lastMessage: string;
+    timestamp: string;
+    unread: number;
+    isOnline: boolean;
+    isPinned: boolean;
+    lastActive: string;
+  };
+
+  const ConversationItem = ({ conversation }: { conversation: Conversation }) => (
     <div
       onClick={() => setSelectedChat(conversation.id)}
       className={`p-4 rounded-2xl cursor-pointer transition-all ${
@@ -260,7 +287,7 @@ const EmployeeMessages: React.FC = () => {
     </div>
   );
 
-  const MessageBubble = ({ message }) => {
+  const MessageBubble = ({ message }: { message: Message }) => {
     const isOwn = message.sender === 'user1';
     
     return (

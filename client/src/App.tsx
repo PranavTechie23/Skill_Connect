@@ -22,7 +22,7 @@ import SubmitStory from "./pages/submit-story";
 import Dashboards from "./pages/dashboards";
 import EmployeeDashboard from "./pages/employee/dashboard";
 import EmployerDashboard from "./pages/employer/dashboard";
-import Applications from "./pages/applications";
+import EmployeeApplications from "./pages/employee/applications";
 
 // Employee Pages
 import BrowseJobs from "./pages/employee/browse-jobs";
@@ -84,12 +84,12 @@ const routeConfig = {
     { path: ROUTES.PUBLIC.SIGNUP, element: <Signup /> },
     { path: ROUTES.PUBLIC.SUBMIT_STORY, element: <SubmitStory /> },
     { path: ROUTES.PUBLIC.DASHBOARDS, element: <Dashboards /> },
-    { path: ROUTES.PUBLIC.APPLICATIONS, element: <Applications /> }
+    { path: ROUTES.PUBLIC.APPLICATIONS, element: <EmployeeApplications /> }
   ],
   employee: [
     { path: ROUTES.EMPLOYEE.DASHBOARD, element: <EmployeeDashboard /> },
     { path: ROUTES.EMPLOYEE.JOBS, element: <BrowseJobs /> },
-    { path: ROUTES.EMPLOYEE.APPLICATIONS, element: <Applications /> },
+    { path: ROUTES.EMPLOYEE.APPLICATIONS, element: <EmployeeApplications /> },
     { path: ROUTES.EMPLOYEE.SAVED_JOBS, element: <SavedJobs /> },
     { path: ROUTES.EMPLOYEE.MESSAGES, element: <EmployeeMessages /> },
     { path: ROUTES.EMPLOYEE.PROFILE, element: <EmployeeProfile /> },

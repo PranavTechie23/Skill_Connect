@@ -139,6 +139,24 @@ const EmployeeDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [savedJobs, setSavedJobs] = useState<string[]>([]);
+  const [notifications, setNotifications] = useState(() => {
+    const defaultNotifications = [
+      { id: 1, text: 'Your job application was reviewed', read: false, time: '2 hours ago', cleared: false },
+      { id: 2, text: 'New message from TechCorp Inc.', read: false, time: '3 hours ago', cleared: false },
+      { id: 3, text: 'Interview scheduled for tomorrow', read: false, time: '5 hours ago', cleared: false }
+    ];
+    return defaultNotifications;
+  });
+
+  const [messages, setMessages] = useState(() => {
+    const defaultMessages = [
+      { id: 1, from: 'Sarah Chen', text: 'Hi, I reviewed your application...', read: false, time: '1 hour ago', cleared: false },
+      { id: 2, from: 'TechCorp HR', text: 'Thank you for your interest...', read: false, time: '2 hours ago', cleared: false }
+    ];
+    return defaultMessages;
+  });
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showMessages, setShowMessages] = useState(false);
 
   const user = {
     firstName: 'Alex',
@@ -150,12 +168,36 @@ const EmployeeDashboard: React.FC = () => {
     fetchDashboardData();
   }, []);
 
+  // Handle clicking outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.notifications-dropdown') && !target.closest('.messages-dropdown')) {
+        setShowNotifications(false);
+        setShowMessages(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const navigate = useNavigate();
   const { logout } = useAuth();
+
+  const resetNotificationsAndMessages = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: false, cleared: false })));
+    setMessages(prev => prev.map(m => ({ ...m, read: false, cleared: false })));
+    setShowNotifications(false);
+    setShowMessages(false);
+  };
 
   const handleLogout = async () => {
     try {
       await logout();
+      resetNotificationsAndMessages();
     } catch (e) {
       console.warn('Logout failed:', e);
     }
@@ -429,23 +471,229 @@ const EmployeeDashboard: React.FC = () => {
                 {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
 
-              <button className={`relative p-2.5 rounded-xl transition-all ${
-                darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
-              }`}>
-                <Bell className="w-6 h-6" />
-                <span className="absolute top-1 right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shadow-lg">
-                  3
-                </span>
-              </button>
+              <div className="relative">
+                <button 
+                  onClick={() => {
+                    setShowNotifications(!showNotifications);
+                    setShowMessages(false);
+                  }}
+                  className={`relative p-2.5 rounded-xl transition-all ${
+                    darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                  }`}
+                >
+                  <Bell className="w-6 h-6" />
+                  {notifications.filter(n => !n.read && !n.cleared).length > 0 && (
+                    <span className="absolute top-1 right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shadow-lg">
+                      {notifications.filter(n => !n.read && !n.cleared).length}
+                    </span>
+                  )}
+                </button>
 
-              <button className={`relative p-2.5 rounded-xl transition-all ${
-                darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
-              }`}>
-                <MessageSquare className="w-6 h-6" />
-                <span className="absolute top-1 right-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shadow-lg">
-                  2
-                </span>
-              </button>
+                {showNotifications && (
+                  <div className={`absolute right-0 mt-2 w-80 rounded-xl shadow-xl border py-2 z-50 ${
+                    darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                  }`}>
+                    <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
+                      <h3 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                        Notifications
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        {notifications.some(n => !n.read) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent dropdown from closing
+                              const updatedNotifications = notifications.map(n => 
+                                !n.cleared ? { ...n, read: true } : n
+                              );
+                              setNotifications(updatedNotifications);
+                            }}
+                            className="text-sm text-blue-600 hover:text-blue-700 px-2 py-1 rounded"
+                          >
+                            Mark all as read
+                          </button>
+                        )}
+                        {notifications.some(n => !n.cleared) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent dropdown from closing
+                              const updatedNotifications = [...notifications].map(n => ({ ...n, cleared: true }));
+                              setNotifications(updatedNotifications);
+                            }}
+                            className="text-sm text-red-600 hover:text-red-700 px-2 py-1 rounded"
+                          >
+                            Clear all
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {!notifications.some(n => !n.cleared) ? (
+                        <div className="px-4 py-3 text-gray-500 text-sm">
+                          No notifications
+                        </div>
+                      ) : (
+                        notifications.filter(n => !n.cleared).map((notification) => (
+                          <div
+                            key={notification.id}
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent dropdown from closing
+                              if (!notification.cleared) {
+                                const updatedNotifications = notifications.map(n => 
+                                  n.id === notification.id ? { ...n, read: true } : n
+                                );
+                                setNotifications(updatedNotifications);
+                              }
+                            }}
+                            className={`px-4 py-3 cursor-pointer transition-colors ${
+                              !notification.read
+                                ? darkMode
+                                  ? 'bg-blue-500/10 hover:bg-blue-500/20'
+                                  : 'bg-blue-50 hover:bg-blue-100'
+                                : darkMode
+                                ? 'hover:bg-gray-700'
+                                : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <p className={`text-sm ${!notification.read && 'font-semibold'} ${
+                              darkMode ? 'text-gray-200' : 'text-gray-900'
+                            }`}>
+                              {notification.text}
+                            </p>
+                            <p className={`text-xs mt-1 ${
+                              darkMode ? 'text-gray-400' : 'text-gray-500'
+                            }`}>
+                              {notification.time}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="relative">
+                <button 
+                  onClick={() => {
+                    setShowMessages(!showMessages);
+                    setShowNotifications(false);
+                  }}
+                  className={`relative p-2.5 rounded-xl transition-all ${
+                    darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                  }`}
+                >
+                  <MessageSquare className="w-6 h-6" />
+                  {messages.filter(m => !m.read && !m.cleared).length > 0 && (
+                    <span className="absolute top-1 right-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shadow-lg">
+                      {messages.filter(m => !m.read && !m.cleared).length}
+                    </span>
+                  )}
+                </button>
+
+                {showMessages && (
+                  <div className={`absolute right-0 mt-2 w-80 rounded-xl shadow-xl border py-2 z-50 ${
+                    darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                  }`}>
+                    <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
+                      <h3 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                        Messages
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        {messages.some(m => !m.read) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent dropdown from closing
+                              const updatedMessages = messages.map(m => 
+                                !m.cleared ? { ...m, read: true } : m
+                              );
+                              setMessages(updatedMessages);
+                            }}
+                            className="text-sm text-blue-600 hover:text-blue-700 px-2 py-1 rounded"
+                          >
+                            Mark all as read
+                          </button>
+                        )}
+                        {messages.some(m => !m.cleared) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent dropdown from closing
+                              const updatedMessages = [...messages].map(m => ({ ...m, cleared: true }));
+                              setMessages(updatedMessages);
+                            }}
+                            className="text-sm text-red-600 hover:text-red-700 px-2 py-1 rounded"
+                          >
+                            Clear all
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {!messages.some(m => !m.cleared) ? (
+                        <div className="px-4 py-3 text-gray-500 text-sm">
+                          No messages
+                        </div>
+                      ) : (
+                        messages.filter(m => !m.cleared).map((message) => (
+                          <div
+                            key={message.id}
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent dropdown from closing
+                              if (!message.cleared) {
+                                const updatedMessages = messages.map(m => 
+                                  m.id === message.id ? { ...m, read: true } : m
+                                );
+                                setMessages(updatedMessages);
+                                navigate('/employee/messages');
+                                setShowMessages(false);
+                              }
+                            }}
+                            className={`px-4 py-3 cursor-pointer transition-colors ${
+                              !message.read
+                                ? darkMode
+                                  ? 'bg-blue-500/10 hover:bg-blue-500/20'
+                                  : 'bg-blue-50 hover:bg-blue-100'
+                                : darkMode
+                                ? 'hover:bg-gray-700'
+                                : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <p className={`text-sm font-semibold ${
+                              darkMode ? 'text-gray-200' : 'text-gray-900'
+                            }`}>
+                              {message.from}
+                            </p>
+                            <p className={`text-sm truncate ${
+                              darkMode ? 'text-gray-400' : 'text-gray-600'
+                            }`}>
+                              {message.text}
+                            </p>
+                            <p className={`text-xs mt-1 ${
+                              darkMode ? 'text-gray-500' : 'text-gray-500'
+                            }`}>
+                              {message.time}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="px-4 py-2 border-t border-gray-200">
+                      <button
+                        onClick={() => {
+                          navigate('/employee/messages');
+                          setShowMessages(false); // Close the dropdown when navigating
+                        }}
+                        className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${
+                          darkMode
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                        }`}
+                      >
+                        View All Messages
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="relative group">
                 <button className="flex items-center gap-2 p-2 pr-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all">
@@ -466,15 +714,21 @@ const EmployeeDashboard: React.FC = () => {
                       {user.email}
                     </p>
                   </div>
-                  <button className={`w-full px-4 py-2 text-left flex items-center gap-3 ${
-                    darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
-                  }`}>
+                  <button
+                    onClick={() => navigate('/employee/profile')}
+                    className={`w-full px-4 py-2 text-left flex items-center gap-3 ${
+                      darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
+                    }`}
+                  >
                     <User className="w-4 h-4" />
                     Profile
                   </button>
-                  <button className={`w-full px-4 py-2 text-left flex items-center gap-3 ${
-                    darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
-                  }`}>
+                  <button
+                    onClick={() => navigate('/employee/settings')}
+                    className={`w-full px-4 py-2 text-left flex items-center gap-3 ${
+                      darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
+                    }`}
+                  >
                     <Settings className="w-4 h-4" />
                     Settings
                   </button>
@@ -558,7 +812,10 @@ const EmployeeDashboard: React.FC = () => {
                   style={{ width: `${stats.profileCompletion}%` }}
                 ></div>
               </div>
-              <button className="w-full py-2 bg-white/20 backdrop-blur-sm rounded-lg hover:bg-white/30 transition-all font-medium text-sm">
+              <button
+                onClick={() => navigate('/employee/profile')}
+                className="w-full py-2 bg-white/20 backdrop-blur-sm rounded-lg hover:bg-white/30 transition-all font-medium text-sm"
+              >
                 Complete Profile
               </button>
             </div>
