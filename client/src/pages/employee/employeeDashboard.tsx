@@ -395,8 +395,8 @@ const EmployeeDashboard: React.FC = () => {
       darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50'
     } overflow-x-hidden`}>
   {/* Top Navbar */}
-  <nav className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white/80 border-gray-200'} backdrop-blur-lg border-b fixed top-0 left-0 right-0 z-50`}>
-        <div className="px-0 py-4">
+  <nav className={`${darkMode ? 'bg-gray-800/95 border-gray-700' : 'bg-white/95 border-gray-200'} backdrop-blur-lg border-b fixed top-0 left-0 right-0 z-50`}>
+        <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
                     {/* back button removed */}
@@ -493,7 +493,7 @@ const EmployeeDashboard: React.FC = () => {
         </div>
       </nav>
 
-  <div className="flex mt-16 relative">
+  <div className="flex mt-[4.5rem] relative">
         {/* Sidebar */}
         <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} h-[calc(100vh-4rem)] sticky top-16 transition-all duration-300 overflow-hidden border-r ${
           darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
@@ -566,7 +566,7 @@ const EmployeeDashboard: React.FC = () => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 px-6 py-6 overflow-y-auto min-h-[calc(100vh-4rem)]">
+        <main className="flex-1 px-6 py-6 overflow-y-auto min-h-[calc(100vh-4.5rem)]">
           <div className="max-w-7xl mx-auto space-y-8">
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

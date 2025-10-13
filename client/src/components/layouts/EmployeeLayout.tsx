@@ -1,11 +1,10 @@
 import React from "react";
+import { Outlet } from "react-router-dom";
 
-export default function EmployeeLayout({ children }: { children: React.ReactNode }) {
+export default function EmployeeLayout() {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="w-full px-4 py-8">
-        <main className="w-full">{children}</main>
-      </div>
+    <div className="min-h-screen w-screen">
+      <Outlet />
     </div>
   );
 }

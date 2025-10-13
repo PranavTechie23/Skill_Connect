@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
+import { useSavedJobs } from '../../contexts/SavedJobsContext';
 import {
-  Search, MapPin, Briefcase, DollarSign, Clock, Bookmark, Heart,
-  TrendingUp, Filter, ChevronDown, Star, Building2, Calendar,
-  ExternalLink, ArrowRight, Zap, Target, Award, Moon, Sun,
-  Users, Eye, CheckCircle, Sparkles, Crown, X
+  Search, MapPin, Briefcase, Heart, TrendingUp, Filter, 
+  ChevronDown, Star, ArrowRight, Zap, Target, Award, 
+  Moon, Sun, Sparkles, Crown, X
 } from 'lucide-react';
 
 interface Job {
@@ -112,20 +112,20 @@ const mockJobs: Job[] = [
 ];
 
 const BrowseJobs: React.FC = () => {
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('all');
-  const [savedJobs, setSavedJobs] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [salaryRange, setSalaryRange] = useState([80, 160]);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const { savedJobs, addJob, removeJob, isJobSaved } = useSavedJobs();
 
-  const toggleSaveJob = (jobId: string) => {
-    setSavedJobs(prev =>
-      prev.includes(jobId)
-        ? prev.filter(id => id !== jobId)
-        : [...prev, jobId]
-    );
+  const toggleSaveJob = (job: Job) => {
+    if (isJobSaved(job.id)) {
+      removeJob(job.id);
+    } else {
+      addJob(job);
+    }
   };
 
   const toggleSkill = (skill: string) => {
@@ -153,7 +153,7 @@ const BrowseJobs: React.FC = () => {
   const allSkills = Array.from(new Set(mockJobs.flatMap(job => job.skills)));
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${
+    <div className={`min-h-screen w-screen fixed inset-0 transition-colors duration-300 overflow-y-auto ${
       darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-50 via-white to-purple-50'
     }`}>
       {/* Header */}
@@ -162,15 +162,29 @@ const BrowseJobs: React.FC = () => {
       } border-b`}>
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className={`text-3xl font-black ${
-                darkMode ? 'text-white' : 'bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent'
-              }`}>
-                Browse Jobs
-              </h1>
-              <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-                Discover opportunities that match your skills
-              </p>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => window.history.back()}
+                className={`p-2 rounded-xl transition-all ${
+                  darkMode
+                    ? 'hover:bg-gray-700 text-gray-400'
+                    : 'hover:bg-gray-100 text-gray-600'
+                }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+              </button>
+              <div>
+                <h1 className={`text-3xl font-black ${
+                  darkMode ? 'text-white' : 'bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent'
+                }`}>
+                  Browse Jobs
+                </h1>
+                <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                  Discover opportunities that match your skills
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-3">
@@ -536,9 +550,9 @@ const BrowseJobs: React.FC = () => {
                       </div>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => toggleSaveJob(job.id)}
+                          onClick={() => toggleSaveJob(job)}
                           className={`p-2.5 border-2 rounded-lg transition-all ${
-                            savedJobs.includes(job.id)
+                            isJobSaved(job.id)
                               ? darkMode
                                 ? 'border-red-500 bg-red-500/20 text-red-400'
                                 : 'border-red-500 bg-red-50 text-red-600'
@@ -547,7 +561,7 @@ const BrowseJobs: React.FC = () => {
                               : 'border-gray-200 hover:border-red-500 hover:bg-red-50 text-gray-400 hover:text-red-600'
                           }`}
                         >
-                          <Heart className={`w-5 h-5 ${savedJobs.includes(job.id) ? 'fill-current' : ''}`} />
+                          <Heart className={`w-5 h-5 ${isJobSaved(job.id) ? 'fill-current' : ''}`} />
                         </button>
                         <button className={`px-5 py-2.5 rounded-lg font-semibold text-sm shadow-lg flex items-center gap-2 group/btn transition-all ${
                           darkMode
