@@ -1,0 +1,17 @@
+{
+  "id": "0002_add_telephone_number",
+  "checksum": "1:899b9748fcb9115b99672b6aa1a0ee92",
+  "operations": [
+    {
+      "addColumn": {
+        "column": {
+          "name": "telephone_number",
+          "type": "text",
+          "notNull": false
+        },
+        "table": "users"
+      }
+    }
+  ],
+  "version": "7"
+}

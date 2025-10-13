@@ -39,7 +39,7 @@ const AdminSettings: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 p-8">
       {/* Header */}
       <div className="max-w-6xl mx-auto mb-8">
         <div className="mb-4">
@@ -53,17 +53,17 @@ const AdminSettings: React.FC = () => {
             <h1 className="text-4xl font-black bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
               System Settings
             </h1>
-            <p className="text-gray-600 mt-1">Manage platform-wide configuration and preferences</p>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">Manage platform-wide configuration and preferences</p>
           </div>
         </div>
 
         {/* Save Success Banner */}
         {savedSuccess && (
-          <div className="bg-green-50 border-2 border-green-500 rounded-2xl p-4 flex items-center gap-3 animate-slide-down">
-            <CheckCircle className="w-6 h-6 text-green-600" />
+          <div className="bg-green-50 dark:bg-green-900/30 border-2 border-green-500 rounded-2xl p-4 flex items-center gap-3 animate-slide-down">
+            <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
             <div>
-              <p className="font-bold text-green-900">Settings Saved Successfully!</p>
-              <p className="text-sm text-green-700">Your changes have been applied.</p>
+              <p className="font-bold text-green-900 dark:text-green-300">Settings Saved Successfully!</p>
+              <p className="text-sm text-green-700 dark:text-green-400">Your changes have been applied.</p>
             </div>
           </div>
         )}
@@ -71,15 +71,15 @@ const AdminSettings: React.FC = () => {
 
       <div className="max-w-6xl mx-auto space-y-6">
         {/* General Settings */}
-        <div className="bg-white rounded-3xl shadow-xl border-2 border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 border-b-2 border-gray-100">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border-2 border-gray-100 dark:border-gray-700 overflow-hidden">
+          <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-gray-700 dark:to-gray-700 p-6 border-b-2 border-gray-100 dark:border-gray-600">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-white rounded-xl shadow-md">
+              <div className="p-3 bg-white dark:bg-gray-800 rounded-xl shadow-md">
                 <Globe className="w-6 h-6 text-purple-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-gray-900">General Settings</h2>
-                <p className="text-gray-600 text-sm">Basic system configuration</p>
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white">General Settings</h2>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">Basic system configuration</p>
               </div>
             </div>
           </div>
@@ -87,36 +87,36 @@ const AdminSettings: React.FC = () => {
           <div className="p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Platform Name</label>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Platform Name</label>
                 <input
                   type="text"
                   defaultValue="SkillConnect Job Board"
-                  className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 outline-none transition-all font-medium"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:border-purple-500 outline-none transition-all font-medium dark:text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Admin Email</label>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Admin Email</label>
                 <input
                   type="email"
                   defaultValue="admin@skillconnect.com"
-                  className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 outline-none transition-all font-medium"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:border-purple-500 outline-none transition-all font-medium dark:text-white"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Platform Description</label>
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Platform Description</label>
               <textarea
                 defaultValue="Connect local job seekers with employers based on skills and location."
                 rows={3}
-                className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 outline-none transition-all font-medium resize-none"
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:border-purple-500 outline-none transition-all font-medium resize-none dark:text-white"
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Default Language</label>
-                <select className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 outline-none transition-all font-medium cursor-pointer">
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Default Language</label>
+                <select className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:border-purple-500 outline-none transition-all font-medium cursor-pointer dark:text-white">
                   <option>English</option>
                   <option>Spanish</option>
                   <option>French</option>
@@ -124,8 +124,8 @@ const AdminSettings: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Timezone</label>
-                <select className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-purple-500 outline-none transition-all font-medium cursor-pointer">
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Timezone</label>
+                <select className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:border-purple-500 outline-none transition-all font-medium cursor-pointer dark:text-white">
                   <option>UTC</option>
                   <option>EST (UTC-5)</option>
                   <option>PST (UTC-8)</option>
@@ -148,38 +148,38 @@ const AdminSettings: React.FC = () => {
         </div>
 
         {/* Notifications */}
-        <div className="bg-white rounded-3xl shadow-xl border-2 border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b-2 border-gray-100">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border-2 border-gray-100 dark:border-gray-700 overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-700 p-6 border-b-2 border-gray-100 dark:border-gray-600">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-white rounded-xl shadow-md">
+              <div className="p-3 bg-white dark:bg-gray-800 rounded-xl shadow-md">
                 <Bell className="w-6 h-6 text-blue-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-gray-900">Notifications & Email</h2>
-                <p className="text-gray-600 text-sm">Configure notification preferences</p>
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white">Notifications & Email</h2>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">Configure notification preferences</p>
               </div>
             </div>
           </div>
           
           <div className="p-6 space-y-6">
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border-2 border-gray-200 hover:border-blue-300 transition-all">
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-2xl border-2 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 transition-all">
                 <div className="flex items-center gap-3">
                   <Mail className="w-5 h-5 text-blue-600" />
                   <div>
-                    <p className="font-bold text-gray-900">Email Notifications</p>
-                    <p className="text-sm text-gray-600">Receive email alerts for important events</p>
+                    <p className="font-bold text-gray-900 dark:text-white">Email Notifications</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Receive email alerts for important events</p>
                   </div>
                 </div>
                 <ToggleSwitch enabled={emailNotifications} onChange={setEmailNotifications} />
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border-2 border-gray-200 hover:border-blue-300 transition-all">
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-2xl border-2 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 transition-all">
                 <div className="flex items-center gap-3">
                   <Smartphone className="w-5 h-5 text-blue-600" />
                   <div>
-                    <p className="font-bold text-gray-900">Push Notifications</p>
-                    <p className="text-sm text-gray-600">Get instant push notifications</p>
+                    <p className="font-bold text-gray-900 dark:text-white">Push Notifications</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Get instant push notifications</p>
                   </div>
                 </div>
                 <ToggleSwitch enabled={pushNotifications} onChange={setPushNotifications} />
@@ -188,19 +188,19 @@ const AdminSettings: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">SMTP Server</label>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">SMTP Server</label>
                 <input
                   type="text"
                   placeholder="smtp.gmail.com"
-                  className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-blue-500 outline-none transition-all font-medium"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:border-blue-500 outline-none transition-all font-medium dark:text-white dark:placeholder-gray-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">SMTP Port</label>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">SMTP Port</label>
                 <input
                   type="text"
                   placeholder="587"
-                  className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-blue-500 outline-none transition-all font-medium"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:border-blue-500 outline-none transition-all font-medium dark:text-white dark:placeholder-gray-500"
                 />
               </div>
             </div>
@@ -240,26 +240,26 @@ const AdminSettings: React.FC = () => {
         </div>
 
         {/* Security */}
-        <div className="bg-white rounded-3xl shadow-xl border-2 border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-red-50 to-rose-50 p-6 border-b-2 border-gray-100">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border-2 border-gray-100 dark:border-gray-700 overflow-hidden">
+          <div className="bg-gradient-to-r from-red-50 to-rose-50 dark:from-gray-700 dark:to-gray-700 p-6 border-b-2 border-gray-100 dark:border-gray-600">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-white rounded-xl shadow-md">
+              <div className="p-3 bg-white dark:bg-gray-800 rounded-xl shadow-md">
                 <Shield className="w-6 h-6 text-red-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-gray-900">Security Settings</h2>
-                <p className="text-gray-600 text-sm">Manage authentication and security</p>
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white">Security Settings</h2>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">Manage authentication and security</p>
               </div>
             </div>
           </div>
           
           <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border-2 border-gray-200 hover:border-red-300 transition-all">
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-2xl border-2 border-gray-200 dark:border-gray-600 hover:border-red-300 dark:hover:border-red-500 transition-all">
               <div className="flex items-center gap-3">
                 <Key className="w-5 h-5 text-red-600" />
                 <div>
-                  <p className="font-bold text-gray-900">Two-Factor Authentication</p>
-                  <p className="text-sm text-gray-600">Add an extra layer of security</p>
+                  <p className="font-bold text-gray-900 dark:text-white">Two-Factor Authentication</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Add an extra layer of security</p>
                 </div>
               </div>
               <ToggleSwitch enabled={twoFactorAuth} onChange={setTwoFactorAuth} />
@@ -267,19 +267,19 @@ const AdminSettings: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Session Timeout (minutes)</label>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Session Timeout (minutes)</label>
                 <input
                   type="number"
                   defaultValue="30"
-                  className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-red-500 outline-none transition-all font-medium"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:border-red-500 outline-none transition-all font-medium dark:text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Max Login Attempts</label>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Max Login Attempts</label>
                 <input
                   type="number"
                   defaultValue="5"
-                  className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-red-500 outline-none transition-all font-medium"
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:border-red-500 outline-none transition-all font-medium dark:text-white"
                 />
               </div>
             </div>
@@ -306,11 +306,11 @@ const AdminSettings: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-4 bg-yellow-50 rounded-2xl border-2 border-yellow-200 flex items-start gap-3">
-              <Info className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/30 rounded-2xl border-2 border-yellow-200 dark:border-yellow-700 flex items-start gap-3">
+              <Info className="w-6 h-6 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-yellow-900">Security Recommendation</p>
-                <p className="text-sm text-yellow-800 mt-1">
+                <p className="font-bold text-yellow-900 dark:text-yellow-300">Security Recommendation</p>
+                <p className="text-sm text-yellow-800 dark:text-yellow-400 mt-1">
                   We recommend enabling two-factor authentication for all admin accounts and regularly reviewing login activity.
                 </p>
               </div>
@@ -319,46 +319,46 @@ const AdminSettings: React.FC = () => {
         </div>
 
         {/* Database & Backup */}
-        <div className="bg-white rounded-3xl shadow-xl border-2 border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 border-b-2 border-gray-100">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border-2 border-gray-100 dark:border-gray-700 overflow-hidden">
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-gray-700 dark:to-gray-700 p-6 border-b-2 border-gray-100 dark:border-gray-600">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-white rounded-xl shadow-md">
+              <div className="p-3 bg-white dark:bg-gray-800 rounded-xl shadow-md">
                 <Database className="w-6 h-6 text-green-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-gray-900">Database & Backup</h2>
-                <p className="text-gray-600 text-sm">Manage data storage and backups</p>
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white">Database & Backup</h2>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">Manage data storage and backups</p>
               </div>
             </div>
           </div>
           
           <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border-2 border-gray-200 hover:border-green-300 transition-all">
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-2xl border-2 border-gray-200 dark:border-gray-600 hover:border-green-300 dark:hover:border-green-500 transition-all">
               <div className="flex items-center gap-3">
                 <Clock className="w-5 h-5 text-green-600" />
                 <div>
-                  <p className="font-bold text-gray-900">Automatic Backups</p>
-                  <p className="text-sm text-gray-600">Daily automated database backups</p>
+                  <p className="font-bold text-gray-900 dark:text-white">Automatic Backups</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Daily automated database backups</p>
                 </div>
               </div>
               <ToggleSwitch enabled={autoBackup} onChange={setAutoBackup} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl border-2 border-blue-200">
-                <Server className="w-8 h-8 text-blue-600 mb-3" />
-                <p className="text-sm font-semibold text-gray-600 mb-1">Database Size</p>
-                <p className="text-2xl font-black text-gray-900">2.4 GB</p>
+              <div className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 rounded-2xl border-2 border-blue-200 dark:border-blue-700">
+                <Server className="w-8 h-8 text-blue-600 dark:text-blue-400 mb-3" />
+                <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">Database Size</p>
+                <p className="text-2xl font-black text-gray-900 dark:text-white">2.4 GB</p>
               </div>
-              <div className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl border-2 border-purple-200">
-                <Activity className="w-8 h-8 text-purple-600 mb-3" />
-                <p className="text-sm font-semibold text-gray-600 mb-1">Total Records</p>
-                <p className="text-2xl font-black text-gray-900">156,892</p>
+              <div className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900 dark:to-purple-800 rounded-2xl border-2 border-purple-200 dark:border-purple-700">
+                <Activity className="w-8 h-8 text-purple-600 dark:text-purple-400 mb-3" />
+                <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">Total Records</p>
+                <p className="text-2xl font-black text-gray-900 dark:text-white">156,892</p>
               </div>
-              <div className="p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-2xl border-2 border-green-200">
-                <Cloud className="w-8 h-8 text-green-600 mb-3" />
-                <p className="text-sm font-semibold text-gray-600 mb-1">Last Backup</p>
-                <p className="text-2xl font-black text-gray-900">2h ago</p>
+              <div className="p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900 dark:to-green-800 rounded-2xl border-2 border-green-200 dark:border-green-700">
+                <Cloud className="w-8 h-8 text-green-600 dark:text-green-400 mb-3" />
+                <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">Last Backup</p>
+                <p className="text-2xl font-black text-gray-900 dark:text-white">2h ago</p>
               </div>
             </div>
 
@@ -376,28 +376,28 @@ const AdminSettings: React.FC = () => {
         </div>
 
         {/* API & Integration */}
-        <div className="bg-white rounded-3xl shadow-xl border-2 border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-orange-50 to-amber-50 p-6 border-b-2 border-gray-100">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border-2 border-gray-100 dark:border-gray-700 overflow-hidden">
+          <div className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-gray-700 dark:to-gray-700 p-6 border-b-2 border-gray-100 dark:border-gray-600">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-white rounded-xl shadow-md">
+              <div className="p-3 bg-white dark:bg-gray-800 rounded-xl shadow-md">
                 <Zap className="w-6 h-6 text-orange-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-gray-900">API & Integration</h2>
-                <p className="text-gray-600 text-sm">Manage API keys and integrations</p>
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white">API & Integration</h2>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">Manage API keys and integrations</p>
               </div>
             </div>
           </div>
           
           <div className="p-6 space-y-6">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">API Key</label>
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">API Key</label>
               <div className="flex gap-3">
                 <input
                   type="text"
                   value="sk_live_51HxY2KJK3m9zJ5..."
                   readOnly
-                  className="flex-1 px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl font-mono text-sm"
+                  className="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl font-mono text-sm dark:text-white"
                 />
                 <button className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl font-bold hover:shadow-lg transition-all">
                   Regenerate
@@ -406,33 +406,33 @@ const AdminSettings: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 border-2 border-gray-200 rounded-2xl hover:border-orange-300 transition-all cursor-pointer">
+              <div className="p-4 border-2 border-gray-200 dark:border-gray-600 rounded-2xl hover:border-orange-300 dark:hover:border-orange-500 transition-all cursor-pointer dark:bg-gray-700">
                 <div className="flex items-center justify-between mb-3">
                   <Package className="w-6 h-6 text-orange-600" />
-                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">Active</span>
+                  <span className="px-3 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded-full text-xs font-bold">Active</span>
                 </div>
-                <p className="font-bold text-gray-900">Payment Gateway</p>
-                <p className="text-sm text-gray-600">Stripe Integration</p>
+                <p className="font-bold text-gray-900 dark:text-white">Payment Gateway</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Stripe Integration</p>
               </div>
-              <div className="p-4 border-2 border-gray-200 rounded-2xl hover:border-orange-300 transition-all cursor-pointer">
+              <div className="p-4 border-2 border-gray-200 dark:border-gray-600 rounded-2xl hover:border-orange-300 dark:hover:border-orange-500 transition-all cursor-pointer dark:bg-gray-700">
                 <div className="flex items-center justify-between mb-3">
                   <Mail className="w-6 h-6 text-orange-600" />
-                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">Active</span>
+                  <span className="px-3 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded-full text-xs font-bold">Active</span>
                 </div>
-                <p className="font-bold text-gray-900">Email Service</p>
-                <p className="text-sm text-gray-600">SendGrid Integration</p>
+                <p className="font-bold text-gray-900 dark:text-white">Email Service</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">SendGrid Integration</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Save Button */}
-        <div className="flex items-center justify-between p-6 bg-white rounded-3xl shadow-xl border-2 border-gray-100">
+        <div className="flex items-center justify-between p-6 bg-white dark:bg-gray-800 rounded-3xl shadow-xl border-2 border-gray-100 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <HelpCircle className="w-6 h-6 text-gray-400" />
             <div>
-              <p className="font-bold text-gray-900">Need Help?</p>
-              <p className="text-sm text-gray-600">Check our documentation or contact support</p>
+              <p className="font-bold text-gray-900 dark:text-white">Need Help?</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Check our documentation or contact support</p>
             </div>
           </div>
           <button

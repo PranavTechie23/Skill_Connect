@@ -7,15 +7,17 @@
     "dev": "cd server && npm run dev",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push:pg",
+    "fix:schema": "tsx scripts/fix-telephone-number.ts",
+    "db:generate": "drizzle-kit generate:pg",
+    "db:migrate": "drizzle-kit push",
+    "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },
   "devDependencies": {
     "@types/pg": "^8.15.5",
     "concurrently": "^8.2.2",
     "drizzle-kit": "^0.31.5",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   },
   "dependencies": {

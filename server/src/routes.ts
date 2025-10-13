@@ -107,14 +107,24 @@ const sanitizeUser = (user: any) => {
 };
 
 const handleError = (res: any, error: any, defaultMessage: string) => {
-  console.error(defaultMessage, error);
+  console.error('Error details:', {
+    message: defaultMessage,
+    error: error instanceof Error ? error.message : String(error),
+    stack: error instanceof Error ? error.stack : undefined
+  });
+
   if (error instanceof z.ZodError) {
     return res.status(400).json({ message: "Validation error", errors: error.issues });
   }
-  // In development, include error.message to aid debugging. In production, keep generic message.
+
+  // Always include error message in development for debugging
   if (process.env.NODE_ENV === 'development') {
-    return res.status(500).json({ message: `${defaultMessage}: ${error?.message || String(error)}` });
+    return res.status(500).json({ 
+      message: defaultMessage,
+      error: error instanceof Error ? error.message : String(error)
+    });
   }
+
   res.status(500).json({ message: defaultMessage });
 };
 
@@ -141,6 +151,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let skillsArr: string[] = [];
 
       try {
+        console.log('Attempting to create user:', { ...data, password: '[REDACTED]' });
+        
         const existingUser = await storage.getUserByEmail(data.email);
         if (existingUser) {
           return res.status(400).json({ message: "User already exists" });
@@ -154,9 +166,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           else if (s.includes('employ')) normalizedUserType = 'Employer';
         }
 
-  if (Array.isArray(data.skills)) skillsArr = data.skills as string[];
-  else if (typeof (data as any).skills === 'string') skillsArr = (data as any).skills.split(',').map((s: string) => s.trim()).filter(Boolean);
+  // Convert skills to a string representation
+  if (Array.isArray(data.skills)) {
+    skillsArr = data.skills;
+  } else if (typeof (data as any).skills === 'string') {
+    skillsArr = (data as any).skills.split(',').map((s: string) => s.trim()).filter(Boolean);
+  } else {
+    skillsArr = [];
+  }
 
+        // Keep skills as an actual array so PG text[] receives an array parameter
         const insertPayload: any = {
           email: data.email,
           userType: normalizedUserType,

@@ -4,7 +4,8 @@
   "type": "commonjs",
   "scripts": {
     "dev": "nodemon --require dotenv/config --watch src --exec \"npx tsx src/index.ts\"",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "fix:db": "tsx scripts/add-telephone-column.ts"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

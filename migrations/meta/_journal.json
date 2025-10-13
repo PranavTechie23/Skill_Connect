@@ -15,6 +15,13 @@
       "when": 1756390746983,
       "tag": "0001_ordinary_hiroim",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1756390846983,
+      "tag": "0002_add_telephone_number",
+      "breakpoints": true
     }
   ]
 }
