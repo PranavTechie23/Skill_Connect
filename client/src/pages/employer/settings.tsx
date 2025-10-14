@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Sun, 
-  Moon, 
   User, 
   Bell, 
   Shield, 
@@ -44,7 +42,7 @@ interface SecuritySettings {
 
 import { useTheme } from "@/components/theme-provider";// Main Settings Component
 const EmployerSettings: React.FC = () => {
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
   const isDarkMode = theme === 'dark';
   const [activeSection, setActiveSection] = useState<string>('profile');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
@@ -151,10 +149,16 @@ const EmployerSettings: React.FC = () => {
   return (
     <div className={`min-h-screen transition-colors duration-300 ${
       isDarkMode 
-        ? 'bg-gray-900 text-white' 
+        ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white' 
         : 'bg-gray-50 text-gray-900'
     }`}>
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      {/* Animated background */}
+      <div className={`fixed inset-0 overflow-hidden pointer-events-none ${isDarkMode ? 'opacity-100' : 'opacity-30'}`}>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+      </div>
+      <div className="container mx-auto px-4 py-8 max-w-6xl relative">
         {/* Back Button */}
         <div className="mb-6">
           <AdminBackButton />
@@ -169,27 +173,6 @@ const EmployerSettings: React.FC = () => {
             }`} />
             <h1 className="text-2xl font-bold">Employer Portal</h1>
           </div>
-          
-          <button
-            onClick={() => setTheme(isDarkMode ? 'light' : 'dark')}
-            className={`flex items-center space-x-3 px-4 py-2 rounded-lg transition-all duration-300 ${
-              isDarkMode
-                ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-            }`}
-          >
-            {isDarkMode ? (
-              <>
-                <Sun className="w-5 h-5" />
-                <span>Light Mode</span>
-              </>
-            ) : (
-              <>
-                <Moon className="w-5 h-5" />
-                <span>Dark Mode</span>
-              </>
-            )}
-          </button>
         </header>
 
         <div className="flex flex-col lg:flex-row gap-8">

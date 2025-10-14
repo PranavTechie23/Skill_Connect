@@ -203,7 +203,13 @@ const EmployerDashboard: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen w-screen transition-colors duration-300 fixed inset-0 ${darkMode ? 'bg-[#0f172a]' : 'bg-gray-50'} overflow-x-hidden`}>
+    <div className={`min-h-screen w-screen transition-colors duration-300 fixed inset-0 ${darkMode ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gray-50'} overflow-x-hidden`}>
+      {/* Animated background */}
+      <div className={`fixed inset-0 overflow-hidden pointer-events-none ${darkMode ? 'opacity-100' : 'opacity-30'}`}>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+      </div>
       {/* Employer Dashboard Navbar */}
       <div className={`fixed top-0 left-0 right-0 z-50 ${darkMode ? 'bg-gray-900/80 backdrop-blur-sm border-gray-800' : 'bg-white/80 backdrop-blur-sm border-gray-200'} border-b`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -293,12 +299,12 @@ const EmployerDashboard: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
                   <Briefcase className="w-5 h-5 mb-1 text-blue-400" />
-                  <p className="text-2xl font-bold text-gray-100">{stats.activeJobs}</p>
+                  <p className={`text-2xl font-bold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>{stats.activeJobs}</p>
                   <p className="text-xs text-gray-400">Active Jobs</p>
                 </div>
                 <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
                   <Users className="w-5 h-5 mb-1 text-purple-400" />
-                  <p className="text-2xl font-bold text-gray-100">{stats.totalApplications}</p>
+                  <p className={`text-2xl font-bold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>{stats.totalApplications}</p>
                   <p className="text-xs text-gray-400">Applications</p>
                 </div>
               </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import AdminBackButton from "@/components/AdminBackButton";
+import { useTheme } from '@/components/theme-provider';
 import { 
   TrendingUp, 
   Users, 
@@ -120,36 +121,39 @@ export default function Analytics() {
     ]
   };
 
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   const StatCard = ({ title, value, change, icon: Icon, trend = 'up' }: any) => (
-    <div className="bg-gray-800/80 border border-gray-700/50 rounded-lg p-6 backdrop-blur-sm hover:shadow-lg transition-all duration-300">
+    <div className={`${isDark ? 'bg-gray-800/80 border-gray-700/50' : 'bg-white border-gray-200'} border rounded-lg p-6 backdrop-blur-sm hover:shadow-lg transition-all duration-300`}>
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-gray-400 text-sm mb-2">{title}</p>
-          <p className="text-2xl font-bold text-white mb-1">{value.toLocaleString()}</p>
+          <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'} text-sm mb-2`}>{title}</p>
+          <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'} mb-1`}>{value.toLocaleString()}</p>
           <div className={`flex items-center space-x-1 text-sm ${
-            trend === 'up' ? 'text-green-400' : 'text-red-400'
+            trend === 'up' ? 'text-green-500' : 'text-red-500'
           }`}>
             <TrendingUp className="w-4 h-4" />
             <span>{change}% from last period</span>
           </div>
         </div>
-        <div className="p-3 bg-blue-600/20 rounded-lg">
-          <Icon className="w-6 h-6 text-blue-400" />
+        <div className={`p-3 ${isDark ? 'bg-blue-600/20' : 'bg-blue-100'} rounded-lg`}>
+          <Icon className={`w-6 h-6 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
         </div>
       </div>
     </div>
   );
 
   const TrafficChart = () => (
-    <div className="bg-gray-800/80 border border-gray-700/50 rounded-lg p-6 backdrop-blur-sm">
+    <div className={`${isDark ? 'bg-gray-800/80 border-gray-700/50' : 'bg-white border-gray-200'} border rounded-lg p-6 backdrop-blur-sm`}>
       <div className="flex justify-between items-center mb-6">
-        <h3 className="text-lg font-semibold text-white">Traffic Overview</h3>
+        <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Traffic Overview</h3>
         <div className="flex items-center space-x-2">
-          <button className="flex items-center space-x-1 px-3 py-1 bg-gray-700 rounded-lg text-sm text-gray-300">
+          <button className={`flex items-center space-x-1 px-3 py-1 ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'} rounded-lg text-sm hover:bg-opacity-80 transition-colors`}>
             <Filter className="w-4 h-4" />
             <span>Filter</span>
           </button>
-          <button className="flex items-center space-x-1 px-3 py-1 bg-gray-700 rounded-lg text-sm text-gray-300">
+          <button className={`flex items-center space-x-1 px-3 py-1 ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'} rounded-lg text-sm hover:bg-opacity-80 transition-colors`}>
             <Download className="w-4 h-4" />
             <span>Export</span>
           </button>
@@ -331,8 +335,14 @@ export default function Analytics() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0f172a]">
-      <div className="container mx-auto p-6 max-w-7xl">
+    <div className={`min-h-screen transition-colors duration-300 ${isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gray-50'}`}>
+      {/* Animated background */}
+      <div className={`fixed inset-0 overflow-hidden pointer-events-none ${isDark ? 'opacity-100' : 'opacity-30'}`}>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+      </div>
+      <div className="container mx-auto p-6 max-w-7xl relative">
         {/* Back Button */}
         <div className="mb-6">
           <AdminBackButton />
@@ -340,14 +350,14 @@ export default function Analytics() {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-100">Analytics Dashboard</h1>
-            <p className="text-gray-400 mt-2">Track your hiring performance and insights</p>
+            <h1 className={`text-3xl font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Analytics Dashboard</h1>
+            <p className={`mt-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Track your hiring performance and insights</p>
           </div>
           <div className="flex items-center space-x-4">
             <select
               value={timeRange}
               onChange={(e) => setTimeRange(e.target.value as any)}
-              className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={`${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'} border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
             >
               <option value="7d">Last 7 days</option>
               <option value="30d">Last 30 days</option>
@@ -411,25 +421,25 @@ export default function Analytics() {
 
         {/* Quick Stats Footer */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-8">
-          <div className="bg-gray-800/80 border border-gray-700/50 rounded-lg p-4 text-center">
-            <Building className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-            <p className="text-gray-400 text-sm">Active Jobs</p>
-            <p className="text-white font-bold text-xl">{analyticsData.overview.activeJobs}</p>
+          <div className={`${isDark ? 'bg-gray-800/80 border-gray-700/50' : 'bg-white border-gray-200'} border rounded-lg p-4 text-center`}>
+            <Building className={`w-8 h-8 ${isDark ? 'text-blue-400' : 'text-blue-600'} mx-auto mb-2`} />
+            <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'} text-sm`}>Active Jobs</p>
+            <p className={`${isDark ? 'text-white' : 'text-gray-900'} font-bold text-xl`}>{analyticsData.overview.activeJobs}</p>
           </div>
-          <div className="bg-gray-800/80 border border-gray-700/50 rounded-lg p-4 text-center">
-            <DollarSign className="w-8 h-8 text-green-400 mx-auto mb-2" />
-            <p className="text-gray-400 text-sm">Cost per Hire</p>
-            <p className="text-white font-bold text-xl">$2,450</p>
+          <div className={`${isDark ? 'bg-gray-800/80 border-gray-700/50' : 'bg-white border-gray-200'} border rounded-lg p-4 text-center`}>
+            <DollarSign className={`w-8 h-8 ${isDark ? 'text-green-400' : 'text-green-600'} mx-auto mb-2`} />
+            <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'} text-sm`}>Cost per Hire</p>
+            <p className={`${isDark ? 'text-white' : 'text-gray-900'} font-bold text-xl`}>$2,450</p>
           </div>
-          <div className="bg-gray-800/80 border border-gray-700/50 rounded-lg p-4 text-center">
-            <Calendar className="w-8 h-8 text-purple-400 mx-auto mb-2" />
-            <p className="text-gray-400 text-sm">Avg. Response Time</p>
-            <p className="text-white font-bold text-xl">2.3 days</p>
+          <div className={`${isDark ? 'bg-gray-800/80 border-gray-700/50' : 'bg-white border-gray-200'} border rounded-lg p-4 text-center`}>
+            <Calendar className={`w-8 h-8 ${isDark ? 'text-purple-400' : 'text-purple-600'} mx-auto mb-2`} />
+            <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'} text-sm`}>Avg. Response Time</p>
+            <p className={`${isDark ? 'text-white' : 'text-gray-900'} font-bold text-xl`}>2.3 days</p>
           </div>
-          <div className="bg-gray-800/80 border border-gray-700/50 rounded-lg p-4 text-center">
-            <Award className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
-            <p className="text-gray-400 text-sm">Quality Score</p>
-            <p className="text-white font-bold text-xl">8.7/10</p>
+          <div className={`${isDark ? 'bg-gray-800/80 border-gray-700/50' : 'bg-white border-gray-200'} border rounded-lg p-4 text-center`}>
+            <Award className={`w-8 h-8 ${isDark ? 'text-yellow-400' : 'text-yellow-600'} mx-auto mb-2`} />
+            <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'} text-sm`}>Quality Score</p>
+            <p className={`${isDark ? 'text-white' : 'text-gray-900'} font-bold text-xl`}>8.7/10</p>
           </div>
         </div>
       </div>

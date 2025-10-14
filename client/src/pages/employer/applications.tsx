@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTheme } from "@/components/theme-provider";
 import { Search, Filter, Calendar, MapPin, Briefcase, DollarSign, Mail, Phone, Download, Eye, CheckCircle, XCircle, Clock, TrendingUp, FileText, Star, Award, Target, ChevronDown, ExternalLink, Linkedin, Github, Globe } from 'lucide-react';
 import AdminBackButton from "@/components/AdminBackButton";
 
@@ -199,14 +200,17 @@ export default function Applications() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div className={`min-h-screen ${isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gray-50'}`}>
       {/* Back Button */}
       <div className="p-6">
         <AdminBackButton />
       </div>
       {/* Animated background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+      <div className={`fixed inset-0 overflow-hidden pointer-events-none ${isDark ? 'opacity-100' : 'opacity-30'}`}>
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute top-1/2 -left-40 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
         <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
@@ -215,10 +219,13 @@ export default function Applications() {
       <div className="relative container mx-auto p-6 max-w-7xl">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent mb-2">
+          <h1 className={`text-4xl font-bold ${isDark 
+            ? 'bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent'
+            : 'text-gray-900'
+          } mb-2`}>
             Job Applications
           </h1>
-          <p className="text-gray-400">Review and manage applications from talented candidates</p>
+          <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Review and manage applications from talented candidates</p>
         </div>
 
         {/* Stats Grid */}
@@ -228,16 +235,18 @@ export default function Applications() {
             return (
               <div key={idx} className="relative group">
                 <div className="absolute inset-0 bg-gradient-to-r opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500"></div>
-                <div className="relative bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 hover:border-slate-600/50 transition-all duration-300 hover:transform hover:scale-105">
+                <div className={`relative ${
+                  isDark ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-gray-200'
+                } backdrop-blur-xl border rounded-2xl p-6 hover:border-blue-500/50 transition-all duration-300 hover:transform hover:scale-105`}>
                   <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center mb-4`}>
                     <Icon className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex items-end justify-between">
                     <div>
-                      <p className="text-gray-400 text-sm mb-1">{stat.label}</p>
-                      <p className="text-3xl font-bold text-white">{stat.value}</p>
+                      <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'} text-sm mb-1`}>{stat.label}</p>
+                      <p className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{stat.value}</p>
                     </div>
-                    <div className="flex items-center text-green-400 text-sm">
+                    <div className="flex items-center text-green-500 text-sm">
                       <TrendingUp className="w-4 h-4 mr-1" />
                       {stat.trend}
                     </div>
@@ -249,7 +258,7 @@ export default function Applications() {
         </div>
 
         {/* Tabs */}
-        <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-2 mb-6 flex flex-wrap gap-2">
+        <div className={`${isDark ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-gray-200'} backdrop-blur-xl border rounded-2xl p-2 mb-6 flex flex-wrap gap-2`}>
           {tabs.map(tab => (
             <button
               key={tab.id}
@@ -257,14 +266,16 @@ export default function Applications() {
               className={`px-4 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2 ${
                 selectedTab === tab.id
                   ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/25'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-slate-700/50'
+                  : isDark 
+                    ? 'text-gray-400 hover:text-gray-200 hover:bg-slate-700/50'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
               }`}
             >
               {tab.label}
               <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                 selectedTab === tab.id
                   ? 'bg-white/20'
-                  : 'bg-slate-700/50'
+                  : isDark ? 'bg-slate-700/50' : 'bg-gray-100'
               }`}>
                 {tab.count}
               </span>
@@ -273,7 +284,7 @@ export default function Applications() {
         </div>
 
         {/* Search and Sort Bar */}
-        <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-4 mb-6">
+        <div className={`${isDark ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-gray-200'} backdrop-blur-xl border rounded-2xl p-4 mb-6`}>
           <div className="flex flex-col md:flex-row gap-4">
             {/* Search */}
             <div className="flex-1 relative">
@@ -283,7 +294,11 @@ export default function Applications() {
                 placeholder="Search by candidate name or position..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                className={`w-full pl-12 pr-4 py-3 ${
+                  isDark 
+                    ? 'bg-slate-900/50 border-slate-700/50 text-gray-100 placeholder-gray-500' 
+                    : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-500'
+                } border rounded-xl focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all`}
               />
             </div>
 
@@ -292,7 +307,11 @@ export default function Applications() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as 'recent' | 'match' | 'salary')}
-                className="appearance-none pl-4 pr-10 py-3 bg-slate-900/50 border border-slate-700/50 rounded-xl text-gray-100 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer"
+                className={`appearance-none pl-4 pr-10 py-3 ${
+                  isDark 
+                    ? 'bg-slate-900/50 border-slate-700/50 text-gray-100' 
+                    : 'bg-gray-50 border-gray-200 text-gray-900'
+                } border rounded-xl focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer`}
               >
                 <option value="recent">Most Recent</option>
                 <option value="match">Best Match</option>
@@ -311,7 +330,7 @@ export default function Applications() {
             return (
               <div
                 key={app.id}
-                className="group bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 hover:border-slate-600/50 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/10"
+                className={`group ${isDark ? 'bg-slate-800/50 border-slate-700/50' : 'bg-white border-gray-200'} backdrop-blur-xl border rounded-2xl p-6 hover:border-blue-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/10`}
               >
                 <div className="flex flex-col lg:flex-row gap-6">
                   {/* Left Section - Candidate Info */}
@@ -335,8 +354,8 @@ export default function Applications() {
                       <div className="flex-1">
                         <div className="flex items-start justify-between mb-2">
                           <div>
-                            <h3 className="text-xl font-bold text-white mb-1">{app.candidateName}</h3>
-                            <p className="text-gray-400">{app.position}</p>
+                            <h3 className={`text-xl font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>{app.candidateName}</h3>
+                            <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>{app.position}</p>
                           </div>
                           <div className={`px-3 py-1 rounded-full text-xs font-medium border ${statusBadge.color}`}>
                             {statusBadge.label}
@@ -374,7 +393,11 @@ export default function Applications() {
                         {/* Skills */}
                         <div className="flex flex-wrap gap-2 mb-4">
                           {app.skills.map((skill, idx) => (
-                            <span key={idx} className="px-3 py-1 bg-slate-900/50 border border-slate-700/50 rounded-lg text-xs text-gray-300">
+                            <span key={idx} className={`px-3 py-1 rounded-lg text-xs ${
+                              isDark 
+                                ? 'bg-slate-900/50 border-slate-700/50 text-gray-300'
+                                : 'bg-gray-100 border-gray-200 text-gray-600'
+                            } border`}>
                               {skill}
                             </span>
                           ))}
@@ -392,21 +415,33 @@ export default function Applications() {
                         <div className="flex flex-wrap gap-2">
                           {app.portfolioUrl && (
                             <a href={app.portfolioUrl} target="_blank" rel="noopener noreferrer" 
-                               className="flex items-center gap-1 px-3 py-1.5 bg-slate-900/50 hover:bg-slate-900 border border-slate-700/50 rounded-lg text-xs text-gray-300 hover:text-blue-400 transition-all">
+                               className={`flex items-center gap-1 px-3 py-1.5 ${
+                                 isDark
+                                   ? 'bg-slate-900/50 hover:bg-slate-900 border-slate-700/50 text-gray-300 hover:text-blue-400'
+                                   : 'bg-gray-100 hover:bg-gray-200 border-gray-200 text-gray-600 hover:text-gray-900'
+                               } border rounded-lg text-xs transition-all`}>
                               <Globe className="w-3 h-3" />
                               Portfolio
                             </a>
                           )}
                           {app.linkedinUrl && (
                             <a href={app.linkedinUrl} target="_blank" rel="noopener noreferrer" 
-                               className="flex items-center gap-1 px-3 py-1.5 bg-slate-900/50 hover:bg-slate-900 border border-slate-700/50 rounded-lg text-xs text-gray-300 hover:text-blue-400 transition-all">
+                               className={`flex items-center gap-1 px-3 py-1.5 ${
+                                 isDark
+                                   ? 'bg-slate-900/50 hover:bg-slate-900 border-slate-700/50 text-gray-300 hover:text-blue-400'
+                                   : 'bg-gray-100 hover:bg-gray-200 border-gray-200 text-gray-600 hover:text-gray-900'
+                               } border rounded-lg text-xs transition-all`}>
                               <Linkedin className="w-3 h-3" />
                               LinkedIn
                             </a>
                           )}
                           {app.githubUrl && (
                             <a href={app.githubUrl} target="_blank" rel="noopener noreferrer" 
-                               className="flex items-center gap-1 px-3 py-1.5 bg-slate-900/50 hover:bg-slate-900 border border-slate-700/50 rounded-lg text-xs text-gray-300 hover:text-blue-400 transition-all">
+                               className={`flex items-center gap-1 px-3 py-1.5 ${
+                                 isDark
+                                   ? 'bg-slate-900/50 hover:bg-slate-900 border-slate-700/50 text-gray-300 hover:text-blue-400'
+                                   : 'bg-gray-100 hover:bg-gray-200 border-gray-200 text-gray-600 hover:text-gray-900'
+                               } border rounded-lg text-xs transition-all`}>
                               <Github className="w-3 h-3" />
                               GitHub
                             </a>
@@ -416,8 +451,8 @@ export default function Applications() {
                     </div>
 
                     {/* Cover Letter Preview */}
-                    <div className="bg-slate-900/30 border border-slate-700/30 rounded-xl p-4">
-                      <p className="text-sm text-gray-400 italic line-clamp-2">
+                    <div className={`${isDark ? 'bg-slate-900/30 border-slate-700/30' : 'bg-gray-50 border-gray-200'} border rounded-xl p-4`}>
+                      <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'} italic line-clamp-2`}>
                         "{app.coverLetter}"
                       </p>
                     </div>
@@ -430,22 +465,38 @@ export default function Applications() {
                       View Full Profile
                     </button>
                     
-                    <button className="w-full px-4 py-3 bg-green-500/10 hover:bg-green-500/20 border border-green-500/20 hover:border-green-500/40 text-green-400 rounded-xl font-medium transition-all flex items-center justify-center gap-2">
+                    <button className={`w-full px-4 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                      isDark 
+                        ? 'bg-green-500/10 hover:bg-green-500/20 border-green-500/20 hover:border-green-500/40 text-green-400'
+                        : 'bg-green-50 hover:bg-green-100 border-green-200 hover:border-green-300 text-green-600'
+                    } border`}>
                       <CheckCircle className="w-4 h-4" />
                       Shortlist
                     </button>
                     
-                    <button className="w-full px-4 py-3 bg-slate-900/50 hover:bg-slate-900 border border-slate-700/50 text-gray-300 rounded-xl font-medium transition-all flex items-center justify-center gap-2">
+                    <button className={`w-full px-4 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                      isDark 
+                        ? 'bg-slate-900/50 hover:bg-slate-900 border-slate-700/50 text-gray-300'
+                        : 'bg-gray-100 hover:bg-gray-200 border-gray-200 text-gray-600'
+                    } border`}>
                       <Mail className="w-4 h-4" />
                       Contact
                     </button>
                     
-                    <button className="w-full px-4 py-3 bg-slate-900/50 hover:bg-slate-900 border border-slate-700/50 text-gray-300 rounded-xl font-medium transition-all flex items-center justify-center gap-2">
+                    <button className={`w-full px-4 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                      isDark 
+                        ? 'bg-slate-900/50 hover:bg-slate-900 border-slate-700/50 text-gray-300'
+                        : 'bg-gray-100 hover:bg-gray-200 border-gray-200 text-gray-600'
+                    } border`}>
                       <Download className="w-4 h-4" />
                       Download Resume
                     </button>
                     
-                    <button className="w-full px-4 py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 rounded-xl font-medium transition-all flex items-center justify-center gap-2">
+                    <button className={`w-full px-4 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                      isDark 
+                        ? 'bg-red-500/10 hover:bg-red-500/20 border-red-500/20 hover:border-red-500/40 text-red-400'
+                        : 'bg-red-50 hover:bg-red-100 border-red-200 hover:border-red-300 text-red-600'
+                    } border`}>
                       <XCircle className="w-4 h-4" />
                       Reject
                     </button>
@@ -458,10 +509,14 @@ export default function Applications() {
 
         {/* Empty State */}
         {filteredApplications.length === 0 && (
-          <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-12 text-center">
-            <FileText className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-300 mb-2">No applications found</h3>
-            <p className="text-gray-500">Try adjusting your filters or search terms</p>
+          <div className={`backdrop-blur-xl border rounded-2xl p-12 text-center ${
+            isDark 
+              ? 'bg-slate-800/50 border-slate-700/50'
+              : 'bg-white border-gray-200'
+          }`}>
+            <FileText className={`w-16 h-16 mx-auto mb-4 ${isDark ? 'text-gray-600' : 'text-gray-400'}`} />
+            <h3 className={`text-xl font-semibold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-900'}`}>No applications found</h3>
+            <p className={isDark ? 'text-gray-500' : 'text-gray-600'}>Try adjusting your filters or search terms</p>
           </div>
         )}
       </div>
