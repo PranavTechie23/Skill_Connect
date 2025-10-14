@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-  Plus, Camera, Video, Smile, MapPin, Globe, X, Heart,
-  MessageCircle, Share, Bookmark, MoreHorizontal, Clock,
-  Users, Eye, TrendingUp, Calendar, Image, FileText,
-  Play, Pause, Volume2, VolumeX, Moon, Sun
+  Plus, Camera, Video, Globe, X, Heart,
+  MessageCircle, Share, Clock,
+  Users, Eye, TrendingUp, FileText,
+  Play, Pause
 } from 'lucide-react';
+import { useTheme } from "@/components/theme-provider";
 
 const StoriesPage = () => {
-  const [darkMode, setDarkMode] = useState(false);
+  const { theme } = useTheme();
+  const darkMode = theme === 'dark';
   const [showCreateStory, setShowCreateStory] = useState(false);
   const [activeStory, setActiveStory] = useState(null);
   const [newStory, setNewStory] = useState({

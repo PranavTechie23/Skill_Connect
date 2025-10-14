@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/theme-provider';
+
+// Import ROUTES constant
+const ROUTES = {
+  EMPLOYEE: {
+    MESSAGES: '/employee/messages'
+  }
+};
 import {
   Search, MapPin, Bookmark, Bell, MessageSquare, User, FileText,
   TrendingUp, Clock, CheckCircle, XCircle, Briefcase, Filter,
@@ -682,8 +689,8 @@ const EmployeeDashboard: React.FC = () => {
                     <div className="px-4 py-2 border-t border-gray-200">
                       <button
                         onClick={() => {
-                          navigate('/employee/messages');
-                          setShowMessages(false); // Close the dropdown when navigating
+                          setShowMessages(false); // Close the dropdown first
+                          navigate(ROUTES.EMPLOYEE.MESSAGES); // Navigate to messages page using route constant
                         }}
                         className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${
                           darkMode

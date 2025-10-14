@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-  User, Mail, Phone, MapPin, Calendar, Edit2, Save, X,
-  Briefcase, GraduationCap, Award, Users, FileText,
-  Linkedin, Github, Globe, Download, Upload,
-  Shield, Bell, CreditCard, LogOut, Moon, Sun
+  User, Mail, Phone, MapPin, Edit2, Save, X,
+  Briefcase, GraduationCap, FileText,
+  Linkedin, Github, Globe
 } from 'lucide-react';
+import { useTheme } from "@/components/theme-provider";
 
 const Profile = () => {
-  const [darkMode, setDarkMode] = useState(false);
+  const { theme } = useTheme();
+  const darkMode = theme === 'dark';
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('personal');
 

@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-  Settings, User, Shield, Bell, CreditCard, LogOut, Moon, Sun,
-  Save, X, Eye, EyeOff, Lock, Mail, Smartphone, Globe,
-  Palette, Keyboard, Database, Download, Upload, Trash2,
-  Check, AlertTriangle, Zap, Wifi, Monitor, Smartphone as PhoneIcon
+  Settings, User, Shield, Bell, LogOut,
+  Save, X, Eye, EyeOff, Mail, Smartphone,
+  Palette, Download, Trash2,
+  Check, Monitor, Smartphone as PhoneIcon
 } from 'lucide-react';
+import { useTheme } from "@/components/theme-provider";
 
 const SettingsPage = () => {
-  const [darkMode, setDarkMode] = useState(false);
+  const { theme } = useTheme();
+  const darkMode = theme === 'dark';
   const [activeSection, setActiveSection] = useState('account');
   const [isEditing, setIsEditing] = useState(false);
   const [showOldPassword, setShowOldPassword] = useState(false);
@@ -55,7 +57,7 @@ const SettingsPage = () => {
     }
   });
 
-  const sections = [
+  const sections: { id: string; label: string; icon: any; color: 'blue' | 'green' | 'purple' | 'pink' | 'orange' }[] = [
     { id: 'account', label: 'Account', icon: User, color: 'blue' },
     { id: 'security', label: 'Security', icon: Shield, color: 'green' },
     { id: 'notifications', label: 'Notifications', icon: Bell, color: 'purple' },
@@ -73,15 +75,15 @@ const SettingsPage = () => {
     // Reset form data here
   };
 
-  const getColorClasses = (color, darkMode) => {
+  const getColorClasses = (color: 'blue' | 'green' | 'purple' | 'pink' | 'orange', isDark: boolean) => {
     const colors = {
-      blue: darkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600',
-      green: darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600',
-      purple: darkMode ? 'bg-purple-500/20 text-purple-400' : 'bg-purple-100 text-purple-600',
-      pink: darkMode ? 'bg-pink-500/20 text-pink-400' : 'bg-pink-100 text-pink-600',
-      orange: darkMode ? 'bg-orange-500/20 text-orange-400' : 'bg-orange-100 text-orange-600'
+      blue: isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600',
+      green: isDark ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600',
+      purple: isDark ? 'bg-purple-500/20 text-purple-400' : 'bg-purple-100 text-purple-600',
+      pink: isDark ? 'bg-pink-500/20 text-pink-400' : 'bg-pink-100 text-pink-600',
+      orange: isDark ? 'bg-orange-500/20 text-orange-400' : 'bg-orange-100 text-orange-600'
     };
-    return colors[color] || colors.blue;
+    return colors[color];
   };
 
   return (

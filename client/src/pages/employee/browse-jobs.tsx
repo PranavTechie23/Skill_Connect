@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useSavedJobs } from '../../contexts/SavedJobsContext';
+import { useTheme } from "@/components/theme-provider";
 import {
   Search, MapPin, Briefcase, Heart, TrendingUp, Filter, 
   ChevronDown, Star, ArrowRight, Zap, Target, Award, 
@@ -112,7 +113,8 @@ const mockJobs: Job[] = [
 ];
 
 const BrowseJobs: React.FC = () => {
-  const [darkMode, setDarkMode] = useState(false);
+  const { theme } = useTheme();
+  const darkMode = theme === 'dark';
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('all');
   const [showFilters, setShowFilters] = useState(false);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from "@/components/theme-provider";
 import {
   Heart, MapPin, Briefcase, Clock, DollarSign, Building2,
   ExternalLink, Trash2, Filter, Search, TrendingUp,
@@ -72,7 +73,8 @@ const savedJobsUtils = {
 };
 
 const SavedJobs: React.FC = () => {
-  const [darkMode, setDarkMode] = useState(false);
+  const { theme } = useTheme();
+  const darkMode = theme === 'dark';
   const [savedJobs, setSavedJobs] = useState<Job[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('all');

@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-  Search, Filter, MoreHorizontal, Phone, Video, Mail,
+  Search, MoreHorizontal, Phone, Video, Mail,
   User, Check, CheckCheck, Clock, Paperclip, Smile,
   Send, Image, File, MapPin, Calendar, Mic,
-  Star, StarOff, Trash2, Archive, Ban, Volume2, VolumeX,
-  Moon, Sun, Users, Eye, EyeOff, Shield
+  Star, StarOff
 } from 'lucide-react';
+import { useTheme } from "@/components/theme-provider";
 
 const EmployeeMessages: React.FC = () => {
-  const [darkMode, setDarkMode] = useState(false);
+  const { theme } = useTheme();
+  const darkMode = theme === 'dark';
   const [selectedChat, setSelectedChat] = useState('1');
   const [messageInput, setMessageInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');

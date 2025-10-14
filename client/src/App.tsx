@@ -27,7 +27,7 @@ import EmployeeApplications from "./pages/employee/applications";
 // Employee Pages
 import BrowseJobs from "./pages/employee/browse-jobs";
 import SavedJobs from "./pages/employee/saved-jobs";
-import EmployeeMessages from "./pages/employee/messages";
+import EmployeeMessages from "./pages/employee/messages.tsx";
 import EmployeeProfile from "./pages/employee/profile";
 import EmployeeStory from "./pages/employee/story";
 import EmployeeSettings from "./pages/employee/settings";

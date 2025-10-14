@@ -7,23 +7,18 @@ import {
   AlertCircle,
   MapPin,
   Calendar,
-  Building,
   Eye,
   Search,
-  Filter,
-  ChevronDown,
   TrendingUp,
   BarChart3,
   Users,
   Briefcase,
-  Moon,
-  Sun,
   ArrowLeft,
-  MoreHorizontal,
-  Download,
-  ExternalLink
+  X
 } from "lucide-react";
 import { useState } from "react";
+import { ModeToggle } from "@/components/ui/dark-mode-toggle";
+import { useTheme } from "@/components/theme-provider";
 
 interface Application {
   id: string;
@@ -45,7 +40,8 @@ interface Application {
 
 export default function Applications() {
   const { user } = useAuth();
-  const [darkMode, setDarkMode] = useState(false);
+  const { theme } = useTheme();
+  const darkMode = theme === 'dark';
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
@@ -165,54 +161,39 @@ export default function Applications() {
 
   if (error) {
     return (
-      <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <div className="min-h-screen transition-colors duration-300 bg-gray-50 dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => window.history.back()}
-                className={`p-2 rounded-xl transition-all ${
-                  darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                }`}
+                className="p-2 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                <ArrowLeft className={`w-6 h-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+                <ArrowLeft className="w-6 h-6 text-gray-600 dark:text-gray-400" />
               </button>
               <div>
-                <h1 className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                <h1 className="text-3xl font-black text-gray-900 dark:text-white">
                   My Applications
                 </h1>
-                <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                <p className="text-gray-600 dark:text-gray-400">
                   Track your job application status
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className={`p-3 rounded-xl transition-all ${
-                darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'
-              }`}
-            >
-              {darkMode ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-gray-600" />}
-            </button>
+            <ModeToggle />
           </div>
 
-          <div className={`rounded-3xl p-6 border-2 ${
-            darkMode ? 'border-red-500/30 bg-red-500/10' : 'border-red-200 bg-red-50'
-          }`}>
+          <div className="rounded-3xl p-6 border-2 border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10">
             <div className="flex flex-col gap-3">
-              <div className={`flex items-center gap-3 ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
+              <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
                 <AlertCircle className="h-5 w-5" />
                 <p className="font-semibold">Failed to load applications</p>
               </div>
-              <p className={darkMode ? 'text-red-300' : 'text-red-600'}>
+              <p className="text-red-600 dark:text-red-300">
                 {error instanceof Error ? error.message : 'An unexpected error occurred'}
               </p>
               <button 
-                className={`mt-2 w-fit px-4 py-2 rounded-xl font-semibold transition-all ${
-                  darkMode
-                    ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                }`}
+                className="mt-2 w-fit px-4 py-2 rounded-xl font-semibold transition-all bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white"
                 onClick={() => refetch()}
               >
                 Try Again
@@ -226,43 +207,32 @@ export default function Applications() {
 
   if (isLoading) {
     return (
-      <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <div className="min-h-screen transition-colors duration-300 bg-gray-50 dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => window.history.back()}
-                className={`p-2 rounded-xl transition-all ${
-                  darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                }`}
+                className="p-2 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                <ArrowLeft className={`w-6 h-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+                <ArrowLeft className="w-6 h-6 text-gray-600 dark:text-gray-400" />
               </button>
               <div>
-                <h1 className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                <h1 className="text-3xl font-black text-gray-900 dark:text-white">
                   My Applications
                 </h1>
-                <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+                <p className="text-gray-600 dark:text-gray-400">
                   Track your job application status
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className={`p-3 rounded-xl transition-all ${
-                darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'
-              }`}
-            >
-              {darkMode ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-gray-600" />}
-            </button>
+            <ModeToggle />
           </div>
 
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
-              <div className={`animate-spin rounded-full h-32 w-32 border-b-2 ${
-                darkMode ? 'border-blue-500' : 'border-blue-600'
-              } mx-auto`}></div>
-              <p className={`mt-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading applications...</p>
+              <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 dark:border-blue-500 mx-auto"></div>
+              <p className="mt-4 text-gray-600 dark:text-gray-400">Loading applications...</p>
             </div>
           </div>
         </div>
@@ -271,80 +241,75 @@ export default function Applications() {
   }
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-50 via-white to-purple-50'}`}>
+    <div className="min-h-screen transition-colors duration-300 bg-[#0f172a]">
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <button
               onClick={() => window.history.back()}
-              className={`p-2 rounded-xl transition-all ${
-                darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-              }`}
+              className="p-2 rounded-xl transition-all hover:bg-gray-800/50"
             >
-              <ArrowLeft className={`w-6 h-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+              <ArrowLeft className="w-6 h-6 text-gray-400" />
             </button>
             <div>
-              <h1 className={`text-3xl font-black ${darkMode ? 'text-white' : 'bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent'}`}>
+              <h1 className="text-3xl font-black text-gray-100">
                 My Applications
               </h1>
-              <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+              <p className="text-gray-400">
                 Track and manage your job applications
               </p>
             </div>
           </div>
-          
-
+          <ModeToggle />
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className={`rounded-2xl p-5 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="rounded-2xl p-5 bg-gray-800/80 shadow-lg border border-gray-700/50">
             <div className="flex items-center justify-between mb-3">
-              <div className={`p-2 rounded-lg ${darkMode ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
-                <FileText className={`w-5 h-5 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <FileText className="w-5 h-5 text-blue-400" />
               </div>
-              <TrendingUp className={`w-4 h-4 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+              <TrendingUp className="w-4 h-4 text-blue-400" />
             </div>
-            <p className={`text-sm font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            <p className="text-sm font-semibold text-gray-400">
               Total Applications
             </p>
-            <p className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <p className="text-3xl font-black text-gray-200">
               {totalApplications}
             </p>
           </div>
 
-          <div className={`rounded-2xl p-5 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+          <div className="rounded-2xl p-5 bg-gray-800/80 shadow-lg border border-gray-700/50">
             <div className="flex items-center justify-between mb-3">
-              <div className={`p-2 rounded-lg ${darkMode ? 'bg-green-500/20' : 'bg-green-100'}`}>
-                <CheckCircle className={`w-5 h-5 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
+              <div className="p-2 rounded-lg bg-green-500/10">
+                <CheckCircle className="w-5 h-5 text-green-400" />
               </div>
-              <BarChart3 className={`w-4 h-4 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
+              <BarChart3 className="w-4 h-4 text-green-400" />
             </div>
-            <p className={`text-sm font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            <p className="text-sm font-semibold text-gray-400">
               In Progress
             </p>
-            <p className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <p className="text-3xl font-black text-gray-200">
               {statusCounts.reviewed + statusCounts.interview + statusCounts.pending || 0}
             </p>
           </div>
 
-          <div className={`rounded-2xl p-5 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+          <div className="rounded-2xl p-5 bg-gray-800/80 shadow-lg border border-gray-700/50">
             <div className="flex items-center justify-between mb-3">
-              <div className={`p-2 rounded-lg ${darkMode ? 'bg-purple-500/20' : 'bg-purple-100'}`}>
-                <Users className={`w-5 h-5 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+              <div className="p-2 rounded-lg bg-purple-500/10">
+                <Users className="w-5 h-5 text-purple-400" />
               </div>
-              <Eye className={`w-4 h-4 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+              <Eye className="w-4 h-4 text-purple-400" />
             </div>
-            <p className={`text-sm font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            <p className="text-sm font-semibold text-gray-400">
               Interviews
             </p>
-            <p className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <p className="text-3xl font-black text-gray-200">
               {statusCounts.interview || 0}
             </p>
-          </div>
-
-          <div className={`rounded-2xl p-5 ${darkMode ? 'bg-gradient-to-br from-blue-600 to-indigo-700' : 'bg-gradient-to-br from-blue-500 to-purple-600'} shadow-lg text-white`}>
+          </div>          <div className="rounded-2xl p-5 bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-600 dark:to-indigo-700 shadow-lg text-white">
             <div className="flex items-center justify-between mb-3">
               <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
                 <Briefcase className="w-5 h-5" />
@@ -359,56 +324,44 @@ export default function Applications() {
         </div>
 
         {/* Search and Filters */}
-        <div className={`rounded-2xl p-6 mb-8 ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+        <div className="rounded-2xl p-6 mb-8 bg-gray-800/80 shadow-lg border border-gray-700/50">
           <div className="flex gap-3">
             <div className="flex-1 relative">
-              <Search className={`absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
-                darkMode ? 'text-gray-500' : 'text-gray-400'
-              }`} />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search applications..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full pl-12 pr-4 py-4 rounded-xl outline-none transition-all font-medium ${
-                  darkMode
-                    ? 'bg-gray-700 border-2 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500'
-                    : 'bg-white border-2 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-blue-500'
-                }`}
+                className="w-full pl-12 pr-4 py-4 rounded-xl outline-none transition-all font-medium bg-gray-900/50 border border-gray-700 text-gray-100 placeholder-gray-500 focus:border-blue-500 focus:bg-gray-900/80"
               />
             </div>
 
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className={`px-4 py-4 rounded-xl border-2 outline-none transition-all font-medium ${
-                darkMode
-                  ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500'
-                  : 'bg-white border-gray-200 text-gray-900 focus:border-blue-500'
-              }`}
+              className="px-4 py-4 rounded-xl outline-none transition-all font-medium bg-gray-900/50 border border-gray-700 text-gray-100 focus:border-blue-500 focus:bg-gray-900/80"
             >
-              <option value="all">All Status</option>
-              <option value="pending">Application Sent</option>
-              <option value="reviewed">Under Review</option>
-              <option value="interview">Interview</option>
-              <option value="accepted">Offer Received</option>
-              <option value="rejected">Not Selected</option>
+              <option value="all" className="bg-gray-900">All Status</option>
+              <option value="pending" className="bg-gray-900">Application Sent</option>
+              <option value="reviewed" className="bg-gray-900">Under Review</option>
+              <option value="interview" className="bg-gray-900">Interview</option>
+              <option value="accepted" className="bg-gray-900">Offer Received</option>
+              <option value="rejected" className="bg-gray-900">Not Selected</option>
             </select>
           </div>
         </div>
 
         {/* Applications List */}
         {filteredApplications.length === 0 ? (
-          <div className={`rounded-3xl shadow-xl p-12 text-center ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-            <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 ${
-              darkMode ? 'bg-gray-700' : 'bg-gray-100'
-            }`}>
-              <FileText className={`w-12 h-12 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+          <div className="rounded-3xl shadow-xl p-12 text-center bg-gray-800/80 border border-gray-700/50">
+            <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 bg-gray-900/50">
+              <FileText className="w-12 h-12 text-gray-400" />
             </div>
-            <h3 className={`text-2xl font-black mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <h3 className="text-2xl font-black mb-2 text-gray-100">
               {applications.length === 0 ? 'No Applications Yet' : 'No Applications Found'}
             </h3>
-            <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
+            <p className="text-gray-400">
               {applications.length === 0 
                 ? 'Start applying to jobs to track your applications here' 
                 : 'Try adjusting your search or filters'
@@ -420,31 +373,23 @@ export default function Applications() {
             {filteredApplications.map((application) => (
               <div
                 key={application.id}
-                className={`rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 overflow-hidden cursor-pointer group ${
-                  darkMode
-                    ? 'bg-gray-800 border-gray-700 hover:border-blue-500'
-                    : 'bg-white border-gray-100 hover:border-blue-300'
-                }`}
+                className="rounded-3xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 overflow-hidden cursor-pointer group bg-white dark:bg-gray-800/80 border-gray-100 dark:border-gray-700/50 hover:border-blue-300 dark:hover:border-blue-500/50"
                 onClick={() => setSelectedApplication(application)}
               >
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-start gap-4 flex-1">
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg ${
-                        darkMode ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : 'bg-gradient-to-br from-blue-500 to-purple-600'
-                      }`}>
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-500 dark:to-indigo-600">
                         {application.job.company.name.substring(0, 2)}
                       </div>
                       <div className="flex-1">
-                        <h3 className={`text-lg font-black transition-colors mb-1 ${
-                          darkMode ? 'text-white group-hover:text-blue-400' : 'text-gray-900 group-hover:text-blue-600'
-                        }`}>
+                        <h3 className="text-lg font-black transition-colors mb-1 text-gray-900 group-hover:text-blue-600 dark:text-gray-100 dark:group-hover:text-blue-400">
                           {application.job.title}
                         </h3>
-                        <p className={`font-medium mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        <p className="font-medium mb-2 text-gray-600 dark:text-gray-400">
                           {application.job.company.name}
                         </p>
-                        <div className={`flex items-center gap-4 text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                        <div className="flex items-center gap-4 text-sm text-gray-500">
                           <span className="flex items-center gap-1.5">
                             <MapPin className="w-4 h-4" />
                             {application.job.location}
@@ -462,20 +407,18 @@ export default function Applications() {
                         {getStatusIcon(application.status)}
                         <span className="text-sm font-semibold">{getStatusText(application.status)}</span>
                       </div>
-                      <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                      <span className="text-xs text-gray-500">
                         Applied {formatDate(application.appliedAt)}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    <span className="text-lg font-bold text-gray-900 dark:text-white">
                       {application.job.salary}
                     </span>
                     {application.interviewDate && (
-                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
-                        darkMode ? 'bg-purple-500/20 text-purple-400' : 'bg-purple-100 text-purple-600'
-                      }`}>
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400">
                         <Calendar className="w-4 h-4" />
                         <span className="text-sm font-semibold">
                           Interview: {formatDate(application.interviewDate)}
@@ -492,85 +435,77 @@ export default function Applications() {
         {/* Application Detail Modal */}
         {selectedApplication && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-            <div className={`w-full max-w-2xl rounded-3xl shadow-2xl ${
-              darkMode ? 'bg-gray-800' : 'bg-white'
-            }`}>
-              <div className="flex items-center justify-between p-6 border-b border-gray-700">
-                <h3 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <div className="w-full max-w-2xl rounded-3xl shadow-2xl bg-white dark:bg-gray-800/95 backdrop-blur-sm">
+              <div className="flex items-center justify-between p-6 border-b dark:border-gray-700/50">
+                <h3 className="text-xl font-black text-gray-900 dark:text-gray-100">
                   Application Details
                 </h3>
                 <button
                   onClick={() => setSelectedApplication(null)}
-                  className={`p-2 rounded-xl ${
-                    darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                  }`}
+                  className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/70 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                 >
-                  <AlertCircle className="w-6 h-6" />
+                  <X className="w-6 h-6" />
                 </button>
               </div>
 
               <div className="p-6 space-y-6">
                 {/* Job Info */}
                 <div className="flex items-start gap-4">
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-lg ${
-                    darkMode ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : 'bg-gradient-to-br from-blue-500 to-purple-600'
-                  }`}>
-                    {selectedApplication.job.company.name.substring(0, 2)}
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-lg bg-gradient-to-br from-blue-500 to-purple-600 dark:from-blue-500 dark:to-indigo-600">
+                    {selectedApplication?.job.company.name.substring(0, 2)}
                   </div>
                   <div className="flex-1">
-                    <h4 className={`text-lg font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {selectedApplication.job.title}
+                    <h4 className="text-lg font-black text-gray-900 dark:text-white">
+                      {selectedApplication?.job.title}
                     </h4>
-                    <p className={`font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {selectedApplication.job.company.name}
+                    <p className="font-medium text-gray-600 dark:text-gray-400">
+                      {selectedApplication?.job.company.name}
                     </p>
-                    <div className={`flex items-center gap-4 text-sm mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                    <div className="flex items-center gap-4 text-sm mt-2 text-gray-500">
                       <span className="flex items-center gap-1.5">
                         <MapPin className="w-4 h-4" />
-                        {selectedApplication.job.location}
+                        {selectedApplication?.job.location}
                       </span>
                       <span className="flex items-center gap-1.5">
                         <Briefcase className="w-4 h-4" />
-                        {selectedApplication.job.jobType}
+                        {selectedApplication?.job.jobType}
                       </span>
                       <span className="flex items-center gap-1.5">
                         <Calendar className="w-4 h-4" />
-                        Applied {formatDate(selectedApplication.appliedAt)}
+                        Applied {formatDate(selectedApplication?.appliedAt || '')}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Status */}
-                <div className="flex items-center justify-between p-4 rounded-2xl border-2 border-gray-700">
+                <div className="flex items-center justify-between p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-700">
                   <div className="flex items-center gap-3">
-                    {getStatusIcon(selectedApplication.status)}
+                    {selectedApplication && getStatusIcon(selectedApplication.status)}
                     <div>
-                      <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {getStatusText(selectedApplication.status)}
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {selectedApplication && getStatusText(selectedApplication.status)}
                       </p>
-                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        Last updated {formatDate(selectedApplication.updatedAt)}
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Last updated {formatDate(selectedApplication?.updatedAt || '')}
                       </p>
                     </div>
                   </div>
-                  <span className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {selectedApplication.job.salary}
+                  <span className="text-lg font-bold text-gray-900 dark:text-white">
+                    {selectedApplication?.job.salary}
                   </span>
                 </div>
 
                 {/* Interview Info */}
-                {selectedApplication.interviewDate && (
-                  <div className={`p-4 rounded-2xl border-2 ${
-                    darkMode ? 'border-purple-500/30 bg-purple-500/10' : 'border-purple-200 bg-purple-50'
-                  }`}>
+                {selectedApplication?.interviewDate && (
+                  <div className="p-4 rounded-2xl border-2 border-purple-200 bg-purple-50 dark:border-purple-500/30 dark:bg-purple-500/10">
                     <div className="flex items-center gap-3 mb-2">
-                      <Users className={`w-5 h-5 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-                      <h5 className={`font-semibold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
+                      <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                      <h5 className="font-semibold text-purple-600 dark:text-purple-400">
                         Interview Scheduled
                       </h5>
                     </div>
-                    <p className={darkMode ? 'text-gray-300' : 'text-gray-700'}>
+                    <p className="text-gray-700 dark:text-gray-300">
                       {formatDate(selectedApplication.interviewDate)}
                     </p>
                   </div>
@@ -578,18 +513,10 @@ export default function Applications() {
 
                 {/* Actions */}
                 <div className="flex gap-3 pt-4">
-                  <button className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
-                    darkMode
-                      ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                  }`}>
+                  <button className="flex-1 py-3 rounded-xl font-semibold transition-all bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white">
                     View Job Posting
                   </button>
-                  <button className={`flex-1 py-3 rounded-xl font-semibold transition-all ${
-                    darkMode
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
-                  }`}>
+                  <button className="flex-1 py-3 rounded-xl font-semibold transition-all bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white dark:bg-blue-600 dark:hover:bg-blue-700">
                     Contact Recruiter
                   </button>
                 </div>
