@@ -1,11 +1,20 @@
 import { useState } from 'react';
 import { Search, Filter, Calendar, MapPin, Briefcase, DollarSign, Mail, Phone, Download, Eye, CheckCircle, XCircle, Clock, TrendingUp, FileText, Star, Award, Target, ChevronDown, ExternalLink, Linkedin, Github, Globe } from 'lucide-react';
+import AdminBackButton from "@/components/AdminBackButton";
+
+type ApplicationStatus = 'new' | 'reviewing' | 'shortlisted' | 'rejected';
+
+interface Application {
+  id: number;
+  status: ApplicationStatus;
+  appliedDate: string;
+  [key: string]: any;
+}
 
 export default function Applications() {
-  const [selectedTab, setSelectedTab] = useState('all');
+  const [selectedTab, setSelectedTab] = useState<ApplicationStatus | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedApplication, setSelectedApplication] = useState(null);
-  const [sortBy, setSortBy] = useState('recent');
+  const [sortBy, setSortBy] = useState<'recent' | 'match' | 'salary'>('recent');
 
   const stats = [
     { label: 'Total Applications', value: '1,247', icon: FileText, trend: '+18%', color: 'from-blue-500 to-cyan-500' },
@@ -156,13 +165,13 @@ export default function Applications() {
     { id: 'rejected', label: 'Rejected', count: applications.filter(a => a.status === 'rejected').length }
   ];
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status: ApplicationStatus) => {
     const badges = {
       new: { color: 'bg-blue-500/10 text-blue-400 border-blue-500/20', label: 'New Application' },
       reviewing: { color: 'bg-purple-500/10 text-purple-400 border-purple-500/20', label: 'Under Review' },
       shortlisted: { color: 'bg-orange-500/10 text-orange-400 border-orange-500/20', label: 'Shortlisted' },
       rejected: { color: 'bg-red-500/10 text-red-400 border-red-500/20', label: 'Rejected' }
-    };
+    } as const;
     return badges[status] || badges.new;
   };
 
@@ -179,10 +188,10 @@ export default function Applications() {
       return 0;
     });
 
-  const formatDate = (dateStr) => {
+  const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
-    const diff = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+    const diff = Math.floor((Number(now) - Number(date)) / (1000 * 60 * 60 * 24));
     
     if (diff === 0) return 'Today';
     if (diff === 1) return 'Yesterday';
@@ -192,6 +201,10 @@ export default function Applications() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      {/* Back Button */}
+      <div className="p-6">
+        <AdminBackButton />
+      </div>
       {/* Animated background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
@@ -240,7 +253,7 @@ export default function Applications() {
           {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setSelectedTab(tab.id)}
+              onClick={() => setSelectedTab(tab.id as ApplicationStatus | 'all')}
               className={`px-4 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2 ${
                 selectedTab === tab.id
                   ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/25'
@@ -278,7 +291,7 @@ export default function Applications() {
             <div className="relative">
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
+                onChange={(e) => setSortBy(e.target.value as 'recent' | 'match' | 'salary')}
                 className="appearance-none pl-4 pr-10 py-3 bg-slate-900/50 border border-slate-700/50 rounded-xl text-gray-100 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer"
               >
                 <option value="recent">Most Recent</option>
@@ -293,7 +306,7 @@ export default function Applications() {
         {/* Applications List */}
         <div className="space-y-4">
           {filteredApplications.map((app) => {
-            const statusBadge = getStatusBadge(app.status);
+            const statusBadge = getStatusBadge(app.status as ApplicationStatus);
             
             return (
               <div

@@ -652,17 +652,19 @@ const EmployerDashboard: React.FC = () => {
                 </div>
 
                 {/* Premium Tip */}
-                <div className={`${darkMode ? 'bg-gradient-to-br from-rose-600 to-pink-600' : 'bg-gradient-to-br from-rose-500 to-pink-600'} rounded-2xl p-6 text-white`}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="p-2 bg-white/20 rounded-lg">
-                      <Zap className="w-5 h-5" />
+                <div className={`${darkMode ? 'bg-gradient-to-br from-rose-600 to-pink-600' : 'bg-gradient-to-br from-rose-500 to-pink-600'} rounded-2xl p-6 text-white mt-6`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
+                        <Zap className="w-5 h-5" />
+                      </div>
+                      <h3 className="text-lg font-bold">Pro Tip</h3>
                     </div>
-                    <h3 className="text-lg font-bold">Pro Tip</h3>
                   </div>
-                  <p className="text-sm text-white/90 mb-4">
+                  <p className="text-sm text-white/90 mb-4 leading-relaxed">
                     Jobs with detailed descriptions get <span className="font-bold">2.5x more</span> quality applications!
                   </p>
-                  <button className="w-full py-2.5 bg-white text-rose-600 rounded-xl font-semibold text-sm hover:bg-white/90 transition-all flex items-center justify-center gap-2">
+                  <button className="w-full py-2.5 bg-white/95 text-rose-600 rounded-xl font-semibold text-sm hover:bg-white transition-all flex items-center justify-center gap-2 shadow-lg">
                     Improve Job Posts
                     <ArrowRight className="w-4 h-4" />
                   </button>

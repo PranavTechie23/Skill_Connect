@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Search, Send, Paperclip, Smile, MoreVertical, Phone, Video, Star, Archive, Trash2, Check, CheckCheck, Clock, Circle } from 'lucide-react';
 import { useTheme } from "@/components/theme-provider";
+import AdminBackButton from "@/components/AdminBackButton";
 
 export default function Messages() {
   const [selectedChat, setSelectedChat] = useState(1);
@@ -91,11 +92,11 @@ export default function Messages() {
       status: 'delivered'
     },
     {
-      id: 2,
+      id: 1,
       sender: 'me',
       text: 'Hi Sarah! Thank you for your application. We were impressed by your experience with React and Node.js.',
       time: '10:35 AM',
-      status: 'read'
+      status: 'read' as 'read' | 'delivered' | 'sent'
     },
     {
       id: 3,
@@ -140,7 +141,7 @@ export default function Messages() {
     c.position.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getStatusIcon = (status) => {
+  const getStatusIcon = (status: 'read' | 'delivered' | 'sent') => {
     if (status === 'read') return <CheckCheck className="w-4 h-4 text-blue-400" />;
     if (status === 'delivered') return <CheckCheck className="w-4 h-4 text-gray-500" />;
     return <Check className="w-4 h-4 text-gray-500" />;
@@ -151,6 +152,9 @@ export default function Messages() {
 
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gray-50'}`}>
+      <div className="mb-6 p-6">
+        <AdminBackButton />
+      </div>
       {/* Animated background */}
       {darkMode && <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>

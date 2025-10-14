@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTheme } from "@/components/theme-provider";
+import AdminBackButton from "@/components/AdminBackButton";
 import { 
   Plus, 
   Search, 
@@ -171,6 +172,10 @@ export default function JobManagement() {
   return (
     <div className="min-h-screen bg-[#0f172a]">
       <div className="container mx-auto p-6 max-w-7xl">
+        {/* Back Button */}
+        <div className="mb-6">
+          <AdminBackButton />
+        </div>
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>

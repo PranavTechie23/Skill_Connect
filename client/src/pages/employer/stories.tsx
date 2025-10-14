@@ -1,10 +1,14 @@
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import AdminBackButton from "@/components/AdminBackButton"
 
 export default function Stories() {
 
   return (
     <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <AdminBackButton />
+      </div>
       <h1 className="text-3xl font-bold mb-6">Stories</h1>
       <Card className="p-6">
         <div className="space-y-4">

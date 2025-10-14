@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { useTheme } from "@/components/theme-provider";
+import AdminBackButton from "@/components/AdminBackButton";
 import { 
   TrendingUp, 
   Users, 
   Eye, 
-  Clock,
   DollarSign,
   MapPin,
   Calendar,
@@ -14,10 +13,7 @@ import {
   Building,
   Target,
   Award,
-  Clock4,
-  PieChart,
-  BarChart3,
-  LineChart
+  Clock4
 } from 'lucide-react';
 
 interface AnalyticsData {
@@ -60,11 +56,7 @@ interface AnalyticsData {
 }
 
 export default function Analytics() {
-  const { theme } = useTheme();
-  const darkMode = theme === 'dark';
-
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
-  const [activeChart, setActiveChart] = useState<'traffic' | 'sources' | 'demographic'>('traffic');
 
   const analyticsData: AnalyticsData = {
     overview: {
@@ -341,6 +333,10 @@ export default function Analytics() {
   return (
     <div className="min-h-screen bg-[#0f172a]">
       <div className="container mx-auto p-6 max-w-7xl">
+        {/* Back Button */}
+        <div className="mb-6">
+          <AdminBackButton />
+        </div>
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>

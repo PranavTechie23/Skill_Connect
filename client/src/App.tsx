@@ -43,11 +43,10 @@ import Analytics from "./pages/employer/analytics.tsx";
 import Stories from "./pages/employer/stories.tsx";
 import Messages from "./pages/employer/messages.tsx";
 import Applications from "./pages/employer/applications.tsx";
-
+import Candidates from "./pages/employer/candidates.tsx";
 
 // Admin Routes
 import AdminRoutes from "./pages/admin";
-
 
 
 
@@ -87,7 +86,8 @@ const ROUTES = {
     MESSAGES: "/employer/messages",
     APPLICATIONS: "/employer/applications",
     ANALYTICS: "/employer/analytics",
-    STORIES: "/employer/stories"
+    STORIES: "/employer/stories",
+    CANDIDATES: "/employer/candidates"
   },
   ADMIN: {
     BASE: "/admin/*"
@@ -127,7 +127,8 @@ const routeConfig = {
     { path: ROUTES.EMPLOYER.MESSAGES, element: <Messages /> },
     { path: ROUTES.EMPLOYER.APPLICATIONS, element: <Applications /> },
     { path: ROUTES.EMPLOYER.ANALYTICS, element: <Analytics /> },
-    { path: ROUTES.EMPLOYER.STORIES, element: <Stories /> }
+    { path: ROUTES.EMPLOYER.STORIES, element: <Stories /> },
+        { path: ROUTES.EMPLOYER.CANDIDATES, element: <Candidates /> }
   ],
   admin: [
     { path: ROUTES.ADMIN.BASE, element: <AdminRoutes /> }

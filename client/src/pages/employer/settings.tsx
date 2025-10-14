@@ -19,6 +19,7 @@ import {
   Smartphone,
   Eye
 } from 'lucide-react';
+import AdminBackButton from "@/components/AdminBackButton";
 
 // Type definitions
 interface EmployerProfile {
@@ -39,11 +40,6 @@ interface NotificationSettings {
 interface SecuritySettings {
   twoFactorEnabled: boolean;
   lastPasswordChange: string;
-}
-
-interface ThemeContextType {
-  isDarkMode: boolean;
-  toggleTheme: () => void;
 }
 
 import { useTheme } from "@/components/theme-provider";// Main Settings Component
@@ -159,6 +155,10 @@ const EmployerSettings: React.FC = () => {
         : 'bg-gray-50 text-gray-900'
     }`}>
       <div className="container mx-auto px-4 py-8 max-w-6xl">
+        {/* Back Button */}
+        <div className="mb-6">
+          <AdminBackButton />
+        </div>
         {/* Header */}
         <header className={`flex justify-between items-center mb-8 p-6 rounded-lg ${
           isDarkMode ? 'bg-gray-800' : 'bg-white'
