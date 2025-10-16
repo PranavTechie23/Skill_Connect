@@ -119,8 +119,6 @@ const SettingsPage = () => {
           </div>
           
           <div className="flex items-center gap-3">
-
-            
             {!isEditing ? (
               <button
                 onClick={() => setIsEditing(true)}

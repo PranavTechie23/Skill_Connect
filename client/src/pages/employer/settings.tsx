@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTheme } from "@/components/theme-provider";
 import { 
   User, 
   Bell, 
@@ -19,8 +20,6 @@ import {
   CheckCircle,
   ArrowRight,
   ArrowLeft,
-  Moon,
-  Sun,
   Zap,
   Sparkles,
   Star,
@@ -42,7 +41,10 @@ import {
   BadgeCheck,
   Lightbulb,
   Coffee,
-  HeartHandshake
+  HeartHandshake,
+  Monitor,
+  MoreVertical,
+  Plus
 } from 'lucide-react';
 
 // Type definitions
@@ -75,7 +77,8 @@ interface SecuritySettings {
 
 // Main Settings Component
 const EmployerSettings: React.FC = () => {
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const { theme } = useTheme();
+  const isDarkMode = theme === 'dark';
   const [activeSection, setActiveSection] = useState<string>('profile');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [showSaveSuccess, setShowSaveSuccess] = useState<boolean>(false);
@@ -199,31 +202,6 @@ const EmployerSettings: React.FC = () => {
       : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:bg-white'
   }`;
 
-  const StatCard = ({ title, value, icon: Icon, color, trend }: any) => (
-    <div className={`p-4 rounded-xl border backdrop-blur-sm transition-all duration-300 hover:scale-105 ${
-      isDarkMode 
-        ? 'bg-gray-800/50 border-gray-700/50' 
-        : 'bg-white/80 border-gray-200/50'
-    }`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className={`text-sm mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{title}</p>
-          <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{value}</p>
-          {trend && (
-            <div className={`flex items-center space-x-1 text-xs mt-1 ${
-              trend.direction === 'up' ? 'text-green-500' : 'text-red-500'
-            }`}>
-              <TrendingUp className="w-3 h-3" />
-              <span>{trend.value}</span>
-            </div>
-          )}
-        </div>
-        <div className={`p-3 rounded-xl ${color} ${isDarkMode ? 'bg-opacity-20' : 'bg-opacity-10'}`}>
-          <Icon className={`w-6 h-6 ${color.replace('bg-', 'text-')}`} />
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${
@@ -276,12 +254,12 @@ const EmployerSettings: React.FC = () => {
         </div>
 
         {/* Enhanced Header */}
-        <header className={`flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 p-8 rounded-2xl backdrop-blur-xl border transition-all duration-300 ${
+        <header className={`flex flex-col items-center justify-center mb-8 p-8 rounded-2xl backdrop-blur-xl border transition-all duration-300 ${
           isDarkMode 
             ? 'bg-gray-800/50 border-gray-700/50 shadow-2xl shadow-blue-500/10' 
             : 'bg-white/80 border-gray-200/50 shadow-xl'
         }`}>
-          <div className="flex items-center space-x-4 mb-4 lg:mb-0">
+          <div className="flex items-center space-x-4 mb-4">
             <div className={`p-4 rounded-2xl ${
               isDarkMode 
                 ? 'bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg shadow-blue-500/30' 
@@ -289,7 +267,7 @@ const EmployerSettings: React.FC = () => {
             }`}>
               <Rocket className="w-8 h-8 text-white" />
             </div>
-            <div>
+            <div className="text-center">
               <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
                 Employer Portal
               </h1>
@@ -299,46 +277,12 @@ const EmployerSettings: React.FC = () => {
             </div>
           </div>
           
-          <div className="flex items-center space-x-4">
-            {/* Quick Stats */}
-            <div className="hidden md:flex items-center space-x-4">
-              <StatCard 
-                title="Active Jobs" 
-                value="12" 
-                icon={Target} 
-                color="bg-emerald-500" 
-                trend={{ direction: 'up', value: '+3' }}
-              />
-              <StatCard 
-                title="New Applicants" 
-                value="8" 
-                icon={TrendingUp} 
-                color="bg-blue-500" 
-              />
+          {hasUnsavedChanges && (
+            <div className="flex items-center space-x-2 px-4 py-2 rounded-full bg-amber-500/20 border border-amber-500/50 animate-pulse">
+              <Zap className="w-4 h-4 text-amber-500" />
+              <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Unsaved changes</span>
             </div>
-
-            {hasUnsavedChanges && (
-              <div className="flex items-center space-x-2 px-4 py-2 rounded-full bg-amber-500/20 border border-amber-500/50 animate-pulse">
-                <Zap className="w-4 h-4 text-amber-500" />
-                <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Unsaved changes</span>
-              </div>
-            )}
-            
-            <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className={`group p-3 rounded-xl transition-all duration-300 backdrop-blur-sm border ${
-                isDarkMode
-                  ? 'bg-gray-700/50 hover:bg-gray-600/50 border-gray-600'
-                  : 'bg-white/80 hover:bg-white border-gray-200'
-              }`}
-            >
-              {isDarkMode ? (
-                <Sun className="w-5 h-5 text-yellow-400 group-hover:scale-110 transition-transform" />
-              ) : (
-                <Moon className="w-5 h-5 text-gray-700 group-hover:scale-110 transition-transform" />
-              )}
-            </button>
-          </div>
+          )}
         </header>
 
         <div className="flex flex-col lg:flex-row gap-8">
@@ -784,58 +728,704 @@ const EmployerSettings: React.FC = () => {
               </div>
             )}
 
-            {/* Enhanced Placeholder sections with better content */}
-            {['billing', 'team', 'preferences', 'help'].includes(activeSection) && (
-              <div className="space-y-6">
+            {/* Billing Section */}
+            {activeSection === 'billing' && (
+              <div className="space-y-8">
                 <div className="flex items-center space-x-4 mb-6">
                   <div className={`p-3 rounded-2xl ${
-                    isDarkMode ? `bg-${activeSection === 'billing' ? 'yellow' : activeSection === 'team' ? 'indigo' : activeSection === 'preferences' ? 'pink' : 'orange'}-500/20` 
-                              : `bg-${activeSection === 'billing' ? 'yellow' : activeSection === 'team' ? 'indigo' : activeSection === 'preferences' ? 'pink' : 'orange'}-100`
+                    isDarkMode ? 'bg-yellow-500/20' : 'bg-yellow-100'
                   }`}>
-                    {activeSection === 'billing' && <Crown className={`w-7 h-7 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`} />}
-                    {activeSection === 'team' && <Users className={`w-7 h-7 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />}
-                    {activeSection === 'preferences' && <Palette className={`w-7 h-7 ${isDarkMode ? 'text-pink-400' : 'text-pink-600'}`} />}
-                    {activeSection === 'help' && <HeartHandshake className={`w-7 h-7 ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`} />}
+                    <Crown className={`w-7 h-7 ${
+                      isDarkMode ? 'text-yellow-400' : 'text-yellow-600'
+                    }`} />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold capitalize">{activeSection}</h2>
+                    <h2 className="text-2xl font-bold">Billing & Subscription</h2>
                     <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {activeSection === 'billing' && 'Manage your subscription and payments'}
-                      {activeSection === 'team' && 'Collaborate with your team members'}
-                      {activeSection === 'preferences' && 'Customize your experience'}
-                      {activeSection === 'help' && 'Get support and assistance'}
+                      Manage your subscription and payment methods
                     </p>
                   </div>
                 </div>
-                
-                <div className={`p-8 rounded-xl border-2 text-center ${
-                  isDarkMode ? 'bg-gray-700/30 border-gray-600' : 'bg-gradient-to-br from-gray-50 to-blue-50 border-gray-200'
+
+                {/* Current Plan */}
+                <div className={`p-6 rounded-xl border-2 ${
+                  isDarkMode ? 'border-yellow-500/30 bg-yellow-500/10' : 'border-yellow-200 bg-yellow-50'
                 }`}>
-                  <div className="max-w-md mx-auto">
-                    <div className={`p-4 rounded-2xl inline-flex mb-6 ${
-                      isDarkMode ? 'bg-blue-500/20' : 'bg-blue-100'
-                    }`}>
-                      <Sparkles className="w-12 h-12 text-blue-500" />
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <Crown className="w-6 h-6 text-yellow-500" />
+                      <h3 className="text-lg font-semibold">Pro Plan</h3>
                     </div>
-                    <h3 className="text-2xl font-bold mb-4">Coming Soon!</h3>
-                    <p className={`text-lg mb-6 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                      We're working hard to bring you amazing new features for {activeSection}.
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      isDarkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-700'
+                    }`}>
+                      Active
+                    </span>
+                  </div>
+                  <p className={`text-sm mb-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    $49/month • Billed monthly • Next billing: March 15, 2024
+                  </p>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Job Postings</p>
+                      <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Unlimited</p>
+                    </div>
+                    <div>
+                      <p className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Applications</p>
+                      <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Unlimited</p>
+                    </div>
+                    <div>
+                      <p className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Team Members</p>
+                      <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Up to 10</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Methods */}
+                <div className={`p-6 rounded-xl border-2 ${
+                  isDarkMode ? 'border-gray-600 bg-gray-700/30' : 'border-gray-200 bg-white'
+                }`}>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+                    <CreditCard className="w-5 h-5" />
+                    <span>Payment Methods</span>
+                  </h3>
+                  <div className="space-y-3">
+                    <div className={`flex items-center justify-between p-4 rounded-xl ${
+                      isDarkMode ? 'bg-gray-600/30' : 'bg-gray-50'
+                    }`}>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-6 bg-blue-600 rounded flex items-center justify-center">
+                          <span className="text-white text-xs font-bold">VISA</span>
+                        </div>
+                        <div>
+                          <p className="font-medium">•••• •••• •••• 4242</p>
+                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Expires 12/25</p>
+                        </div>
+                      </div>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        isDarkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-700'
+                      }`}>
+                        Default
+                      </span>
+                    </div>
+                    <button className={`w-full p-3 rounded-xl border-2 border-dashed transition-all duration-300 ${
+                      isDarkMode 
+                        ? 'border-gray-600 hover:border-gray-500 text-gray-400 hover:text-gray-300' 
+                        : 'border-gray-300 hover:border-gray-400 text-gray-600 hover:text-gray-700'
+                    }`}>
+                      <Plus className="w-4 h-4 inline mr-2" />
+                      Add Payment Method
+                    </button>
+                  </div>
+                </div>
+
+                {/* Billing History */}
+                <div className={`p-6 rounded-xl border-2 ${
+                  isDarkMode ? 'border-gray-600 bg-gray-700/30' : 'border-gray-200 bg-white'
+                }`}>
+                  <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+                    <Download className="w-5 h-5" />
+                    <span>Billing History</span>
+                  </h3>
+                  <div className="space-y-3">
+                    {[
+                      { date: 'Feb 15, 2024', amount: '$49.00', status: 'Paid', invoice: 'INV-2024-02-001' },
+                      { date: 'Jan 15, 2024', amount: '$49.00', status: 'Paid', invoice: 'INV-2024-01-001' },
+                      { date: 'Dec 15, 2023', amount: '$49.00', status: 'Paid', invoice: 'INV-2023-12-001' }
+                    ].map((invoice, index) => (
+                      <div key={index} className={`flex items-center justify-between p-3 rounded-xl ${
+                        isDarkMode ? 'bg-gray-600/30' : 'bg-gray-50'
+                      }`}>
+                        <div>
+                          <p className="font-medium">{invoice.date}</p>
+                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {invoice.invoice}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold">{invoice.amount}</p>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            isDarkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-700'
+                          }`}>
+                            {invoice.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button className={`mt-4 px-4 py-2 rounded-xl font-medium transition-all duration-300 ${
+                    isDarkMode
+                      ? 'bg-gray-600 hover:bg-gray-500 text-white'
+                      : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                  }`}>
+                    View All Invoices
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Team Section */}
+            {activeSection === 'team' && (
+              <div className="space-y-8">
+                <div className="flex items-center space-x-4 mb-6">
+                  <div className={`p-3 rounded-2xl ${
+                    isDarkMode ? 'bg-indigo-500/20' : 'bg-indigo-100'
+                  }`}>
+                    <Users className={`w-7 h-7 ${
+                      isDarkMode ? 'text-indigo-400' : 'text-indigo-600'
+                    }`} />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold">Team Management</h2>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Manage your team members and their permissions
                     </p>
-                    <div className={`p-4 rounded-xl mb-6 ${
-                      isDarkMode ? 'bg-gray-600/30' : 'bg-white'
-                    }`}>
-                      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        <Coffee className="w-4 h-4 inline mr-2" />
-                        Our team is brewing something special for you!
-                      </p>
+                  </div>
+                </div>
+
+                {/* Team Stats */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className={`p-6 rounded-xl border-2 ${
+                    isDarkMode ? 'border-indigo-500/30 bg-indigo-500/10' : 'border-indigo-200 bg-indigo-50'
+                  }`}>
+                    <div className="flex items-center space-x-3 mb-2">
+                      <Users className="w-6 h-6 text-indigo-500" />
+                      <h3 className="font-semibold">Total Members</h3>
                     </div>
-                    <button className={`px-8 py-3 rounded-xl font-medium transition-all duration-300 ${
+                    <p className="text-3xl font-bold">8</p>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      of 10 slots used
+                    </p>
+                  </div>
+                  <div className={`p-6 rounded-xl border-2 ${
+                    isDarkMode ? 'border-green-500/30 bg-green-500/10' : 'border-green-200 bg-green-50'
+                  }`}>
+                    <div className="flex items-center space-x-3 mb-2">
+                      <Shield className="w-6 h-6 text-green-500" />
+                      <h3 className="font-semibold">Admins</h3>
+                    </div>
+                    <p className="text-3xl font-bold">3</p>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Full access
+                    </p>
+                  </div>
+                  <div className={`p-6 rounded-xl border-2 ${
+                    isDarkMode ? 'border-blue-500/30 bg-blue-500/10' : 'border-blue-200 bg-blue-50'
+                  }`}>
+                    <div className="flex items-center space-x-3 mb-2">
+                      <User className="w-6 h-6 text-blue-500" />
+                      <h3 className="font-semibold">Members</h3>
+                    </div>
+                    <p className="text-3xl font-bold">5</p>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Limited access
+                    </p>
+                  </div>
+                </div>
+
+                {/* Team Members */}
+                <div className={`p-6 rounded-xl border-2 ${
+                  isDarkMode ? 'border-gray-600 bg-gray-700/30' : 'border-gray-200 bg-white'
+                }`}>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold">Team Members</h3>
+                    <button className={`px-4 py-2 rounded-xl font-medium transition-all duration-300 ${
                       isDarkMode
-                        ? 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg shadow-blue-500/30'
-                        : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg'
+                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                        : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                     }`}>
-                      <Bell className="w-4 h-4 inline mr-2" />
-                      Notify Me When Ready
+                      <Plus className="w-4 h-4 inline mr-2" />
+                      Invite Member
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    {[
+                      { name: 'John Doe', email: 'john@company.com', role: 'Admin', status: 'Active', avatar: 'JD' },
+                      { name: 'Sarah Wilson', email: 'sarah@company.com', role: 'Admin', status: 'Active', avatar: 'SW' },
+                      { name: 'Mike Johnson', email: 'mike@company.com', role: 'Member', status: 'Active', avatar: 'MJ' },
+                      { name: 'Emily Davis', email: 'emily@company.com', role: 'Member', status: 'Pending', avatar: 'ED' }
+                    ].map((member, index) => (
+                      <div key={index} className={`flex items-center justify-between p-4 rounded-xl ${
+                        isDarkMode ? 'bg-gray-600/30' : 'bg-gray-50'
+                      }`}>
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium ${
+                            member.role === 'Admin' ? 'bg-gradient-to-r from-purple-600 to-indigo-600' : 'bg-gradient-to-r from-blue-500 to-cyan-500'
+                          }`}>
+                            {member.avatar}
+                          </div>
+                          <div>
+                            <p className="font-medium">{member.name}</p>
+                            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              {member.email}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            member.role === 'Admin' 
+                              ? isDarkMode ? 'bg-purple-500/20 text-purple-400' : 'bg-purple-100 text-purple-700'
+                              : isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {member.role}
+                          </span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            member.status === 'Active'
+                              ? isDarkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-700'
+                              : isDarkMode ? 'bg-yellow-500/20 text-yellow-400' : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {member.status}
+                          </span>
+                          <button className={`p-2 rounded-lg transition-all duration-300 ${
+                            isDarkMode ? 'text-gray-400 hover:text-white hover:bg-gray-600' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
+                          }`}>
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Preferences Section */}
+            {activeSection === 'preferences' && (
+              <div className="space-y-8">
+                <div className="flex items-center space-x-4 mb-6">
+                  <div className={`p-3 rounded-2xl ${
+                    isDarkMode ? 'bg-pink-500/20' : 'bg-pink-100'
+                  }`}>
+                    <Palette className={`w-7 h-7 ${
+                      isDarkMode ? 'text-pink-400' : 'text-pink-600'
+                    }`} />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold">Preferences</h2>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Customize your application experience
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Display Preferences */}
+                  <div className={`p-6 rounded-xl border-2 ${
+                    isDarkMode ? 'border-gray-600 bg-gray-700/30' : 'border-gray-200 bg-white'
+                  }`}>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+                      <Monitor className="w-5 h-5" />
+                      <span>Display Preferences</span>
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Language</p>
+                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            Choose your preferred language
+                          </p>
+                        </div>
+                        <select className={`px-3 py-2 rounded-lg border transition-all duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-600 border-gray-500 text-white' 
+                            : 'bg-white border-gray-300 text-gray-700'
+                        }`}>
+                          <option>English</option>
+                          <option>Spanish</option>
+                          <option>French</option>
+                          <option>German</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Timezone</p>
+                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            Set your local timezone
+                          </p>
+                        </div>
+                        <select className={`px-3 py-2 rounded-lg border transition-all duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-600 border-gray-500 text-white' 
+                            : 'bg-white border-gray-300 text-gray-700'
+                        }`}>
+                          <option>Pacific Time (PT)</option>
+                          <option>Eastern Time (ET)</option>
+                          <option>Central Time (CT)</option>
+                          <option>Mountain Time (MT)</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Date Format</p>
+                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            How dates are displayed
+                          </p>
+                        </div>
+                        <select className={`px-3 py-2 rounded-lg border transition-all duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-600 border-gray-500 text-white' 
+                            : 'bg-white border-gray-300 text-gray-700'
+                        }`}>
+                          <option>MM/DD/YYYY</option>
+                          <option>DD/MM/YYYY</option>
+                          <option>YYYY-MM-DD</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notification Preferences */}
+                  <div className={`p-6 rounded-xl border-2 ${
+                    isDarkMode ? 'border-gray-600 bg-gray-700/30' : 'border-gray-200 bg-white'
+                  }`}>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+                      <Bell className="w-5 h-5" />
+                      <span>Notification Preferences</span>
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Email Digest</p>
+                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            Daily summary of activities
+                          </p>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full transition-all duration-300 ${
+                          true ? (isDarkMode ? 'bg-green-500' : 'bg-green-600') : (isDarkMode ? 'bg-gray-600' : 'bg-gray-300')
+                        }`}>
+                          <div className={`w-4 h-4 rounded-full bg-white transform transition-transform ${
+                            true ? 'translate-x-7' : 'translate-x-1'
+                          }`} />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Sound Notifications</p>
+                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            Play sounds for new notifications
+                          </p>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full transition-all duration-300 ${
+                          false ? (isDarkMode ? 'bg-green-500' : 'bg-green-600') : (isDarkMode ? 'bg-gray-600' : 'bg-gray-300')
+                        }`}>
+                          <div className={`w-4 h-4 rounded-full bg-white transform transition-transform ${
+                            false ? 'translate-x-7' : 'translate-x-1'
+                          }`} />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Desktop Notifications</p>
+                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            Show browser notifications
+                          </p>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full transition-all duration-300 ${
+                          true ? (isDarkMode ? 'bg-green-500' : 'bg-green-600') : (isDarkMode ? 'bg-gray-600' : 'bg-gray-300')
+                        }`}>
+                          <div className={`w-4 h-4 rounded-full bg-white transform transition-transform ${
+                            true ? 'translate-x-7' : 'translate-x-1'
+                          }`} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Data & Privacy */}
+                  <div className={`p-6 rounded-xl border-2 ${
+                    isDarkMode ? 'border-gray-600 bg-gray-700/30' : 'border-gray-200 bg-white'
+                  }`}>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+                      <Shield className="w-5 h-5" />
+                      <span>Data & Privacy</span>
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Auto-save Drafts</p>
+                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            Automatically save form data
+                          </p>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full transition-all duration-300 ${
+                          true ? (isDarkMode ? 'bg-green-500' : 'bg-green-600') : (isDarkMode ? 'bg-gray-600' : 'bg-gray-300')
+                        }`}>
+                          <div className={`w-4 h-4 rounded-full bg-white transform transition-transform ${
+                            true ? 'translate-x-7' : 'translate-x-1'
+                          }`} />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Analytics Tracking</p>
+                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            Help improve our service
+                          </p>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full transition-all duration-300 ${
+                          true ? (isDarkMode ? 'bg-green-500' : 'bg-green-600') : (isDarkMode ? 'bg-gray-600' : 'bg-gray-300')
+                        }`}>
+                          <div className={`w-4 h-4 rounded-full bg-white transform transition-transform ${
+                            true ? 'translate-x-7' : 'translate-x-1'
+                          }`} />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">Marketing Emails</p>
+                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            Receive product updates and tips
+                          </p>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full transition-all duration-300 ${
+                          false ? (isDarkMode ? 'bg-green-500' : 'bg-green-600') : (isDarkMode ? 'bg-gray-600' : 'bg-gray-300')
+                        }`}>
+                          <div className={`w-4 h-4 rounded-full bg-white transform transition-transform ${
+                            false ? 'translate-x-7' : 'translate-x-1'
+                          }`} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Keyboard Shortcuts */}
+                  <div className={`p-6 rounded-xl border-2 ${
+                    isDarkMode ? 'border-gray-600 bg-gray-700/30' : 'border-gray-200 bg-white'
+                  }`}>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+                      <Zap className="w-5 h-5" />
+                      <span>Keyboard Shortcuts</span>
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          Create new job
+                        </span>
+                        <kbd className={`px-2 py-1 rounded text-xs font-mono ${
+                          isDarkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-700'
+                        }`}>
+                          Ctrl + N
+                        </kbd>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          Search jobs
+                        </span>
+                        <kbd className={`px-2 py-1 rounded text-xs font-mono ${
+                          isDarkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-700'
+                        }`}>
+                          Ctrl + K
+                        </kbd>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          Open settings
+                        </span>
+                        <kbd className={`px-2 py-1 rounded text-xs font-mono ${
+                          isDarkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-700'
+                        }`}>
+                          Ctrl + ,
+                        </kbd>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Help & Support Section */}
+            {activeSection === 'help' && (
+              <div className="space-y-8">
+                <div className="flex items-center space-x-4 mb-6">
+                  <div className={`p-3 rounded-2xl ${
+                    isDarkMode ? 'bg-orange-500/20' : 'bg-orange-100'
+                  }`}>
+                    <HeartHandshake className={`w-7 h-7 ${
+                      isDarkMode ? 'text-orange-400' : 'text-orange-600'
+                    }`} />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold">Help & Support</h2>
+                    <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Get help and support when you need it
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Quick Help */}
+                  <div className={`p-6 rounded-xl border-2 ${
+                    isDarkMode ? 'border-orange-500/30 bg-orange-500/10' : 'border-orange-200 bg-orange-50'
+                  }`}>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+                      <Lightbulb className="w-5 h-5" />
+                      <span>Quick Help</span>
+                    </h3>
+                    <div className="space-y-3">
+                      <button className={`w-full text-left p-3 rounded-xl transition-all duration-300 ${
+                        isDarkMode ? 'bg-gray-700/50 hover:bg-gray-600/50' : 'bg-white hover:bg-gray-50'
+                      }`}>
+                        <div className="flex items-center space-x-3">
+                          <Plus className="w-5 h-5 text-orange-500" />
+                          <span>How to create a new job posting</span>
+                        </div>
+                      </button>
+                      <button className={`w-full text-left p-3 rounded-xl transition-all duration-300 ${
+                        isDarkMode ? 'bg-gray-700/50 hover:bg-gray-600/50' : 'bg-white hover:bg-gray-50'
+                      }`}>
+                        <div className="flex items-center space-x-3">
+                          <Users className="w-5 h-5 text-orange-500" />
+                          <span>Managing team members and permissions</span>
+                        </div>
+                      </button>
+                      <button className={`w-full text-left p-3 rounded-xl transition-all duration-300 ${
+                        isDarkMode ? 'bg-gray-700/50 hover:bg-gray-600/50' : 'bg-white hover:bg-gray-50'
+                      }`}>
+                        <div className="flex items-center space-x-3">
+                          <CreditCard className="w-5 h-5 text-orange-500" />
+                          <span>Billing and subscription management</span>
+                        </div>
+                      </button>
+                      <button className={`w-full text-left p-3 rounded-xl transition-all duration-300 ${
+                        isDarkMode ? 'bg-gray-700/50 hover:bg-gray-600/50' : 'bg-white hover:bg-gray-50'
+                      }`}>
+                        <div className="flex items-center space-x-3">
+                          <Shield className="w-5 h-5 text-orange-500" />
+                          <span>Account security and privacy settings</span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Contact Support */}
+                  <div className={`p-6 rounded-xl border-2 ${
+                    isDarkMode ? 'border-gray-600 bg-gray-700/30' : 'border-gray-200 bg-white'
+                  }`}>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+                      <Mail className="w-5 h-5" />
+                      <span>Contact Support</span>
+                    </h3>
+                    <div className="space-y-4">
+                      <div className={`p-4 rounded-xl ${
+                        isDarkMode ? 'bg-gray-600/30' : 'bg-gray-50'
+                      }`}>
+                        <div className="flex items-center space-x-3 mb-2">
+                          <Mail className="w-5 h-5 text-blue-500" />
+                          <span className="font-medium">Email Support</span>
+                        </div>
+                        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          support@skillconnect.com
+                        </p>
+                        <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                          Average response time: 2 hours
+                        </p>
+                      </div>
+                      <div className={`p-4 rounded-xl ${
+                        isDarkMode ? 'bg-gray-600/30' : 'bg-gray-50'
+                      }`}>
+                        <div className="flex items-center space-x-3 mb-2">
+                          <Phone className="w-5 h-5 text-green-500" />
+                          <span className="font-medium">Phone Support</span>
+                        </div>
+                        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          +1 (555) 123-4567
+                        </p>
+                        <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                          Mon-Fri 9AM-6PM PST
+                        </p>
+                      </div>
+                      <div className={`p-4 rounded-xl ${
+                        isDarkMode ? 'bg-gray-600/30' : 'bg-gray-50'
+                      }`}>
+                        <div className="flex items-center space-x-3 mb-2">
+                          <Globe className="w-5 h-5 text-purple-500" />
+                          <span className="font-medium">Live Chat</span>
+                        </div>
+                        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          Available 24/7 for Pro users
+                        </p>
+                        <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                          Click the chat icon in the bottom right
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Resources */}
+                  <div className={`p-6 rounded-xl border-2 ${
+                    isDarkMode ? 'border-gray-600 bg-gray-700/30' : 'border-gray-200 bg-white'
+                  }`}>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+                      <Award className="w-5 h-5" />
+                      <span>Resources</span>
+                    </h3>
+                    <div className="space-y-3">
+                      <button className={`w-full text-left p-3 rounded-xl transition-all duration-300 ${
+                        isDarkMode ? 'bg-gray-600/30 hover:bg-gray-500/30' : 'bg-gray-50 hover:bg-gray-100'
+                      }`}>
+                        <div className="flex items-center space-x-3">
+                          <Download className="w-5 h-5 text-blue-500" />
+                          <span>User Guide & Documentation</span>
+                        </div>
+                      </button>
+                      <button className={`w-full text-left p-3 rounded-xl transition-all duration-300 ${
+                        isDarkMode ? 'bg-gray-600/30 hover:bg-gray-500/30' : 'bg-gray-50 hover:bg-gray-100'
+                      }`}>
+                        <div className="flex items-center space-x-3">
+                          <Heart className="w-5 h-5 text-red-500" />
+                          <span>Video Tutorials</span>
+                        </div>
+                      </button>
+                      <button className={`w-full text-left p-3 rounded-xl transition-all duration-300 ${
+                        isDarkMode ? 'bg-gray-600/30 hover:bg-gray-500/30' : 'bg-gray-50 hover:bg-gray-100'
+                      }`}>
+                        <div className="flex items-center space-x-3">
+                          <Users className="w-5 h-5 text-green-500" />
+                          <span>Community Forum</span>
+                        </div>
+                      </button>
+                      <button className={`w-full text-left p-3 rounded-xl transition-all duration-300 ${
+                        isDarkMode ? 'bg-gray-600/30 hover:bg-gray-500/30' : 'bg-gray-50 hover:bg-gray-100'
+                      }`}>
+                        <div className="flex items-center space-x-3">
+                          <ThumbsUp className="w-5 h-5 text-yellow-500" />
+                          <span>Feature Requests</span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* System Status */}
+                  <div className={`p-6 rounded-xl border-2 ${
+                    isDarkMode ? 'border-green-500/30 bg-green-500/10' : 'border-green-200 bg-green-50'
+                  }`}>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                      <span>System Status</span>
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">All Systems Operational</span>
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-xs text-green-600">Online</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">API Response Time</span>
+                        <span className="text-xs text-green-600">142ms</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Uptime (30 days)</span>
+                        <span className="text-xs text-green-600">99.9%</span>
+                      </div>
+                    </div>
+                    <button className={`w-full mt-4 px-4 py-2 rounded-xl font-medium transition-all duration-300 ${
+                      isDarkMode
+                        ? 'bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-500/30'
+                        : 'bg-green-100 hover:bg-green-200 text-green-700 border border-green-300'
+                    }`}>
+                      View Status Page
                     </button>
                   </div>
                 </div>
