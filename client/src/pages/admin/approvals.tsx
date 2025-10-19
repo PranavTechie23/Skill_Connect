@@ -253,11 +253,11 @@ const AdminApprovals: React.FC = () => {
                   <div className={`px-3 py-1.5 rounded-xl text-xs font-bold border-2 ${
                     item.priority === 'high'
                       ? 'bg-red-50 text-red-700 border-red-200'
-                      : item.priority === 'medium'
+                      : (item.priority || 'low') === 'medium'
                       ? 'bg-amber-50 text-amber-700 border-amber-200'
                       : 'bg-blue-50 text-blue-700 border-blue-200'
                   }`}>
-                    {item.priority.toUpperCase()}
+                    {(item.priority || 'low').toUpperCase()}
                   </div>
                 </div>
 
@@ -267,17 +267,17 @@ const AdminApprovals: React.FC = () => {
                     <>
                       <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
                         <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Company Size</p>
-                        <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{item.details.companySize}</p>
+                        <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{item.details?.companySize || 'N/A'}</p>
                       </div>
                       <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
                         <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Industry</p>
-                        <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{item.details.industry}</p>
+                        <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{item.details?.industry || 'N/A'}</p>
                       </div>
                       <div className={`p-3 rounded-xl col-span-2 ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
                         <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Location</p>
                         <p className={`text-sm font-bold flex items-center gap-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                           <MapPin className="w-4 h-4" />
-                          {item.details.location}
+                          {item.details?.location || 'N/A'}
                         </p>
                       </div>
                     </>
@@ -285,19 +285,19 @@ const AdminApprovals: React.FC = () => {
                     <>
                       <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
                         <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Salary</p>
-                        <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{item.details.salary}</p>
+                        <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{item.details?.salary || 'N/A'}</p>
                       </div>
                       <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
                         <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Type</p>
-                        <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{item.details.type}</p>
+                        <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{item.details?.type || 'N/A'}</p>
                       </div>
                       <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
                         <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Location</p>
-                        <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{item.details.location}</p>
+                        <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{item.details?.location || 'N/A'}</p>
                       </div>
                       <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
                         <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Experience</p>
-                        <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{item.details.experience}</p>
+                        <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{item.details?.experience || 'N/A'}</p>
                       </div>
                     </>
                   )}

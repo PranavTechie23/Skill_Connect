@@ -134,7 +134,7 @@ const AdminSettings: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-orange-50 rounded-2xl border-2 border-red-200">
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-red-500 to-orange-50 rounded-2xl border-2 border-red-200">
               <div className="flex items-center gap-3">
                 <AlertCircle className="w-6 h-6 text-red-600" />
                 <div>
@@ -367,7 +367,7 @@ const AdminSettings: React.FC = () => {
                 <Database className="w-5 h-5" />
                 Backup Now
               </button>
-              <button className="flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-all">
+              <button className="flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-red-700 rounded-xl font-bold transition-all">
                 <Upload className="w-5 h-5" />
                 Restore from Backup
               </button>

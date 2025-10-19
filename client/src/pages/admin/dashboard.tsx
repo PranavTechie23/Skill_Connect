@@ -722,7 +722,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
 
                     <button
-                      onClick={() => navigate('/admin/approvals')}
+                      onClick={() => navigate('/admin/approvals', { replace: true })}
                       className="w-full py-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg hover:from-red-700 hover:to-rose-700 transition-all font-semibold text-sm flex items-center justify-center gap-2"
                     >
                       Review All

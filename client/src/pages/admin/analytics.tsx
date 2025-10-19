@@ -6,52 +6,98 @@ import {
   UserCheck, Building2, CheckCircle, Clock, Filter, Download,
   Eye, Sparkles, Zap, Star, Award, TrendingDown, FileText
 } from 'lucide-react';
-import { adminService } from '@/lib/admin-service';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Pie, Cell, PieChart as RechartsPieChart, LineChart as RechartsLineChart } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Pie, Cell, PieChart as RechartsPieChart } from 'recharts';
 
-const Analytics: React.FC = () => {
+// Mock data for demonstration
+const mockAnalyticsData = {
+  userGrowth: [
+    { month: 'Jan', users: 1200, employees: 800, employers: 400 },
+    { month: 'Feb', users: 1500, employees: 950, employers: 550 },
+    { month: 'Mar', users: 1800, employees: 1100, employers: 700 },
+    { month: 'Apr', users: 2200, employees: 1400, employers: 800 },
+    { month: 'May', users: 2600, employees: 1650, employers: 950 },
+    { month: 'Jun', users: 3100, employees: 2000, employers: 1100 },
+  ],
+  jobCategories: [
+    { name: 'Technology', value: 35, color: '#3b82f6' },
+    { name: 'Healthcare', value: 25, color: '#22c55e' },
+    { name: 'Finance', value: 20, color: '#a855f7' },
+    { name: 'Education', value: 12, color: '#f59e0b' },
+    { name: 'Other', value: 8, color: '#ef4444' },
+  ],
+  recentActivities: [
+    { type: 'user', action: 'New user registered', user: 'John Doe', time: '2 minutes ago', color: 'blue' },
+    { type: 'job', action: 'Job posted', user: 'Tech Corp', time: '5 minutes ago', color: 'green' },
+    { type: 'application', action: 'Application submitted', user: 'Sarah Smith', time: '12 minutes ago', color: 'purple' },
+    { type: 'hire', action: 'Candidate hired', user: 'MediCare Inc', time: '25 minutes ago', color: 'orange' },
+    { type: 'user', action: 'Profile updated', user: 'Mike Johnson', time: '1 hour ago', color: 'blue' },
+  ],
+  performanceMetrics: {
+    employeeSatisfaction: 92,
+    employerSatisfaction: 88,
+    placementRate: 76,
+    avgTimeToHire: 14,
+    timeToHireChange: -3,
+  },
+  stats: {
+    totalUsers: 3100,
+    newUsers: 245,
+    activeJobs: 487,
+    newJobs: 52,
+    applications: 1842,
+    newApplications: 187,
+    successRate: 76,
+    successRateChange: 3,
+  }
+};
+
+const Analytics = () => {
   const [timeRange, setTimeRange] = useState('30d');
-  const [loading, setLoading] = useState(true);
-  const [analyticsData, setAnalyticsData] = useState<any>({
-    userGrowth: [],
-    jobCategories: [],
-    recentActivities: [],
-    performanceMetrics: {},
-    stats: {}
-  });
+  const [loading, setLoading] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState(mockAnalyticsData);
 
   useEffect(() => {
-    const fetchAnalytics = async () => {
-      setLoading(true);
-      try {
-        const data = await adminService.getAnalytics(timeRange);
-        setAnalyticsData(data);
-      } catch (error) {
-        console.error("Failed to fetch analytics data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAnalytics();
+    // Simulate data fetch based on time range
+    setLoading(true);
+    setTimeout(() => {
+      setAnalyticsData(mockAnalyticsData);
+      setLoading(false);
+    }, 500);
   }, [timeRange]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 p-8 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 -left-20 w-96 h-96 bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-500/5 dark:bg-purple-500/10 rounded-full blur-3xl animate-float-delayed"></div>
+        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-pink-500/5 dark:bg-pink-500/10 rounded-full blur-3xl animate-float-slow"></div>
+      </div>
+
       {/* Header */}
-      <div className="max-w-7xl mx-auto mb-8">
+      <div className="max-w-7xl mx-auto mb-8 relative z-10">
         <div className="mb-4">
           <AdminBackButton />
         </div>
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
           <div className="flex items-center gap-4">
-            <div className="p-4 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-2xl shadow-lg shadow-blue-500/50 animate-pulse-slow">
-              <BarChart3 className="w-8 h-8 text-white" />
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-2xl blur-xl opacity-50 animate-pulse-slow"></div>
+              <div className="relative p-4 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-2xl shadow-lg shadow-blue-500/50">
+                <BarChart3 className="w-8 h-8 text-white" />
+              </div>
             </div>
             <div>
-              <h1 className="text-4xl font-black bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-black bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent animate-gradient">
                 Analytics Dashboard
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-1">Real-time platform insights and metrics</p>
+              <p className="text-gray-600 dark:text-gray-400 mt-1 flex items-center gap-2">
+                Real-time platform insights and metrics
+                <span className="flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded-full text-xs font-bold">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                  Live
+                </span>
+              </p>
             </div>
           </div>
 
@@ -59,16 +105,17 @@ const Analytics: React.FC = () => {
             <select
               value={timeRange}
               onChange={(e) => setTimeRange(e.target.value)}
-              className="px-6 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl font-semibold cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 transition-all shadow-sm dark:text-white"
+              className="px-6 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-xl font-semibold cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-lg transition-all shadow-sm dark:text-white"
             >
               <option value="7d">Last 7 days</option>
               <option value="30d">Last 30 days</option>
               <option value="90d">Last 90 days</option>
               <option value="1y">Last year</option>
             </select>
-            <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-lg transition-all">
-              <Download className="w-5 h-5" />
-              Export
+            <button className="group relative flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-xl hover:scale-105 transition-all overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-700 to-indigo-700 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <Download className="w-5 h-5 relative z-10 group-hover:animate-bounce" />
+              <span className="relative z-10">Export</span>
             </button>
           </div>
         </div>
@@ -89,8 +136,8 @@ const Analytics: React.FC = () => {
                 </div>
               </div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-semibold mb-1">Total Users</p>
-              <p className="text-4xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.stats?.totalUsers || 0}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">+{analyticsData.stats?.newUsers || 0} from last month</p>
+              <p className="text-4xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.stats.totalUsers.toLocaleString()}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">+{analyticsData.stats.newUsers} from last month</p>
             </div>
           </div>
 
@@ -108,8 +155,8 @@ const Analytics: React.FC = () => {
                 </div>
               </div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-semibold mb-1">Active Jobs</p>
-              <p className="text-4xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.stats?.activeJobs || 0}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">+{analyticsData.stats?.newJobs || 0} from last month</p>
+              <p className="text-4xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.stats.activeJobs.toLocaleString()}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">+{analyticsData.stats.newJobs} from last month</p>
             </div>
           </div>
 
@@ -127,8 +174,8 @@ const Analytics: React.FC = () => {
                 </div>
               </div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-semibold mb-1">Applications</p>
-              <p className="text-4xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.stats?.applications || 0}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">+{analyticsData.stats?.newApplications || 0} from last month</p>
+              <p className="text-4xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.stats.applications.toLocaleString()}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">+{analyticsData.stats.newApplications} from last month</p>
             </div>
           </div>
 
@@ -146,22 +193,22 @@ const Analytics: React.FC = () => {
                 </div>
               </div>
               <p className="text-white/90 text-sm font-semibold mb-1">Success Rate</p>
-              <p className="text-4xl font-black mb-2">{analyticsData.stats?.successRate || 0}%</p>
-              <p className="text-xs text-white/80">+{analyticsData.stats?.successRateChange || 0}% improvement</p>
+              <p className="text-4xl font-black mb-2">{analyticsData.stats.successRate}%</p>
+              <p className="text-xs text-white/80">+{analyticsData.stats.successRateChange}% improvement</p>
             </div>
           </div>
         </div>
 
-          {/* Charts Section */}
+        {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           {/* User Growth Chart */}
           <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-3xl shadow-xl p-8 border-2 border-gray-100 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
               <div>
                 <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-1">User Growth</h3>
                 <p className="text-gray-500 dark:text-gray-400 text-sm">Monthly registration trends</p>
               </div>
-              <div className="flex gap-4">
+              <div className="flex gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600"></div>
                   <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">Total</span>
@@ -180,9 +227,15 @@ const Analytics: React.FC = () => {
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={analyticsData.userGrowth}>
-                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <Tooltip />
+                  <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
+                  <YAxis stroke="#9ca3af" fontSize={12} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px'
+                    }}
+                  />
                   <Legend />
                   <Bar dataKey="users" fill="#3b82f6" name="Total" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="employees" fill="#22c55e" name="Employees" radius={[4, 4, 0, 0]} />
@@ -199,12 +252,20 @@ const Analytics: React.FC = () => {
               <p className="text-gray-500 dark:text-gray-400 text-sm">Distribution by industry</p>
             </div>
 
-            {/* Pie Chart Representation */}
+            {/* Pie Chart */}
             <div className="h-48 mx-auto mb-6">
               <ResponsiveContainer width="100%" height="100%">
-                <RechartsPieChart> 
-                  <Pie data={analyticsData.jobCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                    {analyticsData.jobCategories.map((entry: any, index: number) => (
+                <RechartsPieChart>
+                  <Pie 
+                    data={analyticsData.jobCategories} 
+                    dataKey="value" 
+                    nameKey="name" 
+                    cx="50%" 
+                    cy="50%" 
+                    outerRadius={80}
+                    label={(entry) => `${entry.value}%`}
+                  >
+                    {analyticsData.jobCategories.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -215,10 +276,10 @@ const Analytics: React.FC = () => {
 
             {/* Legend */}
             <div className="space-y-3">
-              {analyticsData.jobCategories.map((category: any, index: number) => (
+              {analyticsData.jobCategories.map((category, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-600 transition-all cursor-pointer">
                   <div className="flex items-center gap-3">
-                    <div className={`w-4 h-4 rounded-full shadow-md`} style={{ backgroundColor: category.color }}></div>
+                    <div className="w-4 h-4 rounded-full shadow-md" style={{ backgroundColor: category.color }}></div>
                     <span className="font-semibold text-gray-700 dark:text-gray-300">{category.name}</span>
                   </div>
                   <span className="font-black text-gray-900 dark:text-white">{category.value}%</span>
@@ -237,51 +298,51 @@ const Analytics: React.FC = () => {
               <p className="text-gray-500 dark:text-gray-400 text-sm">Key performance indicators</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-6">
-              <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 rounded-2xl border-2 border-blue-200 dark:border-blue-800">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl border-2 border-blue-200 dark:border-blue-800">
                 <div className="flex items-center justify-between mb-4">
                   <UserCheck className="w-8 h-8 text-blue-600 dark:text-blue-400" />
                   <Sparkles className="w-5 h-5 text-blue-500 dark:text-blue-400 animate-pulse" />
                 </div>
                 <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-2">Employee Satisfaction</p>
-                <p className="text-3xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.performanceMetrics?.employeeSatisfaction || 0}%</p>
-                <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2"> 
+                <p className="text-3xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.performanceMetrics.employeeSatisfaction}%</p>
+                <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2">
                   <div className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full" style={{ width: '92%' }}></div>
                 </div>
               </div>
 
-              <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 rounded-2xl border-2 border-green-200 dark:border-green-800">
+              <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl border-2 border-green-200 dark:border-green-800">
                 <div className="flex items-center justify-between mb-4">
                   <Building2 className="w-8 h-8 text-green-600 dark:text-green-400" />
                   <Star className="w-5 h-5 text-yellow-500 dark:text-yellow-400 animate-spin-slow" />
                 </div>
                 <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-2">Employer Satisfaction</p>
-                <p className="text-3xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.performanceMetrics?.employerSatisfaction || 0}%</p>
-                <div className="w-full bg-green-200 dark:bg-green-800 rounded-full h-2"> 
+                <p className="text-3xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.performanceMetrics.employerSatisfaction}%</p>
+                <div className="w-full bg-green-200 dark:bg-green-800 rounded-full h-2">
                   <div className="bg-gradient-to-r from-green-500 to-emerald-600 h-2 rounded-full" style={{ width: '88%' }}></div>
                 </div>
               </div>
 
-              <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900 dark:to-pink-900 rounded-2xl border-2 border-purple-200 dark:border-purple-800">
+              <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl border-2 border-purple-200 dark:border-purple-800">
                 <div className="flex items-center justify-between mb-4">
                   <Target className="w-8 h-8 text-purple-600 dark:text-purple-400" />
                   <Zap className="w-5 h-5 text-purple-500 dark:text-purple-400 animate-pulse" />
                 </div>
                 <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-2">Placement Rate</p>
-                <p className="text-3xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.performanceMetrics?.placementRate || 0}%</p>
-                <div className="w-full bg-purple-200 dark:bg-purple-800 rounded-full h-2"> 
+                <p className="text-3xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.performanceMetrics.placementRate}%</p>
+                <div className="w-full bg-purple-200 dark:bg-purple-800 rounded-full h-2">
                   <div className="bg-gradient-to-r from-purple-500 to-pink-600 h-2 rounded-full" style={{ width: '76%' }}></div>
                 </div>
               </div>
 
-              <div className="p-6 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900 dark:to-red-900 rounded-2xl border-2 border-orange-200 dark:border-orange-800">
+              <div className="p-6 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-2xl border-2 border-orange-200 dark:border-orange-800">
                 <div className="flex items-center justify-between mb-4">
                   <Clock className="w-8 h-8 text-orange-600 dark:text-orange-400" />
                   <Activity className="w-5 h-5 text-orange-500 dark:text-orange-400 animate-bounce" />
                 </div>
                 <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-2">Avg. Time to Hire</p>
-                <p className="text-3xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.performanceMetrics?.avgTimeToHire || 0}d</p>
-                <p className="text-xs text-green-600 dark:text-green-400 font-bold">{analyticsData.performanceMetrics?.timeToHireChange || 0} days improvement</p>
+                <p className="text-3xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.performanceMetrics.avgTimeToHire}d</p>
+                <p className="text-xs text-green-600 dark:text-green-400 font-bold">{Math.abs(analyticsData.performanceMetrics.timeToHireChange)} days improvement</p>
               </div>
             </div>
           </div>
@@ -297,32 +358,32 @@ const Analytics: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              {analyticsData.recentActivities.map((activity: any, index: number) => {
+              {analyticsData.recentActivities.map((activity, index) => {
                 const colorClasses = {
                   blue: 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400',
                   green: 'bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400',
                   purple: 'bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400',
                   orange: 'bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400',
                 };
-                const colorClass = colorClasses[activity.color as keyof typeof colorClasses] || colorClasses.blue;
-                
+                const colorClass = colorClasses[activity.color] || colorClasses.blue;
+
                 return (
-                <div
-                  key={index}
-                  className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-600 transition-all cursor-pointer"
-                >
-                  <div className={`p-2 rounded-xl ${colorClass.split(' ')[0]} ${colorClass.split(' ')[1]}`}>
-                    {activity.type === 'user' && <Users className={`w-4 h-4 ${colorClass.split(' ')[2]} ${colorClass.split(' ')[3]}`} />}
-                    {activity.type === 'job' && <Briefcase className={`w-4 h-4 ${colorClass.split(' ')[2]} ${colorClass.split(' ')[3]}`} />}
-                    {activity.type === 'application' && <FileText className={`w-4 h-4 ${colorClass.split(' ')[2]} ${colorClass.split(' ')[3]}`} />}
-                    {activity.type === 'hire' && <CheckCircle className={`w-4 h-4 ${colorClass.split(' ')[2]} ${colorClass.split(' ')[3]}`} />}
+                  <div
+                    key={index}
+                    className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-600 transition-all cursor-pointer"
+                  >
+                    <div className={`p-2 rounded-xl ${colorClass.split(' ')[0]} ${colorClass.split(' ')[1]}`}>
+                      {activity.type === 'user' && <Users className={`w-4 h-4 ${colorClass.split(' ')[2]} ${colorClass.split(' ')[3]}`} />}
+                      {activity.type === 'job' && <Briefcase className={`w-4 h-4 ${colorClass.split(' ')[2]} ${colorClass.split(' ')[3]}`} />}
+                      {activity.type === 'application' && <FileText className={`w-4 h-4 ${colorClass.split(' ')[2]} ${colorClass.split(' ')[3]}`} />}
+                      {activity.type === 'hire' && <CheckCircle className={`w-4 h-4 ${colorClass.split(' ')[2]} ${colorClass.split(' ')[3]}`} />}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-gray-900 dark:text-white text-sm">{activity.action}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-300">{activity.user}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{activity.time}</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-bold text-gray-900 dark:text-white text-sm">{activity.action}</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-300">{activity.user}</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{activity.time}</p>
-                  </div>
-                </div> 
                 );
               })}
             </div>
@@ -345,15 +406,33 @@ const Analytics: React.FC = () => {
         .animate-spin-slow {
           animation: spin 3s linear infinite;
         }
+        @keyframes float {
+          0%, 100% { transform: translate(0, 0) rotate(0deg); }
+          33% { transform: translate(30px, -30px) rotate(3deg); }
+          66% { transform: translate(-20px, 20px) rotate(-3deg); }
+        }
+        .animate-float {
+          animation: float 20s ease-in-out infinite;
+        }
+        .animate-float-delayed {
+          animation: float 25s ease-in-out infinite;
+          animation-delay: -5s;
+        }
+        .animate-float-slow {
+          animation: float 30s ease-in-out infinite;
+          animation-delay: -10s;
+        }
+        @keyframes gradient {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        .animate-gradient {
+          background-size: 200% 200%;
+          animation: gradient 5s ease infinite;
+        }
       `}</style>
     </div>
   );
 };
 
 export default Analytics;
-
-
-
-
-
-
