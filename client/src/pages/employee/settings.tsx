@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Settings, User, Shield, Bell, LogOut,
   Save, X, Eye, EyeOff, Mail, Smartphone,
@@ -6,22 +6,24 @@ import {
   Check, Monitor, Smartphone as PhoneIcon
 } from 'lucide-react';
 import { useTheme } from "@/components/theme-provider";
+import { useAuth } from "@/contexts/AuthContext";
 
 const SettingsPage = () => {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const darkMode = theme === 'dark';
   const [activeSection, setActiveSection] = useState('account');
   const [isEditing, setIsEditing] = useState(false);
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
 
-  // Mock settings data
+  // Real user data from auth context
   const [settings, setSettings] = useState({
     account: {
-      firstName: 'Alex',
-      lastName: 'Johnson',
-      email: 'alex.johnson@techcorp.com',
-      phone: '+1 (555) 123-4567',
+      firstName: user?.firstName || '',
+      lastName: user?.lastName || '',
+      email: user?.email || '',
+      phone: user?.telephoneNumber || '',
       language: 'English',
       timezone: 'Pacific Time (PT)'
     },
@@ -56,6 +58,22 @@ const SettingsPage = () => {
       remoteOnly: false
     }
   });
+
+  // Update settings when user data changes
+  useEffect(() => {
+    if (user) {
+      setSettings(prev => ({
+        ...prev,
+        account: {
+          ...prev.account,
+          firstName: user.firstName || '',
+          lastName: user.lastName || '',
+          email: user.email || '',
+          phone: user.telephoneNumber || '',
+        }
+      }));
+    }
+  }, [user]);
 
   const sections: { id: string; label: string; icon: any; color: 'blue' | 'green' | 'purple' | 'pink' | 'orange' }[] = [
     { id: 'account', label: 'Account', icon: User, color: 'blue' },

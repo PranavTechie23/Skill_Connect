@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "../hooks/use-toast";
 import { useAuth } from "../hooks/use-auth";
 import { Button } from "../components/ui/button";
+import { Card } from "../components/ui/card";
 import { apiFetch } from "../lib/api";
 
 interface Story {
@@ -17,7 +18,7 @@ interface Story {
   };
 }
 
-const OurStories = () => {
+export default function Stories() {
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -104,5 +105,3 @@ const OurStories = () => {
     </div>
   );
 };
-
-export default OurStories;

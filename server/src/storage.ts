@@ -1,7 +1,7 @@
 // server/src/storage.ts - CORRECT IMPORTS FOR DRIZZLE 0.44.6
-import { type User, type InsertUser, type Company, type InsertCompany, type Job, type InsertJob, type Application, type InsertApplication, type Message, type InsertMessage, type Experience, type InsertExperience, type Story } from "../../shared/schema";
+import { type User, type InsertUser, type Company, type InsertCompany, type Job, type InsertJob, type Application, type InsertApplication, type Message, type InsertMessage, type Experience, type InsertExperience, type Story, type ProfessionalProfile, type InsertProfessionalProfile } from "../../shared/schema";
 import { db } from "./db";
-import { users, companies, jobs, applications, messages, experiences, stories } from "../../shared/schema";
+import { users, professionalProfiles, companies, jobs, applications, messages, experiences, stories } from "../../shared/schema";
 import { eq, desc, and, or, ilike } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
@@ -11,6 +11,13 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string | number, updates: Partial<InsertUser>): Promise<User>;
+  getAllUsers(): Promise<User[]>;
+  deleteUser(id: string | number): Promise<void>;
+
+  // Professional Profiles
+  createProfessionalProfile(profile: InsertProfessionalProfile): Promise<ProfessionalProfile>;
+  getProfessionalProfileByUserId(userId: string | number): Promise<ProfessionalProfile | undefined>;
+  updateProfessionalProfile(userId: string | number, updates: Partial<InsertProfessionalProfile>): Promise<ProfessionalProfile>;
   
   // Companies
   getCompany(id: string): Promise<Company | undefined>;
@@ -18,6 +25,8 @@ export interface IStorage {
   getCompaniesByOwner(ownerId: string | number): Promise<Company[]>;
   createCompany(company: InsertCompany): Promise<Company>;
   updateCompany(id: string, updates: Partial<InsertCompany>): Promise<Company>;
+  getAllCompanies(): Promise<Company[]>;
+  deleteCompany(id: string | number): Promise<void>;
   
   // Jobs
   getJob(id: string | number): Promise<Job | undefined>;
@@ -26,6 +35,7 @@ export interface IStorage {
   getJobsByCompany(companyId: string | number): Promise<Job[]>;
   createJob(job: InsertJob): Promise<Job>;
   updateJob(id: string, updates: Partial<InsertJob>): Promise<Job>;
+  deleteJob(id: string | number): Promise<void>;
   
   // Applications
   getApplication(id: string | number): Promise<Application | undefined>;
@@ -56,14 +66,13 @@ export interface IStorage {
     authorId: number;
     createdAt: Date;
   }): Promise<Story>;
-  getStories(): Promise<Story[]>;
+  getStories(): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
   // Users
   async getUser(id: string | number): Promise<User | undefined> {
-    const nid = typeof id === 'string' ? parseInt(id, 10) : id;
-    const [user] = await db.select().from(users).where(eq(users.id, nid as number));
+    const [user] = await db.select().from(users).where(eq(users.id, String(id)));
     return user || undefined;
   }
 
@@ -88,35 +97,69 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUser(id: string | number, updates: Partial<InsertUser>): Promise<User> {
-    const nid = typeof id === 'string' ? parseInt(id, 10) : id;
     const [user] = await db
       .update(users)
       .set(updates)
-      .where(eq(users.id, nid as number))
+      .where(eq(users.id, String(id)))
       .returning();
     if (!user) throw new Error("User not found");
     return user;
   }
-
+  
   async getAllUsers(): Promise<User[]> {
     return await db.select().from(users).orderBy(desc(users.createdAt));
   }
-
+  
   async deleteUser(id: string | number): Promise<void> {
+    await db.delete(users).where(eq(users.id, String(id)));
+  }
+
+  async getAllCompanies(): Promise<Company[]> {
+    return await db.select().from(companies).orderBy(desc(companies.createdAt));
+  }
+  
+  async deleteCompany(id: string | number): Promise<void> {
     const nid = typeof id === 'string' ? parseInt(id, 10) : id;
-    await db.delete(users).where(eq(users.id, nid as number));
+    await db.delete(companies).where(eq(companies.id, nid as number));
+  }
+  
+  async deleteJob(id: string | number): Promise<void> {
+    const nid = typeof id === 'string' ? parseInt(id, 10) : id;
+    await db.delete(jobs).where(eq(jobs.id, nid as number));
+  }
+  
+  // Professional Profiles
+  async createProfessionalProfile(insertProfile: InsertProfessionalProfile): Promise<ProfessionalProfile> {
+    const [profile] = await db
+      .insert(professionalProfiles)
+      .values(insertProfile)
+      .returning();
+    return profile;
+  }
+
+  async getProfessionalProfileByUserId(userId: string | number): Promise<ProfessionalProfile | undefined> {
+    const [profile] = await db.select().from(professionalProfiles).where(eq(professionalProfiles.userId, String(userId)));
+    return profile || undefined;
+  }
+
+  async updateProfessionalProfile(userId: string | number, updates: Partial<InsertProfessionalProfile>): Promise<ProfessionalProfile> {
+    const [profile] = await db
+      .update(professionalProfiles)
+      .set(updates)
+      .where(eq(professionalProfiles.userId, String(userId)))
+      .returning();
+    if (!profile) throw new Error("Professional profile not found");
+    return profile;
   }
 
   // Companies
   async getCompany(id: string | number): Promise<Company | undefined> {
-    const nid = typeof id === 'string' ? parseInt(id, 10) : id;
-    const [company] = await db.select().from(companies).where(eq(companies.id, nid as number));
+    const [company] = await db.select().from(companies).where(eq(companies.id, String(id)));
     return company || undefined;
   }
 
   async getCompaniesByOwner(ownerId: string | number): Promise<Company[]> {
-    const nid = typeof ownerId === 'string' ? parseInt(ownerId, 10) : ownerId;
-    return await db.select().from(companies).where(eq(companies.ownerId, nid as number));
+    return await db.select().from(companies).where(eq(companies.ownerId, String(ownerId)));
   }
 
   async createCompany(insertCompany: InsertCompany): Promise<Company> {
@@ -150,53 +193,43 @@ export class DatabaseStorage implements IStorage {
     return job || undefined;
   }
 
+  // Fix for getJobs method
   async getJobs(filters?: { location?: string; skills?: string[]; jobType?: string; search?: string }): Promise<Job[]> {
-    let whereConditions: any[] = [eq(jobs.isActive, true)];
-    
-    if (filters?.location && filters.location !== "All Locations") {
-      whereConditions.push(ilike(jobs.location, `%${filters.location}%`));
-    }
-    
-    if (filters?.jobType && filters.jobType !== "All Jobs") {
-      whereConditions.push(eq(jobs.jobType, filters.jobType as "full-time" | "part-time" | "contract" | "remote"));
-    }
-    
-    if (filters?.search) {
-      const searchPattern = `%${filters.search}%`;
-      whereConditions.push(
-        or(
-          ilike(jobs.title, searchPattern),
-          ilike(jobs.description, searchPattern)
-        )
-      );
-    }
-    
-    const allJobs = await db.select().from(jobs)
-      .where(and(...whereConditions))
-      .orderBy(desc(jobs.createdAt));
-    
-    // Filter by skills
-    if (filters?.skills && filters.skills.length > 0) {
-      return allJobs.filter(job => 
-        job.skills && job.skills.some((jobSkill: string) =>
-          filters.skills!.some(skill => 
-            jobSkill.toLowerCase().includes(skill.toLowerCase())
+      const whereConditions: any[] = [];
+      
+      if (filters?.location) {
+        whereConditions.push(ilike(jobs.location, `%${filters.location}%`));
+      }
+      
+      if (filters?.jobType) {
+        whereConditions.push(eq(jobs.jobType, filters.jobType));
+      }
+      
+      if (filters?.search) {
+        whereConditions.push(
+          or(
+            ilike(jobs.title, `%${filters.search}%`),
+            ilike(jobs.description, `%${filters.search}%`)
           )
-        )
-      );
-    }
-    
-    return allJobs;
+        );
+      }
+      
+      if (whereConditions.length === 0) {
+        return await db.select().from(jobs).orderBy(desc(jobs.createdAt));
+      }
+      
+      return await db.select().from(jobs)
+        .where(and(...whereConditions))
+        .orderBy(desc(jobs.createdAt));
   }
-
+  
+  
   async getJobsByEmployer(employerId: string | number): Promise<Job[]> {
-    const nid = typeof employerId === 'string' ? parseInt(employerId, 10) : employerId;
-    return await db.select().from(jobs).where(eq(jobs.employerId, nid as number));
+    return await db.select().from(jobs).where(eq(jobs.employerId, String(employerId)));
   }
 
   async getJobsByCompany(companyId: string | number): Promise<Job[]> {
-    const nid = typeof companyId === 'string' ? parseInt(companyId, 10) : companyId;
-    return await db.select().from(jobs).where(eq(jobs.companyId, nid as number));
+    return await db.select().from(jobs).where(eq(jobs.companyId, String(companyId)));
   }
 
   async createJob(insertJob: InsertJob): Promise<Job> {
@@ -231,14 +264,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getApplicationsByJob(jobId: string | number): Promise<Application[]> {
-    const nid = typeof jobId === 'string' ? parseInt(jobId, 10) : jobId;
-    return await db.select().from(applications).where(eq(applications.jobId, nid as number));
+    if (jobId === "all") {
+      return await db.select().from(applications).orderBy(desc(applications.appliedAt));
+    }
+    return await db.select().from(applications).where(eq(applications.jobId, String(jobId)));
   }
 
   async getApplicationsByApplicant(applicantId: string | number): Promise<Application[]> {
-    const nid = typeof applicantId === 'string' ? parseInt(applicantId, 10) : applicantId;
     return await db.select().from(applications)
-      .where(eq(applications.applicantId, nid as number))
+      .where(eq(applications.applicantId, String(applicantId)))
       .orderBy(desc(applications.appliedAt));
   }
 
@@ -376,8 +410,19 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async getStories(): Promise<Story[]> {
-    return await db.select().from(stories).orderBy(desc(stories.createdAt));
+  async getStories(): Promise<any[]> { // The return type is now more complex
+    const result = await db.query.stories.findMany({
+      with: {
+        author: {
+          columns: {
+            firstName: true,
+            lastName: true,
+          }
+        }
+      },
+      orderBy: desc(stories.createdAt),
+    });
+    return result;
   }
 }
 export const storage = new DatabaseStorage();

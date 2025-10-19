@@ -1,50 +1,42 @@
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, CartesianGrid, Legend } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart as RechartsPieChart, Pie, Cell, LineChart, Line, AreaChart, Area, CartesianGrid, Legend } from "recharts";
 import { Users, Briefcase, TrendingUp, MessageCircle, Activity, ClipboardList } from "lucide-react";
 import { Eye, FileText } from "lucide-react";
+import { useEffect, useState } from "react";
+import { PieChart as LucidePieChart } from "lucide-react";
+
 const Dashboards = () => {
-  const sectionVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-  };
+  // Define COLORS array for PieChart
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF1943'];
 
-  const userGrowthData = [
-    { month: "Jan", users: 1000 },
-    { month: "Feb", users: 1500 },
-    { month: "Mar", users: 2000 },
-    { month: "Apr", users: 2500 },
-    { month: "May", users: 3000 },
-    { month: "Jun", users: 3500 },
-  ];
 
-  const jobCategoriesData = [
-    { name: "Technology", value: 400 },
-    { name: "Design", value: 300 },
-    { name: "Marketing", value: 300 },
-    { name: "Sales", value: 200 },
-    { name: "Other", value: 100 },
-  ];
+  const [userGrowthData, setUserGrowthData] = useState([]);
+  const [jobCategoriesData, setJobCategoriesData] = useState([]);
+  const [applicationStatusData, setApplicationStatusData] = useState([]);
+  const [engagementData, setEngagementData] = useState([]);
+  const [quickStatsData, setQuickStatsData] = useState({ totalUsers: 0, activeJobs: 0, applicationsToday: 0, successfulMatches: 0 });
+  const [topJobListingsData, setTopJobListingsData] = useState([]);
 
-  const COLORS = ['#4F46E5', '#06B6D4', '#10B981', '#8B5CF6', '#EC4899'];
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch("/api/dashboard");
+        const data = await response.json();
+        setUserGrowthData(data.userGrowthData);
+        setJobCategoriesData(data.jobCategoriesData);
+        setApplicationStatusData(data.applicationStatusData);
+        setEngagementData(data.engagementData);
+        setQuickStatsData(data.quickStatsData[0]);
+        setTopJobListingsData(data.topJobListingsData);
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      }
+    };
 
-  const applicationStatusData = [
-    { name: "Pending", value: 50 },
-    { name: "Reviewed", value: 30 },
-    { name: "Interviewed", value: 15 },
-    { name: "Hired", value: 5 },
-  ];
-
-  const engagementData = [
-    { day: "Mon", messages: 120, applications: 50 },
-    { day: "Tue", messages: 150, applications: 60 },
-    { day: "Wed", messages: 180, applications: 70 },
-    { day: "Thu", messages: 190, applications: 80 },
-    { day: "Fri", messages: 160, applications: 65 },
-    { day: "Sat", messages: 100, applications: 40 },
-    { day: "Sun", messages: 80, applications: 30 },
-  ];
+    fetchData();
+  }, []);
 
   // Custom pie chart rendering with better visibility in both modes
   interface PieChartData {
@@ -55,7 +47,7 @@ const Dashboards = () => {
 
   const renderPieChart = (data: PieChartData[], height: number = 300) => (
     <ResponsiveContainer width="100%" height={height}>
-      <PieChart>
+      <RechartsPieChart>
         <Pie
           data={data}
           cx="50%"
@@ -89,9 +81,15 @@ const Dashboards = () => {
             boxShadow: '0 2px 5px rgba(0,0,0,0.15)'
           }} 
         />
-      </PieChart>
+      </RechartsPieChart>
     </ResponsiveContainer>   
   );
+
+  // Animation variants for framer-motion
+  const sectionVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+  };
 
   return (
     <motion.div
@@ -158,19 +156,19 @@ const Dashboards = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span>Total Users</span>
-                    <span>3,500</span>
+                    <span>{quickStatsData.totalUsers}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span>Active Jobs</span>
-                    <span>250</span>
+                    <span>{quickStatsData.activeJobs}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span>Applications Today</span>
-                    <span>75</span>
+                    <span>{quickStatsData.applicationsToday}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span>Successful Matches</span>
-                    <span>120</span>
+                    <span>{quickStatsData.successfulMatches}</span>
                   </div>
                 </div>
               </CardContent>
@@ -201,13 +199,7 @@ const Dashboards = () => {
               </CardHeader>
               <CardContent>
                 <ul className="space-y-3">
-                  {[
-                    { title: "Senior Software Engineer", views: 1200, applications: 45 },
-                    { title: "UX Designer", views: 980, applications: 38 },
-                    { title: "Marketing Manager", views: 850, applications: 30 },
-                    { title: "Data Analyst", views: 720, applications: 25 },
-                    { title: "Customer Support Specialist", views: 650, applications: 20 },
-                  ].map((job, index) => (
+                  {topJobListingsData.map((job, index) => (
                     <li 
                       key={index} 
                       className="flex justify-between items-center p-4 rounded-lg transition-colors duration-200"
@@ -278,7 +270,7 @@ const Dashboards = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <PieChart />
+                  <LucidePieChart />
                   Job Categories
                 </CardTitle>
               </CardHeader>

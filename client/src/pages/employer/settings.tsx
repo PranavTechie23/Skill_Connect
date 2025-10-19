@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from "@/components/theme-provider";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   User, 
   Bell, 
@@ -78,20 +79,21 @@ interface SecuritySettings {
 // Main Settings Component
 const EmployerSettings: React.FC = () => {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const isDarkMode = theme === 'dark';
   const [activeSection, setActiveSection] = useState<string>('profile');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [showSaveSuccess, setShowSaveSuccess] = useState<boolean>(false);
 
-  // Initial state
+  // Initial state with real user data
   const [profile, setProfile] = useState<EmployerProfile>({
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@company.com',
-    phone: '+1 (555) 123-4567',
-    company: 'Tech Solutions Inc.',
-    position: 'HR Manager',
-    avatar: '/api/placeholder/150/150'
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    email: user?.email || '',
+    phone: user?.telephoneNumber || '',
+    company: user?.company?.name || '',
+    position: 'HR Manager', // This would need to be added to user schema
+    avatar: user?.profilePhoto || '/api/placeholder/150/150'
   });
 
   const [notifications, setNotifications] = useState<NotificationSettings>({
@@ -110,6 +112,21 @@ const EmployerSettings: React.FC = () => {
     activeSessions: 3,
     loginAlerts: true
   });
+
+  // Update profile when user data changes
+  useEffect(() => {
+    if (user) {
+      setProfile(prev => ({
+        ...prev,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '',
+        phone: user.telephoneNumber || '',
+        company: user.company?.name || '',
+        avatar: user.profilePhoto || '/api/placeholder/150/150'
+      }));
+    }
+  }, [user]);
 
   // Handle profile changes
   const handleProfileChange = (field: keyof EmployerProfile, value: string) => {

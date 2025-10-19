@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { apiFetch, API_BASE_URL } from "../lib/api";
 
 /**
@@ -10,12 +10,38 @@ import { apiFetch, API_BASE_URL } from "../lib/api";
  * - Cancels stale checkAuth requests on unmount
  */
 
+interface ProfessionalProfile {
+  id: number;
+  userId: number;
+  headline: string | null;
+  bio: string | null;
+  skills: string[];
+}
+
+interface Company {
+  id: number;
+  name: string;
+  description: string | null;
+  website: string | null;
+  location: string | null;
+  size: string | null;
+  industry: string | null;
+  logo: string | null;
+  ownerId: number;
+  createdAt: string;
+}
+
 interface User {
   id?: string;
   email?: string;
   firstName?: string;
   lastName?: string;
-  userType?: "Professional" | "Employer" | "admin" | string;
+  userType?: "Professional" | "Employer" | "admin" | "job_seeker" | string;
+  location?: string;
+  profilePhoto?: string;
+  telephoneNumber?: string;
+  profile?: ProfessionalProfile | null;
+  company?: Company | null;
 }
 
 interface AuthContextType {
@@ -59,26 +85,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const checkAuth = async () => {
       setIsLoading(true);
       try {
-        // apiFetch is expected to be a thin wrapper around fetch
-        const res = await apiFetch("/api/auth/me", { signal: controller.signal, credentials: "include" });
-        // Defensive parse
+        const res = await apiFetch("/api/auth/me", {
+          signal: controller.signal,
+          credentials: "include",
+        });
+
         let data: any = {};
-        try { data = await res.json(); } catch { data = {}; }
+        try {
+          data = await res.json();
+        } catch (e) {
+          console.warn("Failed to parse auth response:", e);
+          data = {};
+        }
 
         if (!res.ok) {
-          // not authenticated or error — ensure user cleared
-          if (!cancelled) setUserState(null);
+          if (!cancelled) setUserState(null); // Only set state if not cancelled
           return;
         }
 
         if (!cancelled) {
-          // backend might return { user } or user object directly; handle both
           const returnedUser: User | null = data?.user ?? data ?? null;
           setUserState(returnedUser);
         }
       } catch (err: any) {
         if (err.name === "AbortError") {
-          // ignore abort
+          console.warn("Request aborted:", err);
         } else {
           console.error("Auth check failed:", err);
           if (!cancelled) setUserState(null);
@@ -94,7 +125,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       cancelled = true;
       controller.abort();
     };
-    // empty deps: run once on mount
   }, []);
 
   const setUser = (u: User | null) => setUserState(u);
@@ -102,6 +132,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string): Promise<User> => {
     setIsLoading(true);
     try {
+      // Always use backend for login, including admin
       const res = await apiFetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -1,149 +1,67 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminBackButton from '@/components/AdminBackButton';
 import { useTheme } from '@/components/theme-provider';
 import { Building2, Search, Plus, Edit, Trash2, MoreVertical, Mail, Calendar, MapPin, Users, TrendingUp, Eye, Award, Briefcase, Globe } from 'lucide-react';
+import { adminService } from '@/lib/admin-service';
+import { useToast } from '@/hooks/use-toast';
+
+interface Company {
+  id: string;
+  name: string;
+  email: string; // Assuming owner's email
+  location: string;
+  industry: string;
+  size: string;
+  jobPostings: number;
+  employees: number; // This might need to be calculated or joined
+  founded: string; // createdAt
+  website: string;
+  status: 'approved' | 'pending' | 'rejected';
+  verified: boolean; // Can be derived from status
+  logo?: string;
+}
 
 export default function Employers() {
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterIndustry, setFilterIndustry] = useState('All Industries');
+  const { toast } = useToast();
+  const { theme } = useTheme();
+  const darkMode = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
 
-  const stats = [
-    { label: 'Total Companies', value: '354', change: '↑ 8 new this week', icon: Building2, color: 'bg-purple-500', bgLight: 'bg-purple-50' },
-    { label: 'Active Employers', value: '287', change: '81% active rate', icon: Users, color: 'bg-blue-500', bgLight: 'bg-blue-50' },
-    { label: 'Job Postings', value: '428', change: '↑ 15 this month', icon: Briefcase, color: 'bg-orange-500', bgLight: 'bg-orange-50' },
-    { label: 'Total Employees', value: '2,341', change: '↑ 89 hired', icon: TrendingUp, color: 'bg-green-500', bgLight: 'bg-green-50' }
-  ];
-
-  const companies = [
-    {
-      id: 1,
-      name: 'TechCorp Inc.',
-      logo: 'TC',
-      email: 'hr@techcorp.com',
-      location: 'San Francisco, CA',
-      industry: 'Technology',
-      size: '50-200 employees',
-      jobPostings: 12,
-      employees: 156,
-      founded: '2018',
-      website: 'techcorp.com',
-      status: 'Active',
-      verified: true,
-      color: 'bg-purple-500'
-    },
-    {
-      id: 2,
-      name: 'HealthPlus Medical',
-      logo: 'HP',
-      email: 'admin@healthplus.com',
-      location: 'New York, NY',
-      industry: 'Healthcare',
-      size: '200-500 employees',
-      jobPostings: 8,
-      employees: 342,
-      founded: '2015',
-      website: 'healthplus.com',
-      status: 'Active',
-      verified: true,
-      color: 'bg-blue-500'
-    },
-    {
-      id: 3,
-      name: 'FinanceHub Solutions',
-      logo: 'FH',
-      email: 'contact@financehub.com',
-      location: 'Austin, TX',
-      industry: 'Finance',
-      size: '10-50 employees',
-      jobPostings: 5,
-      employees: 28,
-      founded: '2020',
-      website: 'financehub.com',
-      status: 'Active',
-      verified: false,
-      color: 'bg-indigo-500'
-    },
-    {
-      id: 4,
-      name: 'StartupXYZ',
-      logo: 'SX',
-      email: 'contact@startupxyz.com',
-      location: 'Seattle, WA',
-      industry: 'Technology',
-      size: '10-50 employees',
-      jobPostings: 3,
-      employees: 18,
-      founded: '2022',
-      website: 'startupxyz.com',
-      status: 'Pending',
-      verified: false,
-      color: 'bg-pink-500'
-    },
-    {
-      id: 5,
-      name: 'EduLearn Platform',
-      logo: 'EL',
-      email: 'info@edulearn.com',
-      location: 'Boston, MA',
-      industry: 'Education',
-      size: '50-200 employees',
-      jobPostings: 7,
-      employees: 92,
-      founded: '2019',
-      website: 'edulearn.com',
-      status: 'Active',
-      verified: true,
-      color: 'bg-teal-500'
-    },
-    {
-      id: 6,
-      name: 'RetailMax Corp',
-      logo: 'RM',
-      email: 'hr@retailmax.com',
-      location: 'Chicago, IL',
-      industry: 'Retail',
-      size: '500+ employees',
-      jobPostings: 15,
-      employees: 687,
-      founded: '2012',
-      website: 'retailmax.com',
-      status: 'Active',
-      verified: true,
-      color: 'bg-orange-500'
-    },
-    {
-      id: 7,
-      name: 'GreenEnergy Co',
-      logo: 'GE',
-      email: 'contact@greenenergy.com',
-      location: 'Portland, OR',
-      industry: 'Energy',
-      size: '50-200 employees',
-      jobPostings: 4,
-      employees: 134,
-      founded: '2017',
-      website: 'greenenergy.com',
-      status: 'Active',
-      verified: true,
-      color: 'bg-green-500'
-    },
-    {
-      id: 8,
-      name: 'MediaWorks Studio',
-      logo: 'MW',
-      email: 'hello@mediaworks.com',
-      location: 'Los Angeles, CA',
-      industry: 'Media',
-      size: '10-50 employees',
-      jobPostings: 2,
-      employees: 23,
-      founded: '2021',
-      website: 'mediaworks.com',
-      status: 'Inactive',
-      verified: false,
-      color: 'bg-gray-500'
+  const fetchCompanies = async () => {
+    setLoading(true);
+    try {
+      const data = await adminService.getCompanies();
+      const formattedData = data.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        email: c.owner?.email || 'N/A',
+        location: c.location || 'N/A',
+        industry: c.industry || 'N/A',
+        size: c.size || 'N/A',
+        jobPostings: c.jobs?.length || 0,
+        employees: 0, // Placeholder
+        founded: new Date(c.createdAt).getFullYear().toString(),
+        website: c.website || 'N/A',
+        status: c.status,
+        verified: c.status === 'approved',
+        logo: c.name.substring(0, 2).toUpperCase(),
+        color: 'bg-purple-500' // Example color
+      }));
+      setCompanies(formattedData);
+    } catch (error) {
+      console.error("Failed to fetch companies:", error);
+      toast({ title: "Error", description: "Could not fetch company data.", variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    fetchCompanies();
+  }, []);
 
   const filteredCompanies = companies.filter(company => {
     const matchesSearch = company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -153,9 +71,16 @@ export default function Employers() {
     return matchesSearch && matchesFilter;
   });
 
-  const { theme } = useTheme();
+  const totalCompanies = companies.length;
+  const activeCompanies = companies.filter(c => c.status === 'approved').length;
+  const totalJobPostings = companies.reduce((sum, c) => sum + c.jobPostings, 0);
 
-  const darkMode = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+  const stats = [
+    { label: 'Total Companies', value: totalCompanies.toLocaleString(), change: 'All registered companies', icon: Building2, color: 'bg-purple-500', bgLight: 'bg-purple-50' },
+    { label: 'Active Employers', value: activeCompanies.toLocaleString(), change: `${totalCompanies > 0 ? Math.round((activeCompanies / totalCompanies) * 100) : 0}% active`, icon: Users, color: 'bg-blue-500', bgLight: 'bg-blue-50' },
+    { label: 'Job Postings', value: totalJobPostings.toLocaleString(), change: 'From all companies', icon: Briefcase, color: 'bg-orange-500', bgLight: 'bg-orange-50' },
+    { label: 'Total Employees', value: 'N/A', change: 'Across all companies', icon: TrendingUp, color: 'bg-green-500', bgLight: 'bg-green-50' }
+  ];
 
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
@@ -243,7 +168,7 @@ export default function Employers() {
               <div key={company.id} className={`border rounded-xl p-6 transition-all ${
                 darkMode 
                   ? 'border-gray-700 hover:border-purple-500 hover:shadow-lg hover:shadow-purple-500/10' 
-                  : 'border-gray-200 hover:border-purple-300 hover:shadow-lg'
+                  : 'border-gray-200 hover:border-purple-300 hover:shadow-lg' 
               }`}>
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-start gap-4">
@@ -268,13 +193,13 @@ export default function Employers() {
                     </div>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    darkMode ? (
-                      company.status === 'Active' ? 'bg-green-900/30 text-green-400' :
-                      company.status === 'Pending' ? 'bg-yellow-900/30 text-yellow-400' :
+                    darkMode ? ( // Assuming status is 'approved', 'pending', etc.
+                      company.status === 'approved' ? 'bg-green-900/30 text-green-400' :
+                      company.status === 'pending' ? 'bg-yellow-900/30 text-yellow-400' :
                       'bg-gray-800 text-gray-400'
                     ) : (
-                      company.status === 'Active' ? 'bg-green-100 text-green-700' :
-                      company.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
+                      company.status === 'approved' ? 'bg-green-100 text-green-700' :
+                      company.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                       'bg-gray-100 text-gray-700'
                     )
                   }`}>

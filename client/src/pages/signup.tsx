@@ -4,7 +4,7 @@ import { Card, CardHeader, CardFooter, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+/*  */import { Label, labelVariants } from "@/components/ui/label";
 import { useNavigate, Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "../contexts/AuthContext";
@@ -42,6 +42,8 @@ export default function Signup() {
   const [step, setStep] = useState(0); // 0..3 (4 steps)
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -64,6 +66,40 @@ export default function Signup() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Debounced email check
+  useEffect(() => {
+    const handler = setTimeout(async () => {
+      const email = form.email.trim();
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (email && emailPattern.test(email)) {
+        setIsCheckingEmail(true);
+        setEmailError(null);
+        try {
+          const res = await apiFetch("/api/auth/check-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+          const data = await res.json();
+          if (!res.ok || data.exists) {
+            setEmailError("This email is already in use.");
+          } else {
+            setEmailError(null);
+          }
+        } catch (error) {
+          // Fail open - don't block registration if check fails
+          console.warn("Email check failed:", error);
+          setEmailError(null);
+        } finally {
+          setIsCheckingEmail(false);
+        }
+      } else {
+        setEmailError(email ? "Please enter a valid email." : null);
+      }
+    }, 500); // 500ms debounce delay
+    return () => clearTimeout(handler);
+  }, [form.email]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -103,13 +139,13 @@ export default function Signup() {
       const password = form.password;
       const confirm = form.confirmPassword;
 
-      if (!email || !password) return false;
+      if (!email || !password || emailError) return false;
       if (password.length < 6) return false;
       if (password !== confirm) return false;
 
       const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailPattern.test(email)) return false;
-
+      
       return true;
     }
     if (s === 1) {
@@ -268,6 +304,8 @@ export default function Signup() {
           placeholder="you@company.com"
           autoComplete="email"
         />
+        {isCheckingEmail && <p className="text-sm text-muted-foreground mt-1">Checking email...</p>}
+        {emailError && <p className="text-sm text-destructive mt-1">{emailError}</p>}
       </div>
 
       <div>

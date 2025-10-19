@@ -3,11 +3,12 @@ import AdminBackButton from '@/components/AdminBackButton';
 import { useTheme } from '@/components/theme-provider';
 import {
   Users, Search, MoreVertical, Eye, Edit, Trash2, Ban,
-  CheckCircle, XCircle, Mail, Phone, MapPin, Calendar, Plus,
+  CheckCircle, XCircle, Mail, Phone, MapPin, Calendar, Plus, RefreshCw, AlertTriangle,
   Shield, Activity, Clock, Zap, Crown, TrendingUp
 } from 'lucide-react';
 import { adminService, type User, type CreateUserData, type UpdateUserData } from '@/lib/admin-service';
 import { useToast } from '@/hooks/use-toast';
+import AddUserModal from './AddUserModal';
 
 type DisplayUser = User & {
   status: 'active' | 'suspended' | 'pending';
@@ -27,6 +28,41 @@ const formatDate = (date: string) => {
   });
 };
 
+// Confirmation Modal Component
+const ConfirmationModal = ({ user, onConfirm, onCancel, darkMode }: { user: DisplayUser, onConfirm: () => void, onCancel: () => void, darkMode: boolean }) => (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+    <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'} rounded-3xl shadow-2xl max-w-md w-full p-8 border-2`}>
+      <div className="text-center">
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-gradient-to-br ${
+          darkMode ? 'from-red-500/20 to-red-900/20' : 'from-red-100 to-red-200'
+        }`}>
+          <AlertTriangle className="w-8 h-8 text-red-500" />
+        </div>
+        <h2 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>Delete User?</h2>
+        <p className={`mt-2 mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+          Are you sure you want to delete <strong>{user.firstName} {user.lastName}</strong>? This action cannot be undone.
+        </p>
+        <div className="flex gap-4">
+          <button
+            onClick={onCancel}
+            className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all ${
+              darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+            }`}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-xl font-bold hover:shadow-lg transition-all"
+          >
+            Yes, Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const UserManagement = (): JSX.Element => {
   // use global theme provider so toggling here applies across the app
   const { theme } = useTheme();
@@ -39,6 +75,8 @@ const UserManagement = (): JSX.Element => {
   const [filterType, setFilterType] = useState<'all' | 'Professional' | 'Employer'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'pending' | 'suspended'>('all');
   const { toast } = useToast();
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<DisplayUser | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -50,7 +88,7 @@ const UserManagement = (): JSX.Element => {
       const fetchedUsers = await adminService.getUsers();
       const displayUsers: DisplayUser[] = fetchedUsers.map(user => ({
         ...user,
-        status: user.userType === 'admin' ? 'active' : 'active', // TODO: Add proper status field
+        status: 'active', // Assuming status comes from backend, default to 'active'
         stats: user.userType === 'Professional' 
           ? { applications: 0, interviews: 0 }
           : { jobs: 0, hires: 0 }
@@ -68,19 +106,34 @@ const UserManagement = (): JSX.Element => {
     }
   };
 
-  const handleCreateUser = async (data: CreateUserData): Promise<void> => {
+  const handleCreateUser = async (data: any): Promise<void> => {
     try {
-      await adminService.createUser(data);
+      // Map frontend userType to backend user_type before sending
+      const payload: any = {
+        email: data.email,
+        password: data.password,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        userType: data.userType.toLowerCase() as 'professional' | 'employer' | 'admin',
+        location: data.location,
+      };
+      // Only include title if the user is a Professional
+      if (data.userType === 'Professional') {
+        payload.title = data.title;
+      }
+      await adminService.createUser(payload);
       toast({
         title: 'Success',
         description: 'User created successfully'
       });
+      setIsAddUserModalOpen(false); // Close modal on success
       loadUsers();
     } catch (error) {
       console.error('Failed to create user:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
       toast({
         title: 'Error',
-        description: 'Failed to create user. Please try again.',
+        description: `Failed to create user: ${errorMessage}`,
         variant: 'destructive',
       });
     }
@@ -112,6 +165,7 @@ const UserManagement = (): JSX.Element => {
         description: 'User deleted successfully'
       });
       loadUsers();
+      setUserToDelete(null); // Close confirmation modal
     } catch (error) {
       console.error('Failed to delete user:', error);
       toast({
@@ -149,7 +203,7 @@ const UserManagement = (): JSX.Element => {
         : 'bg-red-100 text-red-700 border-red-200'
     };
     return configs[status as keyof typeof configs] || configs.active;
-  };
+  };  
 
   if (loading) {
     return (
@@ -160,6 +214,20 @@ const UserManagement = (): JSX.Element => {
   }
 
   return (
+    <>
+      <AddUserModal
+        isOpen={isAddUserModalOpen}
+        onClose={() => setIsAddUserModalOpen(false)}
+        onSubmit={handleCreateUser}
+        darkMode={darkMode}
+      />
+      {userToDelete && (
+        <ConfirmationModal 
+          user={userToDelete} 
+          onConfirm={() => handleDeleteUser(userToDelete.id)} 
+          onCancel={() => setUserToDelete(null)} 
+          darkMode={darkMode} />
+      )}
     <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-50 via-white to-purple-50'} p-8`}>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -292,15 +360,15 @@ const UserManagement = (): JSX.Element => {
 
             {/* Action Buttons */}
             <div className="flex gap-2">
+              <button
+                className="flex items-center gap-2 px-6 py-4 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                onClick={loadUsers}
+              >
+                <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+              </button>
               <button 
                 className="flex items-center gap-2 px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-lg transition-all"
-                onClick={() => handleCreateUser({
-                  email: 'test@example.com',
-                  password: 'password123',
-                  firstName: 'Test',
-                  lastName: 'User',
-                  userType: 'Professional',
-                })}
+                onClick={() => setIsAddUserModalOpen(true)}
               >
                 <Plus className="w-5 h-5" />
                 Add User
@@ -420,7 +488,7 @@ const UserManagement = (): JSX.Element => {
                         </button>
                       )}
                       <button 
-                        onClick={() => handleDeleteUser(user.id)}
+                        onClick={() => setUserToDelete(user)}
                         className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm font-semibold ${
                           darkMode ? 'hover:bg-red-500/10 text-red-400' : 'hover:bg-red-50 text-red-600'
                         }`}
@@ -524,7 +592,7 @@ const UserManagement = (): JSX.Element => {
                     <Edit className="w-5 h-5" />
                   </button>
                   <button 
-                    onClick={() => handleDeleteUser(user.id)}
+                    onClick={() => setUserToDelete(user)}
                     className={`flex items-center justify-center px-4 py-3 rounded-xl font-bold transition-all ${
                       darkMode
                         ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20'
@@ -644,8 +712,8 @@ const UserManagement = (): JSX.Element => {
                     </button>
                     <button 
                       onClick={() => {
+                        setUserToDelete(selectedUser);
                         setSelectedUser(null);
-                        handleDeleteUser(selectedUser.id);
                       }}
                       className={`px-6 py-4 rounded-xl font-bold transition-all border-2 ${
                         darkMode
@@ -673,6 +741,7 @@ const UserManagement = (): JSX.Element => {
         }
       `}</style>
     </div>
+    </>
   );
 };
 

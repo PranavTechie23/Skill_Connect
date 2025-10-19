@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminBackButton from '@/components/AdminBackButton';
 import {
   BarChart3, TrendingUp, Users, Briefcase, ArrowUp, ArrowDown,
@@ -6,34 +6,34 @@ import {
   UserCheck, Building2, CheckCircle, Clock, Filter, Download,
   Eye, Sparkles, Zap, Star, Award, TrendingDown, FileText
 } from 'lucide-react';
+import { adminService } from '@/lib/admin-service';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Pie, Cell, PieChart as RechartsPieChart, LineChart as RechartsLineChart } from 'recharts';
 
 const Analytics: React.FC = () => {
   const [timeRange, setTimeRange] = useState('30d');
+  const [loading, setLoading] = useState(true);
+  const [analyticsData, setAnalyticsData] = useState<any>({
+    userGrowth: [],
+    jobCategories: [],
+    recentActivities: [],
+    performanceMetrics: {},
+    stats: {}
+  });
 
-  // Mock data for charts
-  const userGrowthData = [
-    { month: 'Jan', users: 120, employees: 75, employers: 45 },
-    { month: 'Feb', users: 180, employees: 110, employers: 70 },
-    { month: 'Mar', users: 250, employees: 160, employers: 90 },
-    { month: 'Apr', users: 320, employees: 200, employers: 120 },
-    { month: 'May', users: 410, employees: 260, employers: 150 },
-    { month: 'Jun', users: 520, employees: 330, employers: 190 }
-  ];
-
-  const jobCategories = [
-    { name: 'Technology', value: 35, color: 'from-blue-500 to-indigo-600' },
-    { name: 'Healthcare', value: 25, color: 'from-green-500 to-emerald-600' },
-    { name: 'Finance', value: 20, color: 'from-purple-500 to-pink-600' },
-    { name: 'Education', value: 12, color: 'from-orange-500 to-red-600' },
-    { name: 'Others', value: 8, color: 'from-gray-400 to-gray-600' }
-  ];
-
-  const recentActivities = [
-    { type: 'user', action: 'New user registered', user: 'John Doe', time: '2 minutes ago', color: 'blue' },
-    { type: 'job', action: 'Job posted', user: 'TechCorp Inc.', time: '15 minutes ago', color: 'green' },
-    { type: 'application', action: 'Application submitted', user: 'Jane Smith', time: '1 hour ago', color: 'purple' },
-    { type: 'hire', action: 'Candidate hired', user: 'StartupXYZ', time: '2 hours ago', color: 'orange' }
-  ];
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      setLoading(true);
+      try {
+        const data = await adminService.getAnalytics(timeRange);
+        setAnalyticsData(data);
+      } catch (error) {
+        console.error("Failed to fetch analytics data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAnalytics();
+  }, [timeRange]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 p-8">
@@ -89,8 +89,8 @@ const Analytics: React.FC = () => {
                 </div>
               </div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-semibold mb-1">Total Users</p>
-              <p className="text-4xl font-black text-gray-900 dark:text-white mb-2">1,234</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">+148 from last month</p>
+              <p className="text-4xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.stats?.totalUsers || 0}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">+{analyticsData.stats?.newUsers || 0} from last month</p>
             </div>
           </div>
 
@@ -108,8 +108,8 @@ const Analytics: React.FC = () => {
                 </div>
               </div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-semibold mb-1">Active Jobs</p>
-              <p className="text-4xl font-black text-gray-900 dark:text-white mb-2">456</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">+34 from last month</p>
+              <p className="text-4xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.stats?.activeJobs || 0}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">+{analyticsData.stats?.newJobs || 0} from last month</p>
             </div>
           </div>
 
@@ -127,8 +127,8 @@ const Analytics: React.FC = () => {
                 </div>
               </div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-semibold mb-1">Applications</p>
-              <p className="text-4xl font-black text-gray-900 dark:text-white mb-2">2,890</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">+378 from last month</p>
+              <p className="text-4xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.stats?.applications || 0}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">+{analyticsData.stats?.newApplications || 0} from last month</p>
             </div>
           </div>
 
@@ -146,8 +146,8 @@ const Analytics: React.FC = () => {
                 </div>
               </div>
               <p className="text-white/90 text-sm font-semibold mb-1">Success Rate</p>
-              <p className="text-4xl font-black mb-2">78%</p>
-              <p className="text-xs text-white/80">+2.3% improvement</p>
+              <p className="text-4xl font-black mb-2">{analyticsData.stats?.successRate || 0}%</p>
+              <p className="text-xs text-white/80">+{analyticsData.stats?.successRateChange || 0}% improvement</p>
             </div>
           </div>
         </div>
@@ -175,24 +175,20 @@ const Analytics: React.FC = () => {
                   <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">Employers</span>
                 </div>
               </div>
-            </div>            {/* Bar Chart */}
-            <div className="h-80 flex items-end justify-between gap-4">
-              {userGrowthData.map((data, index) => (
-                <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                  <div className="w-full flex flex-col items-center gap-1">
-                    {/* Total Users Bar */}
-                    <div
-                      className="w-full bg-gradient-to-t from-blue-500 to-indigo-600 rounded-t-xl shadow-lg hover:shadow-2xl transition-all cursor-pointer relative group/bar"
-                      style={{ height: `${(data.users / 520) * 250}px` }}
-                    >
-                      <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-3 py-1 rounded-lg text-xs font-bold opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap">
-                        {data.users} users
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-sm font-bold text-gray-600">{data.month}</span>
-                </div>
-              ))}
+            </div>
+            {/* Bar Chart */}
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={analyticsData.userGrowth}>
+                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="users" fill="#3b82f6" name="Total" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="employees" fill="#22c55e" name="Employees" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="employers" fill="#a855f7" name="Employers" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
 
@@ -204,40 +200,25 @@ const Analytics: React.FC = () => {
             </div>
 
             {/* Pie Chart Representation */}
-            <div className="relative w-48 h-48 mx-auto mb-6">
-              <div className="absolute inset-0 rounded-full overflow-hidden shadow-2xl">
-                {jobCategories.map((category, index) => {
-                  const total = jobCategories.reduce((sum, cat) => sum + cat.value, 0);
-                  const percentage = (category.value / total) * 100;
-                  const rotation = jobCategories
-                    .slice(0, index)
-                    .reduce((sum, cat) => sum + (cat.value / total) * 360, 0);
-
-                  return (
-                    <div
-                      key={index}
-                      className={`absolute inset-0 bg-gradient-to-br ${category.color}`}
-                      style={{
-                        clipPath: `polygon(50% 50%, 50% 0%, ${50 + 50 * Math.cos((rotation - 90) * Math.PI / 180)}% ${50 + 50 * Math.sin((rotation - 90) * Math.PI / 180)}%, ${50 + 50 * Math.cos((rotation + percentage * 3.6 - 90) * Math.PI / 180)}% ${50 + 50 * Math.sin((rotation + percentage * 3.6 - 90) * Math.PI / 180)}%)`
-                      }}
-                    />
-                  );
-                })}
-              </div>
-              <div className="absolute inset-8 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-lg">
-                <div className="text-center">
-                  <p className="text-3xl font-black text-gray-900 dark:text-white">100%</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold">Coverage</p>
-                </div>
-              </div>
+            <div className="h-48 mx-auto mb-6">
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsPieChart> 
+                  <Pie data={analyticsData.jobCategories} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                    {analyticsData.jobCategories.map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </RechartsPieChart>
+              </ResponsiveContainer>
             </div>
 
             {/* Legend */}
             <div className="space-y-3">
-              {jobCategories.map((category, index) => (
+              {analyticsData.jobCategories.map((category: any, index: number) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-600 transition-all cursor-pointer">
                   <div className="flex items-center gap-3">
-                    <div className={`w-4 h-4 rounded-full bg-gradient-to-br ${category.color} shadow-md`}></div>
+                    <div className={`w-4 h-4 rounded-full shadow-md`} style={{ backgroundColor: category.color }}></div>
                     <span className="font-semibold text-gray-700 dark:text-gray-300">{category.name}</span>
                   </div>
                   <span className="font-black text-gray-900 dark:text-white">{category.value}%</span>
@@ -263,8 +244,8 @@ const Analytics: React.FC = () => {
                   <Sparkles className="w-5 h-5 text-blue-500 dark:text-blue-400 animate-pulse" />
                 </div>
                 <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-2">Employee Satisfaction</p>
-                <p className="text-3xl font-black text-gray-900 dark:text-white mb-2">92%</p>
-                <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2">
+                <p className="text-3xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.performanceMetrics?.employeeSatisfaction || 0}%</p>
+                <div className="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2"> 
                   <div className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full" style={{ width: '92%' }}></div>
                 </div>
               </div>
@@ -275,8 +256,8 @@ const Analytics: React.FC = () => {
                   <Star className="w-5 h-5 text-yellow-500 dark:text-yellow-400 animate-spin-slow" />
                 </div>
                 <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-2">Employer Satisfaction</p>
-                <p className="text-3xl font-black text-gray-900 dark:text-white mb-2">88%</p>
-                <div className="w-full bg-green-200 dark:bg-green-800 rounded-full h-2">
+                <p className="text-3xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.performanceMetrics?.employerSatisfaction || 0}%</p>
+                <div className="w-full bg-green-200 dark:bg-green-800 rounded-full h-2"> 
                   <div className="bg-gradient-to-r from-green-500 to-emerald-600 h-2 rounded-full" style={{ width: '88%' }}></div>
                 </div>
               </div>
@@ -287,8 +268,8 @@ const Analytics: React.FC = () => {
                   <Zap className="w-5 h-5 text-purple-500 dark:text-purple-400 animate-pulse" />
                 </div>
                 <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-2">Placement Rate</p>
-                <p className="text-3xl font-black text-gray-900 dark:text-white mb-2">76%</p>
-                <div className="w-full bg-purple-200 dark:bg-purple-800 rounded-full h-2">
+                <p className="text-3xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.performanceMetrics?.placementRate || 0}%</p>
+                <div className="w-full bg-purple-200 dark:bg-purple-800 rounded-full h-2"> 
                   <div className="bg-gradient-to-r from-purple-500 to-pink-600 h-2 rounded-full" style={{ width: '76%' }}></div>
                 </div>
               </div>
@@ -299,8 +280,8 @@ const Analytics: React.FC = () => {
                   <Activity className="w-5 h-5 text-orange-500 dark:text-orange-400 animate-bounce" />
                 </div>
                 <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-2">Avg. Time to Hire</p>
-                <p className="text-3xl font-black text-gray-900 dark:text-white mb-2">18d</p>
-                <p className="text-xs text-green-600 dark:text-green-400 font-bold">-3 days improvement</p>
+                <p className="text-3xl font-black text-gray-900 dark:text-white mb-2">{analyticsData.performanceMetrics?.avgTimeToHire || 0}d</p>
+                <p className="text-xs text-green-600 dark:text-green-400 font-bold">{analyticsData.performanceMetrics?.timeToHireChange || 0} days improvement</p>
               </div>
             </div>
           </div>
@@ -316,29 +297,34 @@ const Analytics: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              {recentActivities.map((activity, index) => (
+              {analyticsData.recentActivities.map((activity: any, index: number) => {
+                const colorClasses = {
+                  blue: 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400',
+                  green: 'bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400',
+                  purple: 'bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400',
+                  orange: 'bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400',
+                };
+                const colorClass = colorClasses[activity.color as keyof typeof colorClasses] || colorClasses.blue;
+                
+                return (
                 <div
                   key={index}
                   className="flex items-start gap-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-600 transition-all cursor-pointer"
                 >
-                  <div className={`p-2 rounded-xl ${
-                    activity.color === 'blue' ? 'bg-blue-100 dark:bg-blue-900' :
-                    activity.color === 'green' ? 'bg-green-100 dark:bg-green-900' :
-                    activity.color === 'purple' ? 'bg-purple-100 dark:bg-purple-900' :
-                    'bg-orange-100 dark:bg-orange-900'
-                  }`}>
-                    {activity.type === 'user' && <Users className={`w-4 h-4 text-${activity.color}-600 dark:text-${activity.color}-400`} />}
-                    {activity.type === 'job' && <Briefcase className={`w-4 h-4 text-${activity.color}-600 dark:text-${activity.color}-400`} />}
-                    {activity.type === 'application' && <FileText className={`w-4 h-4 text-${activity.color}-600 dark:text-${activity.color}-400`} />}
-                    {activity.type === 'hire' && <CheckCircle className={`w-4 h-4 text-${activity.color}-600 dark:text-${activity.color}-400`} />}
+                  <div className={`p-2 rounded-xl ${colorClass.split(' ')[0]} ${colorClass.split(' ')[1]}`}>
+                    {activity.type === 'user' && <Users className={`w-4 h-4 ${colorClass.split(' ')[2]} ${colorClass.split(' ')[3]}`} />}
+                    {activity.type === 'job' && <Briefcase className={`w-4 h-4 ${colorClass.split(' ')[2]} ${colorClass.split(' ')[3]}`} />}
+                    {activity.type === 'application' && <FileText className={`w-4 h-4 ${colorClass.split(' ')[2]} ${colorClass.split(' ')[3]}`} />}
+                    {activity.type === 'hire' && <CheckCircle className={`w-4 h-4 ${colorClass.split(' ')[2]} ${colorClass.split(' ')[3]}`} />}
                   </div>
                   <div className="flex-1">
                     <p className="font-bold text-gray-900 dark:text-white text-sm">{activity.action}</p>
                     <p className="text-xs text-gray-600 dark:text-gray-300">{activity.user}</p>
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{activity.time}</p>
                   </div>
-                </div>
-              ))}
+                </div> 
+                );
+              })}
             </div>
 
             <button className="w-full mt-4 py-3 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 hover:from-gray-200 hover:to-gray-300 dark:hover:from-gray-600 dark:hover:to-gray-500 rounded-2xl font-bold text-gray-700 dark:text-white transition-all">
@@ -365,3 +351,9 @@ const Analytics: React.FC = () => {
 };
 
 export default Analytics;
+
+
+
+
+
+

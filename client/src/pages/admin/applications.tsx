@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminBackButton from '@/components/AdminBackButton';
 import { useTheme } from '@/components/theme-provider';
 import {
@@ -9,6 +9,8 @@ import {
   Phone, ExternalLink, ChevronDown, AlertCircle, DollarSign
 } from 'lucide-react';
 
+import { adminService } from '@/lib/admin-service';
+import { useToast } from '@/hooks/use-toast';
 interface Application {
   id: string;
   candidateName: string;
@@ -24,101 +26,45 @@ interface Application {
   skills: string[];
 }
 
-const mockApplications: Application[] = [
-  {
-    id: '1',
-    candidateName: 'John Doe',
-    candidateEmail: 'john@example.com',
-    jobTitle: 'Senior Frontend Developer',
-    company: 'TechCorp Inc.',
-    appliedDate: '2024-01-20',
-    status: 'interview',
-    matchScore: 95,
-    experience: '5+ years',
-    location: 'San Francisco, CA',
-    salary: '$120k - $150k',
-    skills: ['React', 'TypeScript', 'Node.js']
-  },
-  {
-    id: '2',
-    candidateName: 'Jane Smith',
-    candidateEmail: 'jane@example.com',
-    jobTitle: 'Product Manager',
-    company: 'StartupXYZ',
-    appliedDate: '2024-01-19',
-    status: 'shortlisted',
-    matchScore: 88,
-    experience: '3+ years',
-    location: 'New York, NY',
-    salary: '$100k - $130k',
-    skills: ['Product Strategy', 'Agile', 'Analytics']
-  },
-  {
-    id: '3',
-    candidateName: 'Mike Johnson',
-    candidateEmail: 'mike@example.com',
-    jobTitle: 'UX Designer',
-    company: 'DesignStudio',
-    appliedDate: '2024-01-18',
-    status: 'reviewing',
-    matchScore: 82,
-    experience: '4+ years',
-    location: 'Remote',
-    salary: '$90k - $110k',
-    skills: ['Figma', 'UI/UX', 'Prototyping']
-  },
-  {
-    id: '4',
-    candidateName: 'Sarah Wilson',
-    candidateEmail: 'sarah@example.com',
-    jobTitle: 'Full Stack Engineer',
-    company: 'TechCorp Inc.',
-    appliedDate: '2024-01-17',
-    status: 'pending',
-    matchScore: 76,
-    experience: '2+ years',
-    location: 'Austin, TX',
-    salary: '$85k - $105k',
-    skills: ['Python', 'React', 'PostgreSQL']
-  },
-  {
-    id: '5',
-    candidateName: 'David Brown',
-    candidateEmail: 'david@example.com',
-    jobTitle: 'DevOps Engineer',
-    company: 'CloudTech',
-    appliedDate: '2024-01-16',
-    status: 'accepted',
-    matchScore: 92,
-    experience: '6+ years',
-    location: 'Seattle, WA',
-    salary: '$130k - $160k',
-    skills: ['AWS', 'Docker', 'Kubernetes']
-  },
-  {
-    id: '6',
-    candidateName: 'Emily Davis',
-    candidateEmail: 'emily@example.com',
-    jobTitle: 'Marketing Manager',
-    company: 'GrowthCo',
-    appliedDate: '2024-01-15',
-    status: 'rejected',
-    matchScore: 68,
-    experience: '3+ years',
-    location: 'Los Angeles, CA',
-    salary: '$80k - $100k',
-    skills: ['SEO', 'Content Marketing', 'Analytics']
-  }
-];
-
 const AdminApplications: React.FC = () => {
   const { theme } = useTheme();
   const darkMode = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
+  const { toast } = useToast();
 
-  const filteredApplications = mockApplications.filter(app => {
+  const fetchApplications = async () => {
+    setLoading(true);
+    try {
+      const data = await adminService.getApplications();
+      setApplications(data);
+    } catch (error) {
+      console.error("Failed to fetch applications:", error);
+      toast({ title: "Error", description: "Could not fetch applications.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchApplications();
+  }, []);
+
+  const handleUpdateStatus = async (appId: string, status: 'accepted' | 'rejected') => {
+    try {
+      await adminService.updateApplication(appId, status);
+      toast({ title: "Success", description: `Application has been ${status}.` });
+      fetchApplications(); // Refresh the list
+    } catch (error) {
+      console.error(`Failed to ${status} application:`, error);
+      toast({ title: "Error", description: `Could not update application status.`, variant: "destructive" });
+    }
+  };
+
+  const filteredApplications = applications.filter(app => {
     const matchesSearch = app.candidateName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          app.jobTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          app.company.toLowerCase().includes(searchQuery.toLowerCase());
@@ -126,10 +72,10 @@ const AdminApplications: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const totalApps = mockApplications.length;
-  const pendingApps = mockApplications.filter(a => a.status === 'pending').length;
-  const interviewApps = mockApplications.filter(a => a.status === 'interview').length;
-  const acceptedApps = mockApplications.filter(a => a.status === 'accepted').length;
+  const totalApps = applications.length;
+  const pendingApps = applications.filter(a => a.status === 'pending').length;
+  const interviewApps = applications.filter(a => a.status === 'interview').length;
+  const acceptedApps = applications.filter(a => a.status === 'accepted').length;
 
   const getStatusConfig = (status: string) => {
     const configs = darkMode ? {
@@ -421,14 +367,18 @@ const AdminApplications: React.FC = () => {
 
                     <div className="flex gap-2">
                       <button className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${
-                        darkMode
-                          ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400'
-                          : 'bg-red-50 hover:bg-red-100 text-red-600'
-                      }`}>
+                          darkMode
+                            ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400'
+                            : 'bg-red-50 hover:bg-red-100 text-red-600'
+                        }`}
+                        onClick={() => handleUpdateStatus(app.id, 'rejected')}
+                      >
                         <XCircle className="w-4 h-4" />
                         Reject
                       </button>
-                      <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold transition-all shadow-lg">
+                      <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold transition-all shadow-lg"
+                        onClick={() => handleUpdateStatus(app.id, 'accepted')}
+                      >
                         <CheckCircle className="w-4 h-4" />
                         Accept
                       </button>

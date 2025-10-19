@@ -25,9 +25,9 @@ async function addTelephoneNumberColumn() {
     `));
     
     console.log('Column check result:', result.rows);
-    console.log('✅ Database schema update completed');
+    console.log('Database schema update completed');
   } catch (error) {
-    console.error('❌ Error updating database schema:', error);
+    console.error('Error updating database schema:', error);
   } finally {
     process.exit();
   }

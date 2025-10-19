@@ -28,15 +28,19 @@ import {
 } from "../components/ui/select";
 
 // Types
+interface Profile {
+  headline?: string;
+  bio?: string;
+  skills?: string[];
+}
+
 interface ProfileData {
   email: string;
   firstName: string;
   lastName: string;
   userType: string;
   location?: string;
-  title?: string;
-  bio?: string;
-  skills?: string[];
+  profile?: Profile;
 }
 
 interface ExperienceData {
@@ -55,9 +59,11 @@ const profileSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   userType: z.string(),
   location: z.string().optional(),
-  title: z.string().optional(),
-  bio: z.string().optional(),
-  skills: z.array(z.string()).optional(),
+  profile: z.object({
+    headline: z.string().optional(),
+    bio: z.string().optional(),
+    skills: z.array(z.string()).optional(),
+  }).optional(),
 });
 
 const experienceSchema = z.object({
@@ -74,7 +80,7 @@ export default function Profile() {
   const [editingExperience, setEditingExperience] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
-  const { data: user, isLoading: userLoading } = useQuery({
+  const { data: authData, isLoading: userLoading } = useQuery({
     queryKey: ["auth-me"],
     queryFn: async () => {
       const res = await fetch("/api/auth/me");
@@ -83,7 +89,9 @@ export default function Profile() {
       }
       return res.json();
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
+  const user = authData?.user;
 
   // Forms
   const form = useForm<ProfileData>({
@@ -94,9 +102,11 @@ export default function Profile() {
       lastName: "",
       userType: "professional",
       location: "",
-      title: "",
-      bio: "",
-      skills: [],
+      profile: {
+        headline: "",
+        bio: "",
+        skills: [],
+      },
     },
   });
 
@@ -121,15 +131,16 @@ export default function Profile() {
       return res.json();
     },
     enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileData) => {
       if (!user?.id) throw new Error("User not found");
-      const res = await fetch(`/api/users/${user.id}`, {
+      const res = await fetch(`/api/me/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(data.profile),
       });
       if (!res.ok) {
         throw new Error("Failed to update profile");
@@ -137,7 +148,6 @@ export default function Profile() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
       queryClient.invalidateQueries({ queryKey: ["auth-me"] });
     },
   });
@@ -210,17 +220,17 @@ export default function Profile() {
 
   const addSkill = () => {
     if (skillInput.trim()) {
-      const currentSkills = form.getValues("skills") || [];
+      const currentSkills = form.getValues("profile.skills") || [];
       if (!currentSkills.includes(skillInput.trim())) {
-        form.setValue("skills", [...currentSkills, skillInput.trim()]);
+        form.setValue("profile.skills", [...currentSkills, skillInput.trim()]);
         setSkillInput("");
       }
     }
   };
 
   const removeSkill = (skillToRemove: string) => {
-    const currentSkills = form.getValues("skills") || [];
-    form.setValue("skills", currentSkills.filter(skill => skill !== skillToRemove));
+    const currentSkills = form.getValues("profile.skills") || [];
+    form.setValue("profile.skills", currentSkills.filter(skill => skill !== skillToRemove));
   };
 
   const startEditingExperience = (experience: any) => {
@@ -241,16 +251,20 @@ export default function Profile() {
   };
 
   useEffect(() => {
-    if (user?.user) {
+    if (user) {
       form.reset({
-        email: user.user.email,
-        firstName: user.user.firstName,
-        lastName: user.user.lastName,
-        userType: user.user.userType,
-        location: user.user.location || "",
-        title: user.user.title || "",
-        bio: user.user.bio || "",
-        skills: user.user.skills || [],
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        userType: user.userType,
+        location: user.location || "",
+        profilePhoto: user.profilePhoto || "",
+        telephoneNumber: user.telephoneNumber || "",
+        profile: {
+            headline: user.profile?.headline || "",
+            bio: user.profile?.bio || "",
+            skills: user.profile?.skills || [],
+        }
       });
     }
   }, [user, form]);
@@ -339,7 +353,7 @@ export default function Profile() {
 
                   <FormField
                     control={form.control}
-                    name="title"
+                    name="profile.headline"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Professional Title</FormLabel>
@@ -381,7 +395,7 @@ export default function Profile() {
 
                   <FormField
                     control={form.control}
-                    name="bio"
+                    name="profile.bio"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Bio</FormLabel>
@@ -407,7 +421,7 @@ export default function Profile() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Add Skills</label>
                     <div className="flex flex-wrap gap-2 mb-3">
-                      {(form.watch("skills") || []).map((skill, index) => (
+                      {(form.watch("profile.skills") || []).map((skill, index) => (
                         <Badge key={index} variant="default" className="flex items-center">
                           {skill}
                           <Button

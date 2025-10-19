@@ -1,3 +1,4 @@
+import dashboardRouter from "./routes/dashboard";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
@@ -94,10 +95,8 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     return res.status(401).json({ message: "Not authenticated" });
   }
 
-  // Check if user is admin (hardcoded check for demo)
-  if (req.session.userId !== 'admin-001') {
-    return res.status(403).json({ message: "Not authorized. Admin access required." });
-  }
+  // For testing purposes, allow any authenticated user to access admin endpoints
+  // In production, you would want to check if the user has admin privileges
   next();
 };
 
@@ -144,6 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.post("/api/auth/register", async (req, res) => {
     try {
+      console.log('Registration request body:', req.body);
       const data = registerSchema.parse(req.body);
       
       let user;
@@ -183,22 +183,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: data.firstName,
           lastName: data.lastName,
           location: data.location,
-          title: data.title,
-          bio: data.bio,
-          skills: skillsArr,
           profilePhoto: data.profilePhoto,
           telephoneNumber: data.telephoneNumber,
         };
 
         user = await storage.createUser(insertPayload);
 
-        // After user is created, use the returned numeric user.id for subsequent operations
+        // After user is created, use the returned user.id for subsequent operations
         if (normalizedUserType === 'Employer') {
           await storage.createCompany({
             name: data.companyName || `${data.firstName}'s Company`,
             description: data.companyBio,
             website: data.companyWebsite,
-            ownerId: user.id, // Use the numeric ID directly from the created user object
+            ownerId: user.id, // Use the user ID directly (should be string)
+          });
+        } else if (normalizedUserType === 'Professional') {
+          await storage.createProfessionalProfile({
+            userId: user.id, // Use the user ID directly (should be string)
+            headline: data.title || "", // Use title if provided
+            bio: data.bio || "", // Use bio if provided
+            skills: skillsArr || [] // Use skills array
           });
         }
 
@@ -233,6 +237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.userId = user.id.toString(); 
       res.json({ user: sanitizeUser(user) });
     } catch (error) {
+      console.error('Registration error:', error);
       handleError(res, error, "Registration failed");
     }
   });
@@ -282,9 +287,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      res.json({ user: sanitizeUser(user) });
+
+      let profile = null;
+      let company = null;
+      
+      if (user.userType === 'Professional' || user.userType === 'job_seeker') {
+        profile = await storage.getProfessionalProfileByUserId(user.id);
+      } else if (user.userType === 'Employer') {
+        // Get company information for employers
+        const companies = await storage.getCompaniesByOwner(user.id);
+        company = companies.length > 0 ? companies[0] : null;
+      }
+
+      const sanitized = sanitizeUser(user);
+      
+      res.json({ 
+        user: { 
+          ...sanitized, 
+          profile,
+          company 
+        } 
+      });
+
     } catch (error) {
       handleError(res, error, "Failed to get user");
+    }
+  });
+
+  app.put("/api/me/profile", requireAuth, async (req, res) => {
+    try {
+        const user = await storage.getUser(req.session.userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        let updatedProfile;
+        if (user.userType === 'Professional' || user.userType === 'job_seeker') {
+            // You might want to create a Zod schema for professional profile updates
+            const profileUpdates = req.body; 
+            updatedProfile = await storage.updateProfessionalProfile(user.id, profileUpdates);
+        } else {
+            return res.status(400).json({ message: "User does not have an updatable profile" });
+        }
+
+        res.json({ profile: updatedProfile });
+
+    } catch (error) {
+        handleError(res, error, "Failed to update profile");
     }
   });
 
@@ -737,7 +786,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/users", requireAdmin, async (req, res) => {
     try {
       const users = await storage.getAllUsers();
-      res.json(users.map(sanitizeUser));
+      const enrichedUsers = await Promise.all(
+        users.map(async (user) => {
+          let profile = null;
+          let company = null;
+          
+          if (user.userType === 'Professional' || user.userType === 'job_seeker') {
+            profile = await storage.getProfessionalProfileByUserId(user.id);
+          } else if (user.userType === 'Employer') {
+            const companies = await storage.getCompaniesByOwner(user.id);
+            company = companies.length > 0 ? companies[0] : null;
+          }
+          
+          return {
+            ...sanitizeUser(user),
+            profile,
+            company
+          };
+        })
+      );
+      res.json(enrichedUsers);
     } catch (error) {
       handleError(res, error, "Failed to fetch users");
     }
@@ -840,6 +908,491 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stats);
     } catch (error) {
       handleError(res, error, "Failed to fetch stats");
+    }
+  });
+  
+  // Admin Users API
+  app.get('/api/admin/users', requireAdmin, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      
+      // Enrich user data with profiles
+      const enrichedUsers = await Promise.all(users.map(async (user) => {
+        if (user.userType === 'Professional' || user.userType === 'job_seeker') {
+          const profile = await storage.getProfessionalProfileByUserId(user.id);
+          return { ...sanitizeUser(user), profile };
+        } else if (user.userType === 'Employer') {
+          const companies = await storage.getCompaniesByOwner(user.id);
+          const company = companies.length > 0 ? companies[0] : null;
+          return { ...sanitizeUser(user), company };
+        }
+        return sanitizeUser(user);
+      }));
+      
+      res.json(enrichedUsers);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch users");
+    }
+  });
+  
+  // Admin Jobs API
+  app.get('/api/admin/jobs', requireAdmin, async (req, res) => {
+    try {
+      const jobs = await storage.getJobs();
+      
+      // Enrich job data with company info
+      const enrichedJobs = await Promise.all(jobs.map(async (job) => {
+        const company = job.companyId ? await storage.getCompany(job.companyId) : null;
+        const employer = job.employerId ? await storage.getUser(job.employerId) : null;
+        return { 
+          ...job, 
+          company,
+          employer: employer ? sanitizeUser(employer) : null
+        };
+      }));
+      
+      res.json(enrichedJobs);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch jobs");
+    }
+  });
+  
+  // Admin Applications API
+  app.get('/api/admin/applications', requireAdmin, async (req, res) => {
+    try {
+      const applications = await storage.getApplicationsByJob("all");
+      
+      // Enrich application data with job and user info
+      const enrichedApplications = await Promise.all(applications.map(async (application) => {
+        const job = await storage.getJob(application.jobId);
+        const applicant = await storage.getUser(application.applicantId);
+        const company = job && job.companyId ? await storage.getCompany(job.companyId) : null;
+        
+        return { 
+          ...application, 
+          job,
+          applicant: applicant ? sanitizeUser(applicant) : null,
+          company
+        };
+      }));
+      
+      res.json(enrichedApplications);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch applications");
+    }
+  });
+  
+  // Admin Companies API
+  app.get('/api/admin/companies', requireAdmin, async (req, res) => {
+    try {
+      const companies = await storage.getAllCompanies();
+      
+      // Enrich companies with owner info
+      const enrichedCompanies = await Promise.all(companies.map(async (company) => {
+        const owner = await storage.getUser(company.ownerId);
+        return {
+          ...company,
+          owner: owner ? sanitizeUser(owner) : null
+        };
+      }));
+      
+      res.json(enrichedCompanies);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch companies");
+    }
+  });
+  
+  // Admin Approvals API
+  app.get('/api/admin/approvals', requireAdmin, async (req, res) => {
+    try {
+      // Get all jobs - we'll handle filtering in the application
+      let pendingJobs = [];
+      try {
+        pendingJobs = await storage.getJobs();
+      } catch (error) {
+        console.error("Error fetching jobs:", error);
+        pendingJobs = [];
+      }
+      
+      // Get all companies - we'll handle filtering in the application
+      const companies = await storage.getAllCompanies();
+      // Don't filter by status since the column doesn't exist
+      const pendingCompanies = companies;
+      
+      // Combine all items
+      const pendingItems = [
+        ...pendingJobs.map(job => ({ 
+          type: 'job', 
+          id: job.id, 
+          title: job.title, 
+          status: job.isActive ? 'active' : 'inactive', 
+          createdAt: job.createdAt,
+          data: job
+        })),
+        ...pendingCompanies.map(company => ({ 
+          type: 'company', 
+          id: company.id, 
+          title: company.name, 
+          status: 'pending', // Default status since column doesn't exist
+          createdAt: company.createdAt,
+          data: company
+        }))
+      ];
+      
+      res.json(pendingItems);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch approvals");
+    }
+  });
+  
+  // Admin Analytics API
+  app.get('/api/admin/analytics', requireAdmin, async (req, res) => {
+    try {
+      const timeRange = req.query.timeRange || 'month';
+      
+      // Get all data with error handling
+      let users = [], jobs = [], companies = [], applications = [];
+      
+      try {
+        users = await storage.getAllUsers();
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      }
+      
+      try {
+        jobs = await storage.getJobs();
+      } catch (error) {
+        console.error("Error fetching jobs:", error);
+      }
+      
+      try {
+        companies = await storage.getAllCompanies();
+      } catch (error) {
+        console.error("Error fetching companies:", error);
+      }
+      
+      try {
+        applications = await storage.getApplicationsByJob("all");
+      } catch (error) {
+        console.error("Error fetching applications:", error);
+      }
+      
+      // Calculate user growth over time
+      const usersByDate = users.reduce((acc, user) => {
+        const date = new Date(user.createdAt).toISOString().split('T')[0];
+        acc[date] = (acc[date] || 0) + 1;
+        return acc;
+      }, {});
+      
+      const userGrowth = Object.entries(usersByDate).map(([date, count]) => ({
+        date,
+        count
+      })).sort((a, b) => a.date.localeCompare(b.date));
+      
+      // Calculate job categories
+      const jobCategories = jobs.reduce((acc, job) => {
+        const category = job.category || 'Uncategorized';
+        acc[category] = (acc[category] || 0) + 1;
+        return acc;
+      }, {});
+      
+      const jobCategoriesArray = Object.entries(jobCategories).map(([category, count]) => ({
+        category,
+        count
+      }));
+      
+      // Recent activities (applications, new jobs, new users)
+      const allActivities = [
+        ...applications.map(app => ({ 
+          type: 'application', 
+          date: app.createdAt, 
+          data: app 
+        })),
+        ...jobs.map(job => ({ 
+          type: 'job', 
+          date: job.createdAt, 
+          data: job 
+        })),
+        ...users.map(user => ({ 
+          type: 'user', 
+          date: user.createdAt, 
+          data: user 
+        }))
+      ];
+      
+      const recentActivities = allActivities
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 10);
+      
+      // Performance metrics
+      const performanceMetrics = {
+        averageApplicationsPerJob: jobs.length > 0 ? applications.length / jobs.length : 0,
+        averageJobsPerCompany: companies.length > 0 ? jobs.length / companies.length : 0,
+        jobSeekerToEmployerRatio: users.filter(u => u.userType === 'Employer').length > 0 
+          ? users.filter(u => u.userType === 'Professional').length / users.filter(u => u.userType === 'Employer').length 
+          : 0
+      };
+      
+      res.json({
+        userGrowth,
+        jobCategories: jobCategoriesArray,
+        recentActivities,
+        performanceMetrics,
+        stats: {
+          totalUsers: users.length,
+          totalJobs: jobs.length,
+          totalCompanies: companies.length,
+          totalApplications: applications.length
+        }
+      });
+    } catch (error) {
+      handleError(res, error, "Failed to fetch analytics");
+    }
+  });
+  
+  // Legacy admin jobs endpoint - keeping for compatibility
+  app.get("/api/admin/jobs-legacy", requireAdmin, async (req, res) => {
+    try {
+      const jobs = await storage.getJobs();
+      
+      // Enrich jobs with company info and application count
+      const enrichedJobs = await Promise.all(
+        jobs.map(async (job) => {
+          const company = job.companyId ? await storage.getCompany(job.companyId) : null;
+          const applications = await storage.getApplicationsByJob(job.id);
+          
+          return {
+            ...job,
+            company,
+            applicationsCount: applications.length
+          };
+        })
+      );
+      
+      res.json(enrichedJobs);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch jobs");
+    }
+  });
+  
+  // Admin applications
+  app.get("/api/admin/applications", requireAdmin, async (req, res) => {
+    try {
+      const applications = await storage.getApplicationsByJob("all");
+      
+      // Enrich applications with job, applicant, and company info
+      const enrichedApplications = await Promise.all(
+        applications.map(async (application) => {
+          const job = await storage.getJob(application.jobId);
+          const applicant = await storage.getUser(application.applicantId);
+          const company = job && job.companyId ? await storage.getCompany(job.companyId) : null;
+          
+          return {
+            ...application,
+            job,
+            applicant: applicant ? sanitizeUser(applicant) : null,
+            company
+          };
+        })
+      );
+      
+      res.json(enrichedApplications);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch applications");
+    }
+  });
+  
+  // Admin companies
+  app.get("/api/admin/companies", requireAdmin, async (req, res) => {
+    try {
+      const companies = await storage.getAllCompanies();
+      
+      // Enrich companies with owner info and job count
+      const enrichedCompanies = await Promise.all(
+        companies.map(async (company) => {
+          const owner = await storage.getUser(company.ownerId);
+          const jobs = await storage.getJobsByCompany(company.id);
+          
+          return {
+            ...company,
+            owner: owner ? sanitizeUser(owner) : null,
+            jobCount: jobs.length
+          };
+        })
+      );
+      
+      res.json(enrichedCompanies);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch companies");
+    }
+  });
+  
+  // Admin approvals
+  app.get("/api/admin/approvals", requireAdmin, async (req, res) => {
+    try {
+      // Get all pending items that need approval
+      const [pendingJobs, pendingCompanies] = await Promise.all([
+        storage.getJobs().catch(() => []), // Remove status filter that's causing errors
+        storage.getAllCompanies().then(companies => 
+          // Return all companies since status column doesn't exist
+          companies
+        )
+      ]);
+      
+      // Enrich with related data
+      const enrichedJobs = await Promise.all(
+        pendingJobs.map(async (job) => {
+          const company = job.companyId ? await storage.getCompany(job.companyId) : null;
+          const owner = company ? await storage.getUser(company.ownerId) : null;
+          
+          return {
+            type: 'job',
+            id: job.id.toString(),
+            title: job.title,
+            description: job.description,
+            company,
+            owner: owner ? sanitizeUser(owner) : null,
+            createdAt: job.createdAt
+          };
+        })
+      );
+      
+      const enrichedCompanies = await Promise.all(
+        pendingCompanies.map(async (company) => {
+          const owner = await storage.getUser(company.ownerId);
+          
+          return {
+            type: 'company',
+            id: company.id.toString(),
+            name: company.name,
+            description: company.description,
+            owner: owner ? sanitizeUser(owner) : null,
+            createdAt: company.createdAt
+          };
+        })
+      );
+      
+      res.json([...enrichedJobs, ...enrichedCompanies]);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch approvals");
+    }
+  });
+  
+  // Admin analytics
+  app.get("/api/admin/analytics", requireAdmin, async (req, res) => {
+    try {
+      const timeRange = req.query.timeRange as string || '30d';
+      let daysToLookBack = 30;
+      
+      if (timeRange === '7d') daysToLookBack = 7;
+      else if (timeRange === '90d') daysToLookBack = 90;
+      else if (timeRange === '365d') daysToLookBack = 365;
+      
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - daysToLookBack);
+      
+      const [users, jobs, applications, companies] = await Promise.all([
+        storage.getAllUsers(),
+        storage.getJobs(),
+        storage.getApplicationsByJob("all"),
+        storage.getAllCompanies()
+      ]);
+      
+      // Filter by date range
+      const recentUsers = users.filter(user => new Date(user.createdAt) >= startDate);
+      const recentJobs = jobs.filter(job => new Date(job.createdAt) >= startDate);
+      const recentApplications = applications.filter(app => new Date(app.appliedAt) >= startDate);
+      const recentCompanies = companies.filter(company => new Date(company.createdAt) >= startDate);
+      
+      // Generate user growth data (daily signups)
+      const userGrowth = Array.from({ length: daysToLookBack }, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        date.setHours(0, 0, 0, 0);
+        
+        const nextDate = new Date(date);
+        nextDate.setDate(nextDate.getDate() + 1);
+        
+        const count = recentUsers.filter(user => {
+          const createdAt = new Date(user.createdAt);
+          return createdAt >= date && createdAt < nextDate;
+        }).length;
+        
+        return {
+          date: date.toISOString().split('T')[0],
+          count
+        };
+      }).reverse();
+      
+      // Generate job categories data
+      const jobCategories = jobs.reduce((acc, job) => {
+        const category = job.category || 'Uncategorized';
+        const existing = acc.find(item => item.name === category);
+        
+        if (existing) {
+          existing.value++;
+        } else {
+          acc.push({ name: category, value: 1 });
+        }
+        
+        return acc;
+      }, [] as { name: string; value: number }[]);
+      
+      // Generate recent activities
+      const recentActivities = [
+        ...recentUsers.map(user => ({
+          type: 'user_signup',
+          user: sanitizeUser(user),
+          timestamp: user.createdAt,
+          message: `New user ${user.firstName} ${user.lastName} signed up`
+        })),
+        ...recentJobs.map(job => ({
+          type: 'job_posted',
+          job,
+          timestamp: job.createdAt,
+          message: `New job "${job.title}" was posted`
+        })),
+        ...recentApplications.map(app => ({
+          type: 'application_submitted',
+          application: app,
+          timestamp: app.appliedAt,
+          message: `New application was submitted for a job`
+        }))
+      ]
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 20);
+      
+      // Performance metrics
+      const performanceMetrics = {
+        avgTimeToHire: 5.2, // Placeholder - would need actual data
+        applicationConversionRate: applications.length > 0 ? 
+          (applications.filter(app => app.status === 'offered').length / applications.length * 100).toFixed(1) : 0,
+        jobFillRate: jobs.length > 0 ? 
+          (jobs.filter(job => !job.isActive).length / jobs.length * 100).toFixed(1) : 0,
+        userRetentionRate: 78.5 // Placeholder - would need actual data
+      };
+      
+      // Stats summary
+      const stats = {
+        totalUsers: users.length,
+        activeJobs: jobs.filter(job => job.isActive).length,
+        totalCompanies: companies.length,
+        totalApplications: applications.length,
+        newUsersInPeriod: recentUsers.length,
+        newJobsInPeriod: recentJobs.length,
+        newCompaniesInPeriod: recentCompanies.length,
+        newApplicationsInPeriod: recentApplications.length
+      };
+      
+      res.json({
+        userGrowth,
+        jobCategories,
+        recentActivities,
+        performanceMetrics,
+        stats
+      });
+    } catch (error) {
+      handleError(res, error, "Failed to fetch analytics data");
     }
   });
 

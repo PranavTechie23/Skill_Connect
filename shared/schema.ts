@@ -1,10 +1,10 @@
-import { sql } from "drizzle-orm";
+import { sql, relations } from "drizzle-orm";
 import { pgTable, text, varchar, integer, boolean, timestamp, jsonb, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
+  id: varchar("id").primaryKey(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   firstName: text("first_name").notNull(),
@@ -12,15 +12,20 @@ export const users = pgTable("users", {
   userType: text("user_type").notNull(), // 'job_seeker' | 'employer' | 'admin'
   location: text("location"),
   profilePhoto: text("profile_photo"),
-  title: text("title"),
-  bio: text("bio"),
-  skills: jsonb("skills").$type<string[]>().default([]),
   telephoneNumber: text("telephone_number"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const professionalProfiles = pgTable("professional_profiles", {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
+    headline: text("headline"),
+    bio: text("bio"),
+    skills: jsonb("skills").$type<string[]>().default([]),
+});
+
 export const companies = pgTable("companies", {
-  id: serial("id").primaryKey(),
+  id: varchar("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
   website: text("website"),
@@ -28,12 +33,12 @@ export const companies = pgTable("companies", {
   size: text("size"),
   industry: text("industry"),
   logo: text("logo"),
-  ownerId: integer("owner_id").references(() => users.id),
+  ownerId: varchar("owner_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const jobs = pgTable("jobs", {
-  id: serial("id").primaryKey(),
+  id: varchar("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
   requirements: text("requirements").notNull(),
@@ -42,17 +47,17 @@ export const jobs = pgTable("jobs", {
   salaryMin: integer("salary_min"),
   salaryMax: integer("salary_max"),
   skills: jsonb("skills").$type<string[]>().default([]),
-  companyId: integer("company_id").references(() => companies.id),
-  employerId: integer("employer_id").references(() => users.id),
+  companyId: varchar("company_id").references(() => companies.id, { onDelete: 'cascade' }),
+  employerId: varchar("employer_id").references(() => users.id, { onDelete: 'cascade' }),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const applications = pgTable("applications", {
   id: serial("id").primaryKey(),
-  jobId: integer("job_id").references(() => jobs.id),
-  applicantId: integer("applicant_id").references(() => users.id),
-  status: text("status").notNull().default("applied"), // 'applied' | 'under_review' | 'interview' | 'offered' | 'rejected'
+  jobId: varchar("job_id").references(() => jobs.id),
+  applicantId: varchar("applicant_id").references(() => users.id, { onDelete: 'cascade' }),
+  status: text("status").notNull().default("applied"),
   coverLetter: text("cover_letter"),
   resume: text("resume"),
   notes: text("notes"),
@@ -62,8 +67,8 @@ export const applications = pgTable("applications", {
 
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
-  senderId: integer("sender_id").references(() => users.id),
-  receiverId: integer("receiver_id").references(() => users.id),
+  senderId: varchar("sender_id").references(() => users.id, { onDelete: 'cascade' }),
+  receiverId: varchar("receiver_id").references(() => users.id, { onDelete: 'cascade' }),
   applicationId: integer("application_id").references(() => applications.id),
   content: text("content").notNull(),
   isRead: boolean("is_read").default(false),
@@ -72,7 +77,7 @@ export const messages = pgTable("messages", {
 
 export const experiences = pgTable("experiences", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }),
   title: text("title").notNull(),
   company: text("company").notNull(),
   description: text("description"),
@@ -84,11 +89,13 @@ export const experiences = pgTable("experiences", {
 export const stories = pgTable('stories', {
   id: serial('id').primaryKey(),
   title: text('title').notNull(),
-  content: text('content').notNull(),
-  authorId: integer("author_id").references(() => users.id),
+  content: text('content').notNull(),  
+  authorId: varchar("author_id").references(() => users.id, { onDelete: 'cascade' }),
   tags: jsonb("tags").$type<string[]>().default([]),
   createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
+
+
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users, {
@@ -96,6 +103,10 @@ export const insertUserSchema = createInsertSchema(users, {
 }).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertProfessionalProfileSchema = createInsertSchema(professionalProfiles).omit({
+    id: true,
 });
 
 export const insertCompanySchema = createInsertSchema(companies).omit({
@@ -138,29 +149,41 @@ export const loginSchema = z.object({
 });
 
 export const registerSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(6),
   firstName: z.string(),
   lastName: z.string(),
-  userType: z.enum(["Professional", "Employer"]),
+  userType: z.enum(["Professional", "Employer", "job_seeker", "employer", "admin"]),
   location: z.string().optional(),
   profilePhoto: z.string().optional(),
-  title: z.string().optional(),
-  bio: z.string().optional(),
-  skills: z.array(z.string()).optional(),
   confirmPassword: z.string(),
   telephoneNumber: z.string().optional(),
   companyName: z.string().optional(),
   companyBio: z.string().optional(),
   companyWebsite: z.string().optional(),
-}).passthrough().refine((data) => data.password === data.confirmPassword, {
+  title: z.string().optional(),
+  bio: z.string().optional(),
+  skills: z.array(z.string()).optional(),
+}).loose().refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
+});
+
+export const adminCreateUserSchema = z.object({
+  email: z.email(),
+  password: z.string().min(6),
+  firstName: z.string(),
+  lastName: z.string(),
+  userType: z.enum(["job_seeker", "employer", "admin"]),
+  location: z.string().optional(),
+  title: z.string().optional(),
 });
 
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type ProfessionalProfile = typeof professionalProfiles.$inferSelect;
+export type InsertProfessionalProfile = z.infer<typeof insertProfessionalProfileSchema>;
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
 export type Job = typeof jobs.$inferSelect;

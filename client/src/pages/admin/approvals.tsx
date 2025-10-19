@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminBackButton from '@/components/AdminBackButton';
 import { useTheme } from '@/components/theme-provider';
 import {
@@ -7,6 +7,8 @@ import {
   Users, FileText, ExternalLink, Filter, Search, ChevronDown,
   ThumbsUp, ThumbsDown, MessageSquare, Info, Zap, Award, Crown
 } from 'lucide-react';
+import { adminService } from '@/lib/admin-service';
+import { useToast } from '@/hooks/use-toast';
 
 interface PendingItem {
   id: string;
@@ -20,122 +22,43 @@ interface PendingItem {
   details: any;
 }
 
-const mockPendingItems: PendingItem[] = [
-  {
-    id: '1',
-    type: 'employer',
-    title: 'TechCorp Inc.',
-    subtitle: 'Technology Company',
-    submittedBy: 'hr@techcorp.com',
-    submittedDate: '2024-01-20',
-    status: 'pending',
-    priority: 'high',
-    details: {
-      companySize: '50-200 employees',
-      location: 'San Francisco, CA',
-      industry: 'Technology',
-      website: 'www.techcorp.com'
-    }
-  },
-  {
-    id: '2',
-    type: 'employer',
-    title: 'HealthPlus Medical',
-    subtitle: 'Healthcare Provider',
-    submittedBy: 'admin@healthplus.com',
-    submittedDate: '2024-01-19',
-    status: 'pending',
-    priority: 'medium',
-    details: {
-      companySize: '200-500 employees',
-      location: 'New York, NY',
-      industry: 'Healthcare',
-      website: 'www.healthplus.com'
-    }
-  },
-  {
-    id: '3',
-    type: 'job',
-    title: 'Senior Frontend Developer',
-    subtitle: 'StartupXYZ',
-    submittedBy: 'StartupXYZ',
-    submittedDate: '2024-01-18',
-    status: 'pending',
-    priority: 'medium',
-    details: {
-      salary: '$120k - $150k',
-      location: 'Remote',
-      type: 'Full-time',
-      experience: '5+ years'
-    }
-  },
-  {
-    id: '4',
-    type: 'employer',
-    title: 'FinanceHub Solutions',
-    subtitle: 'Financial Services',
-    submittedBy: 'contact@financehub.com',
-    submittedDate: '2024-01-17',
-    status: 'pending',
-    priority: 'low',
-    details: {
-      companySize: '10-50 employees',
-      location: 'Austin, TX',
-      industry: 'Finance',
-      website: 'www.financehub.com'
-    }
-  },
-  {
-    id: '5',
-    type: 'job',
-    title: 'Product Manager',
-    subtitle: 'TechCorp Inc.',
-    submittedBy: 'TechCorp Inc.',
-    submittedDate: '2024-01-16',
-    status: 'pending',
-    priority: 'high',
-    details: {
-      salary: '$100k - $130k',
-      location: 'San Francisco, CA',
-      type: 'Full-time',
-      experience: '3+ years'
-    }
-  },
-  {
-    id: '6',
-    type: 'job',
-    title: 'UX Designer',
-    subtitle: 'DesignStudio',
-    submittedBy: 'DesignStudio',
-    submittedDate: '2024-01-15',
-    status: 'pending',
-    priority: 'medium',
-    details: {
-      salary: '$80k - $100k',
-      location: 'Remote',
-      type: 'Contract',
-      experience: '2+ years'
-    }
-  }
-];
-
 const AdminApprovals: React.FC = () => {
+  const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'employer' | 'job'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<PendingItem | null>(null);
   
   const { theme } = useTheme();
   const darkMode = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+  const { toast } = useToast();
 
-  const filteredItems = mockPendingItems.filter(item => {
+  const fetchApprovals = async () => {
+    setLoading(true);
+    try {
+      const data = await adminService.getApprovals();
+      setPendingItems(data);
+    } catch (error) {
+      console.error("Failed to fetch approvals:", error);
+      toast({ title: "Error", description: "Could not fetch pending approvals.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchApprovals();
+  }, []);
+
+  const filteredItems = pendingItems.filter(item => {
     const matchesFilter = filter === 'all' || item.type === filter;
     const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          item.subtitle.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
-  const employerCount = mockPendingItems.filter(i => i.type === 'employer').length;
-  const jobCount = mockPendingItems.filter(i => i.type === 'job').length;
+  const employerCount = pendingItems.filter(i => i.type === 'employer').length;
+  const jobCount = pendingItems.filter(i => i.type === 'job').length;
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -146,14 +69,16 @@ const AdminApprovals: React.FC = () => {
     }
   };
 
-  const handleApprove = (itemId: string) => {
-    console.log('Approved:', itemId);
-    // Add approval logic here
-  };
-
-  const handleReject = (itemId: string) => {
-    console.log('Rejected:', itemId);
-    // Add rejection logic here
+  const handleUpdateApproval = async (itemId: string, status: 'approved' | 'rejected') => {
+    try {
+      await adminService.updateApproval(itemId, status);
+      toast({ title: "Success", description: `Item has been ${status}.` });
+      fetchApprovals(); // Refresh list
+      if (selectedItem?.id === itemId) setSelectedItem(null);
+    } catch (error) {
+      console.error(`Failed to ${status} item:`, error);
+      toast({ title: "Error", description: `Could not update item status.`, variant: "destructive" });
+    }
   };
 
   return (
@@ -185,7 +110,7 @@ const AdminApprovals: React.FC = () => {
             <div className="relative z-10 flex items-center justify-between">
               <div>
                 <p className="text-white/90 text-sm font-semibold mb-2">Total Pending Items</p>
-                <p className="text-5xl font-black">{mockPendingItems.length}</p>
+                <p className="text-5xl font-black">{pendingItems.length}</p>
               </div>
               <div className="flex gap-8">
                 <div className="text-center">
@@ -235,7 +160,7 @@ const AdminApprovals: React.FC = () => {
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                All ({mockPendingItems.length})
+                All ({pendingItems.length})
               </button>
               <button
                 onClick={() => setFilter('employer')}
@@ -392,7 +317,7 @@ const AdminApprovals: React.FC = () => {
                     View Details
                   </button>
                   <button
-                    onClick={() => handleReject(item.id)}
+                    onClick={() => handleUpdateApproval(item.id, 'rejected')}
                     className={`flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold transition-all border-2 ${
                       darkMode
                         ? 'bg-red-900/20 hover:bg-red-900/30 text-red-400 border-red-900/50'
@@ -403,7 +328,7 @@ const AdminApprovals: React.FC = () => {
                     Reject
                   </button>
                   <button
-                    onClick={() => handleApprove(item.id)}
+                    onClick={() => handleUpdateApproval(item.id, 'approved')}
                     className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-green-500/30"
                   >
                     <CheckCircle className="w-5 h-5" />
@@ -498,7 +423,7 @@ const AdminApprovals: React.FC = () => {
                   <div className="flex gap-3 pt-6">
                     <button
                       onClick={() => {
-                        handleReject(selectedItem.id);
+                        handleUpdateApproval(selectedItem.id, 'rejected');
                         setSelectedItem(null);
                       }}
                       className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-bold transition-all border-2 ${
@@ -512,7 +437,7 @@ const AdminApprovals: React.FC = () => {
                     </button>
                     <button
                       onClick={() => {
-                        handleApprove(selectedItem.id);
+                        handleUpdateApproval(selectedItem.id, 'approved');
                         setSelectedItem(null);
                       }}
                       className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-green-500/30"

@@ -19,6 +19,7 @@ export default function Applications() {
       if (!res.ok) throw new Error("Failed to fetch applications");
       return res.json();
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const filteredApplications = applications.filter((app: any) =>

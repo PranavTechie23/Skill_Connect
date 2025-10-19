@@ -6,125 +6,10 @@ import {
   Shield, Users, Building2, Briefcase, TrendingUp, Activity, Settings,
   LogOut, Moon, Sun, Menu, X, Search, MoreVertical, Eye, Edit,
   Trash2, CheckCircle, XCircle, AlertCircle, Clock, Mail,
-  Calendar, BarChart3, FileText, UserCheck, Pause, Play, Ban, ChevronDown,
-  ArrowRight, Zap, Target, Award, MessageSquare, Bell, Home
+  Calendar, BarChart3, FileText, UserCheck, Pause, Play, Ban, ChevronDown, ArrowRight, Zap, Target, Award, MessageSquare, Bell, Home
 } from 'lucide-react';
-interface AdminStats {
-  totalUsers: number;
-  totalEmployees: number;
-  totalEmployers: number;
-  activeJobs: number;
-  totalApplications: number;
-  newUsersToday: number;
-  newJobsToday: number;
-  pendingApprovals: number;
-}
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  type: 'employee' | 'employer';
-  status: 'active' | 'suspended' | 'pending';
-  joinDate: string;
-  lastActive: string;
-  location?: string;
-}
-
-interface Job {
-  id: string;
-  title: string;
-  company: string;
-  status: 'active' | 'paused' | 'closed';
-  applications: number;
-  postedDate: string;
-  salary: string;
-}
-
-const mockStats: AdminStats = {
-  totalUsers: 1247,
-  totalEmployees: 893,
-  totalEmployers: 354,
-  activeJobs: 428,
-  totalApplications: 5632,
-  newUsersToday: 23,
-  newJobsToday: 15,
-  pendingApprovals: 8
-};
-
-const mockUsers: User[] = [
-  {
-    id: '1',
-    name: 'John Doe',
-    email: 'john@example.com',
-    type: 'employee',
-    status: 'active',
-    joinDate: '2024-01-15',
-    lastActive: '2 hours ago',
-    location: 'San Francisco, CA'
-  },
-  {
-    id: '2',
-    name: 'TechCorp Inc.',
-    email: 'hr@techcorp.com',
-    type: 'employer',
-    status: 'active',
-    joinDate: '2024-01-10',
-    lastActive: '1 day ago',
-    location: 'New York, NY'
-  },
-  {
-    id: '3',
-    name: 'Jane Smith',
-    email: 'jane@example.com',
-    type: 'employee',
-    status: 'pending',
-    joinDate: '2024-01-20',
-    lastActive: '5 minutes ago',
-    location: 'Austin, TX'
-  },
-  {
-    id: '4',
-    name: 'StartupXYZ',
-    email: 'contact@startupxyz.com',
-    type: 'employer',
-    status: 'active',
-    joinDate: '2024-01-25',
-    lastActive: '3 days ago',
-    location: 'San Francisco, CA'
-  },
-  {
-    id: '5',
-    name: 'Alice Johnson',
-    email: 'alice@example.com',
-    type: 'employee',
-    status: 'pending',
-    joinDate: '2024-01-28',
-    lastActive: '2 weeks ago',
-    location: 'Chicago, IL'
-  }
-];
-
-const mockJobs: Job[] = [
-  {
-    id: '1',
-    title: 'Senior Frontend Developer',
-    company: 'TechCorp Inc.',
-    status: 'active',
-    applications: 45,
-    postedDate: '2024-01-15',
-    salary: '$120k - $150k'
-  },
-  {
-    id: '2',
-    title: 'Product Manager',
-    company: 'StartupXYZ',
-    status: 'active',
-    applications: 67,
-    postedDate: '2024-01-18',
-    salary: '$100k - $130k'
-  }
-];
+import { adminService } from '@/lib/admin-service';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 const AdminDashboard: React.FC = () => {
   // use global theme provider so toggling here applies across the app
@@ -134,6 +19,11 @@ const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState<any>({});
+  const [recentUsers, setRecentUsers] = useState<any[]>([]);
+  const [recentJobs, setRecentJobs] = useState<any[]>([]);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   const admin = {
     name: 'Admin User',
@@ -195,7 +85,28 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     generateNotifications();
     generateMessages();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [statsData, usersData, jobsData, activityData] = await Promise.all([
+          adminService.getStats(),
+          adminService.getUsers(), // Assuming this gets recent users
+          adminService.getJobs(), // Assuming this gets recent jobs
+          adminService.getAnalytics('7d').then(d => d.recentActivities || []) // Example for recent activity
+        ]);
+        setStats(statsData || {});
+        setRecentUsers(usersData || []);
+        setRecentJobs((jobsData || []).slice(0, 5));
+        setRecentActivity(activityData || []);
+      } catch (error) {
+        console.error("Failed to fetch admin data", error);
+        // Keep using mock data on error for now, or show an error state
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
   const handleLogout = async () => {
@@ -288,8 +199,9 @@ const AdminDashboard: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      {/* Top Navbar */}
+    <ErrorBoundary>
+      <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+        {/* Top Navbar */}
       <nav className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b fixed top-0 left-0 right-0 z-50 backdrop-blur-lg bg-opacity-80`}>
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
@@ -438,14 +350,14 @@ const AdminDashboard: React.FC = () => {
                 <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-red-50'}`}>
                   <Users className={`w-5 h-5 mb-1 ${darkMode ? 'text-red-400' : 'text-red-600'}`} />
                   <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {mockStats.totalUsers}
+                    {stats.totalUsers || 0}
                   </p>
                   <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Users</p>
                 </div>
                 <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-blue-50'}`}>
                   <Briefcase className={`w-5 h-5 mb-1 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
                   <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {mockStats.activeJobs}
+                    {stats.activeJobs || 0}
                   </p>
                   <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Active Jobs</p>
                 </div>
@@ -459,12 +371,12 @@ const AdminDashboard: React.FC = () => {
               </h3>
               <div className="space-y-1">
                 <NavItem icon={Home} label="Overview" id="overview" />
-                <NavItem icon={Users} label="User Management" id="users" badge={mockStats.newUsersToday} />
+                <NavItem icon={Users} label="User Management" id="users" badge={stats.newUsersThisWeek} />
                 <NavItem icon={Building2} label="Employers" id="employers" />
                 <NavItem icon={UserCheck} label="Employees" id="employees" />
-                <NavItem icon={Briefcase} label="Job Postings" id="jobs" badge={mockStats.newJobsToday} />
+                <NavItem icon={Briefcase} label="Job Postings" id="jobs" badge={stats.newJobsThisWeek} />
                 <NavItem icon={FileText} label="Applications" id="applications" />
-                <NavItem icon={AlertCircle} label="Pending Approvals" id="approvals" badge={mockStats.pendingApprovals} />
+                <NavItem icon={AlertCircle} label="Pending Approvals" id="approvals" badge={stats.pendingApprovals || 0} />
                 <NavItem icon={BarChart3} label="Analytics" id="analytics" />
                 <NavItem icon={Settings} label="System Settings" id="settings" />
               </div>
@@ -533,10 +445,10 @@ const AdminDashboard: React.FC = () => {
                   Total Users
                 </p>
                 <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {mockStats.totalUsers}
+                  {stats.totalUsers || 0}
                 </p>
                 <p className="text-xs text-emerald-600 font-semibold mt-2">
-                  ↑ {mockStats.newUsersToday} new today
+                  ↑ {stats.newUsersThisWeek || 0} new this week
                 </p>
               </div>
 
@@ -553,10 +465,10 @@ const AdminDashboard: React.FC = () => {
                   Employers
                 </p>
                 <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {mockStats.totalEmployers}
+                  {stats.totalCompanies || 0}
                 </p>
                 <p className="text-xs text-blue-600 font-semibold mt-2">
-                  {Math.round((mockStats.totalEmployers / mockStats.totalUsers) * 100)}% of users
+                  {stats.totalUsers > 0 ? Math.round(((stats.totalCompanies || 0) / stats.totalUsers) * 100) : 0}% of users
                 </p>
               </div>
 
@@ -573,10 +485,10 @@ const AdminDashboard: React.FC = () => {
                   Employees
                 </p>
                 <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {mockStats.totalEmployees}
+                  {(stats.totalUsers || 0) - (stats.totalCompanies || 0)}
                 </p>
                 <p className="text-xs text-emerald-600 font-semibold mt-2">
-                  {Math.round((mockStats.totalEmployees / mockStats.totalUsers) * 100)}% of users
+                  {stats.totalUsers > 0 ? Math.round((((stats.totalUsers || 0) - (stats.totalCompanies || 0)) / stats.totalUsers) * 100) : 0}% of users
                 </p>
               </div>
 
@@ -593,10 +505,10 @@ const AdminDashboard: React.FC = () => {
                   Active Jobs
                 </p>
                 <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {mockStats.activeJobs}
+                  {stats.activeJobs || 0}
                 </p>
                 <p className="text-xs text-amber-600 font-semibold mt-2">
-                  ↑ {mockStats.newJobsToday} posted today
+                  ↑ {stats.newJobsThisWeek || 0} posted this week
                 </p>
               </div>
             </div>
@@ -646,8 +558,9 @@ const AdminDashboard: React.FC = () => {
                   </div>
 
                   <div className="space-y-3">
-                    {mockUsers.map(user => {
-                      const statusBadge = getStatusBadge(user.status);
+                    {recentUsers.map(user => {
+                      const userStatus = user.status || 'active';
+                      const statusBadge = getStatusBadge(userStatus);
                       const StatusIcon = statusBadge.Icon;
 
                       return (
@@ -662,30 +575,29 @@ const AdminDashboard: React.FC = () => {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4">
                               <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold shadow-lg ${
-                                user.type === 'employee' 
+                                user.userType === 'Professional' || user.userType === 'employee' || user.userType === 'job_seeker'
                                   ? 'bg-gradient-to-br from-blue-500 to-indigo-600'
                                   : 'bg-gradient-to-br from-purple-500 to-pink-600'
-                              }`}>
-                                {user.name.substring(0, 2).toUpperCase()}
+                              }`}>{user.firstName?.[0] || ''}{user.lastName?.[0] || ''}
                               </div>
                               <div>
                                 <div className="flex items-center gap-2 mb-1">
                                   <h3 className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                    {user.name}
+                                    {user.firstName} {user.lastName}
                                   </h3>
                                   <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
-                                    user.type === 'employee'
+                                    user.userType === 'Professional' || user.userType === 'employee' || user.userType === 'job_seeker'
                                       ? darkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700'
-                                      : darkMode ? 'bg-purple-500/20 text-purple-400' : 'bg-purple-100 text-purple-700'
+                                      : darkMode ? 'bg-purple-500/20 text-purple-400' : 'bg-purple-100 text-purple-700' 
                                   }`}>
-                                    {user.type}
+                                    {user.userType}
                                   </span>
                                 </div>
                                 <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                  {user.email}
+                                  {user.email || 'No email'}
                                 </p>
                                 <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'} mt-1`}>
-                                  Joined {user.joinDate} • Last active {user.lastActive}
+                                  Joined {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'} • Last active Recently
                                 </p>
                               </div>
                             </div>
@@ -693,7 +605,7 @@ const AdminDashboard: React.FC = () => {
                             <div className="flex items-center gap-3">
                               <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${statusBadge.color}`}>
                                 <StatusIcon className="w-3.5 h-3.5" />
-                                {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+                                {userStatus.charAt(0).toUpperCase() + userStatus.slice(1)}
                               </span>
 
                               <div className="relative group/menu">
@@ -724,7 +636,7 @@ const AdminDashboard: React.FC = () => {
                                     Send Message
                                   </button>
                                   <div className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'} my-2`}></div>
-                                  {user.status === 'active' ? (
+                                  {userStatus === 'active' ? (
                                     <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
                                       darkMode ? 'hover:bg-amber-500/10 text-amber-400' : 'hover:bg-amber-50 text-amber-600'
                                     }`}>
@@ -786,7 +698,7 @@ const AdminDashboard: React.FC = () => {
                           darkMode ? 'bg-amber-500 text-white' : 'bg-amber-600 text-white'
                         }`}>
                           3
-                        </span>
+                        </span> 
                       </div>
                       <p className={`text-xs ${darkMode ? 'text-amber-300' : 'text-amber-600'}`}>
                         Pending company verification
@@ -809,7 +721,10 @@ const AdminDashboard: React.FC = () => {
                       </p>
                     </div>
 
-                    <button className="w-full py-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg hover:from-red-700 hover:to-rose-700 transition-all font-semibold text-sm flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => navigate('/admin/approvals')}
+                      className="w-full py-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg hover:from-red-700 hover:to-rose-700 transition-all font-semibold text-sm flex items-center justify-center gap-2"
+                    >
                       Review All
                       <ArrowRight className="w-4 h-4" />
                     </button>
@@ -828,68 +743,22 @@ const AdminDashboard: React.FC = () => {
                   </div>
 
                   <div className="space-y-3">
-                    <div className={`p-3 rounded-xl border ${
-                      darkMode ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-200'
-                    }`}>
-                      <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-lg ${darkMode ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
-                          <Users className={`w-4 h-4 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                        </div>
-                        <div className="flex-1">
-                          <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                            New User Registered
-                          </p>
-                          <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            Jane Smith joined as employee
-                          </p>
-                          <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'} mt-1`}>
-                            5 minutes ago
-                          </p>
+                    {recentActivity.slice(0, 3).map((activity: any, index: number) => (
+                      <div key={index} className={`p-3 rounded-xl border ${darkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="flex items-start gap-3">
+                          <div className={`p-2 rounded-lg ${darkMode ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
+                            {activity.type === 'user' && <Users className={`w-4 h-4 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />}
+                            {activity.type === 'job' && <Briefcase className={`w-4 h-4 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />}
+                            {activity.type === 'application' && <FileText className={`w-4 h-4 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />}
+                          </div>
+                          <div className="flex-1">
+                            <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{activity.action}</p>
+                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{activity.user}</p>
+                            <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'} mt-1`}>{activity.time}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-
-                    <div className={`p-3 rounded-xl border ${
-                      darkMode ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50 border-emerald-200'
-                    }`}>
-                      <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-lg ${darkMode ? 'bg-emerald-500/20' : 'bg-emerald-100'}`}>
-                          <Briefcase className={`w-4 h-4 ${darkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
-                        </div>
-                        <div className="flex-1">
-                          <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                            Job Posted
-                          </p>
-                          <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            Senior Developer at TechCorp
-                          </p>
-                          <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'} mt-1`}>
-                            1 hour ago
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className={`p-3 rounded-xl border ${
-                      darkMode ? 'bg-purple-500/10 border-purple-500/20' : 'bg-purple-50 border-purple-200'
-                    }`}>
-                      <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-lg ${darkMode ? 'bg-purple-500/20' : 'bg-purple-100'}`}>
-                          <Building2 className={`w-4 h-4 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-                        </div>
-                        <div className="flex-1">
-                          <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                            Company Verified
-                          </p>
-                          <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            StartupXYZ approved
-                          </p>
-                          <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'} mt-1`}>
-                            3 hours ago
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
 
@@ -916,7 +785,7 @@ const AdminDashboard: React.FC = () => {
               </div>
 
               <div className="space-y-3">
-                {mockJobs.map(job => {
+                {recentJobs.map(job => {
                   const statusBadge = getStatusBadge(job.status);
                   const StatusIcon = statusBadge.Icon;
 
@@ -932,7 +801,7 @@ const AdminDashboard: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4 flex-1">
                           <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
-                            {job.company.substring(0, 2)}
+                            {typeof job.company === 'string' ? job.company.substring(0, 2) : 'N/A'}
                           </div>
                           <div className="flex-1">
                             <h3 className={`font-bold mb-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -941,7 +810,7 @@ const AdminDashboard: React.FC = () => {
                             <div className={`flex items-center gap-4 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                               <span className="flex items-center gap-1">
                                 <Building2 className="w-4 h-4" />
-                                {job.company}
+                                {job.company?.name}
                               </span>
                               <span className="flex items-center gap-1">
                                 <Users className="w-4 h-4" />
@@ -958,7 +827,7 @@ const AdminDashboard: React.FC = () => {
                         <div className="flex items-center gap-3">
                           <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${statusBadge.color}`}>
                             <StatusIcon className="w-3.5 h-3.5 inline mr-1" />
-                            {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                            {job.status ? job.status.charAt(0).toUpperCase() + job.status.slice(1) : 'N/A'}
                           </span>
 
                           <div className="relative group/menu">
@@ -1007,7 +876,8 @@ const AdminDashboard: React.FC = () => {
           </div>
         </main>
       </div>
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 

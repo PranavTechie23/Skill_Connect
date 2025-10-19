@@ -1,160 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminBackButton from '@/components/AdminBackButton';
-import { Briefcase, Search, Plus, Edit, Trash2, MoreVertical, MapPin, Calendar, DollarSign, Users, Clock, Eye, Building2, TrendingUp, Filter, CheckCircle, XCircle, PauseCircle } from 'lucide-react';
+import {
+  Briefcase, Search, Plus, Edit, Trash2, MoreVertical, MapPin, Calendar, DollarSign, Users, Clock, Eye, Building2, TrendingUp, Filter, CheckCircle, XCircle, PauseCircle
+} from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
+import { adminService } from '@/lib/admin-service';
+import { useToast } from '@/hooks/use-toast';
+
+interface Job {
+  id: number;
+  title: string;
+  company: string;
+  location: string;
+  jobType: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  status: 'Active' | 'Paused' | 'Expired';
+  applications: number;
+  createdAt: string;
+}
 
 export default function JobPostings() {
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All Status');
   
   const { theme } = useTheme();
   const darkMode = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
 
-  const stats = [
-    { label: 'Total Jobs', value: '428', change: '↑ 15 posted today', icon: Briefcase, color: 'bg-orange-500', bgLight: 'bg-orange-50' },
-    { label: 'Active Postings', value: '312', change: '73% active rate', icon: CheckCircle, color: 'bg-green-500', bgLight: 'bg-green-50' },
-    { label: 'Total Applications', value: '3,247', change: '↑ 89 today', icon: Users, color: 'bg-blue-500', bgLight: 'bg-blue-50' },
-    { label: 'Avg. Applications', value: '7.6', change: 'Per job posting', icon: TrendingUp, color: 'bg-purple-500', bgLight: 'bg-purple-50' }
-  ];
+  const { toast } = useToast();
 
-  const jobs = [
-    {
-      id: 1,
-      title: 'Senior Frontend Engineer',
-      company: 'Admin Posted',
-      logo: 'AP',
-      location: 'San Francisco, CA',
-      type: 'Full-time',
-      salary: '$120k - $160k',
-      postedDate: '2024-09-01',
-      expiryDate: '2024-12-01',
-      status: 'Active',
-      applications: 42,
-      views: 324,
-      postedBy: 'Admin Team',
-      featured: true,
-      color: 'bg-blue-500'
-    },
-    {
-      id: 2,
-      title: 'Product Manager',
-      company: 'Admin Posted',
-      logo: 'AP',
-      location: 'Remote',
-      type: 'Full-time',
-      salary: '$130k - $170k',
-      postedDate: '2024-08-25',
-      expiryDate: '2024-11-25',
-      status: 'Active',
-      applications: 18,
-      views: 156,
-      postedBy: 'Admin Team',
-      featured: false,
-      color: 'bg-purple-500'
-    },
-    {
-      id: 3,
-      title: 'Backend Engineer',
-      company: 'Admin Posted',
-      logo: 'AP',
-      location: 'Los Angeles, CA',
-      type: 'Full-time',
-      salary: '$110k - $150k',
-      postedDate: '2024-08-20',
-      expiryDate: '2024-11-20',
-      status: 'Active',
-      applications: 27,
-      views: 243,
-      postedBy: 'Admin Team',
-      featured: true,
-      color: 'bg-indigo-500'
-    },
-    {
-      id: 4,
-      title: 'UX Designer',
-      company: 'Admin Posted',
-      logo: 'AP',
-      location: 'New York, NY',
-      type: 'Full-time',
-      salary: '$90k - $120k',
-      postedDate: '2024-09-05',
-      expiryDate: '2024-12-05',
-      status: 'Active',
-      applications: 35,
-      views: 287,
-      postedBy: 'Admin Team',
-      featured: false,
-      color: 'bg-pink-500'
-    },
-    {
-      id: 5,
-      title: 'Data Scientist',
-      company: 'Admin Posted',
-      logo: 'AP',
-      location: 'Austin, TX',
-      type: 'Full-time',
-      salary: '$140k - $180k',
-      postedDate: '2024-08-15',
-      expiryDate: '2024-11-15',
-      status: 'Expired',
-      applications: 12,
-      views: 98,
-      postedBy: 'Admin Team',
-      featured: false,
-      color: 'bg-teal-500'
-    },
-    {
-      id: 6,
-      title: 'DevOps Engineer',
-      company: 'Admin Posted',
-      logo: 'AP',
-      location: 'Seattle, WA',
-      type: 'Full-time',
-      salary: '$125k - $165k',
-      postedDate: '2024-09-03',
-      expiryDate: '2024-12-03',
-      status: 'Active',
-      applications: 29,
-      views: 201,
-      postedBy: 'Admin Team',
-      featured: true,
-      color: 'bg-blue-500'
-    },
-    {
-      id: 7,
-      title: 'Marketing Manager',
-      company: 'Admin Posted',
-      logo: 'AP',
-      location: 'Remote',
-      type: 'Part-time',
-      salary: '$80k - $100k',
-      postedDate: '2024-08-28',
-      expiryDate: '2024-11-28',
-      status: 'Active',
-      applications: 23,
-      views: 189,
-      postedBy: 'Admin Team',
-      featured: false,
-      color: 'bg-purple-500'
-    },
-    {
-      id: 8,
-      title: 'Mobile Developer',
-      company: 'Admin Posted',
-      logo: 'AP',
-      location: 'Chicago, IL',
-      type: 'Contract',
-      salary: '$100k - $130k',
-      postedDate: '2024-08-10',
-      expiryDate: '2024-11-10',
-      status: 'Paused',
-      applications: 8,
-      views: 67,
-      postedBy: 'Admin Team',
-      featured: false,
-      color: 'bg-indigo-500'
+  const fetchJobs = async () => {
+    setLoading(true);
+    try {
+      const data = await adminService.getJobs();
+      // Assuming getJobs returns jobs posted by admin or has a way to filter them
+      // For now, we'll map the response to the local Job interface
+      const adminJobs = data.map((job: any) => ({
+        id: job.id,
+        title: job.title,
+        company: job.company?.name || 'Admin Posted',
+        location: job.location,
+        jobType: job.jobType,
+        salaryMin: job.salaryMin,
+        salaryMax: job.salaryMax,
+        status: job.status.charAt(0).toUpperCase() + job.status.slice(1),
+        applications: job.applicationsCount || 0,
+        createdAt: job.createdAt,
+      }));
+      setJobs(adminJobs);
+    } catch (error) {
+      console.error("Failed to fetch jobs:", error);
+      toast({ title: "Error", description: "Could not fetch job data.", variant: "destructive" });
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
 
   const filteredJobs = jobs.filter(job => {
     const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -163,6 +69,18 @@ export default function JobPostings() {
     const matchesFilter = filterStatus === 'All Status' || job.status === filterStatus;
     return matchesSearch && matchesFilter;
   });
+
+  const totalJobs = jobs.length;
+  const activeJobs = jobs.filter(job => job.status === 'Active').length;
+  const totalApplications = jobs.reduce((sum, job) => sum + job.applications, 0);
+  const avgApplications = totalJobs > 0 ? (totalApplications / totalJobs).toFixed(1) : '0.0';
+
+  const stats = [
+    { label: 'Total Jobs', value: totalJobs.toLocaleString(), change: 'All admin-posted jobs', icon: Briefcase, color: 'bg-orange-500', bgLight: 'bg-orange-50' },
+    { label: 'Active Postings', value: activeJobs.toLocaleString(), change: `${totalJobs > 0 ? Math.round((activeJobs / totalJobs) * 100) : 0}% active rate`, icon: CheckCircle, color: 'bg-green-500', bgLight: 'bg-green-50' },
+    { label: 'Total Applications', value: totalApplications.toLocaleString(), change: 'Across all jobs', icon: Users, color: 'bg-blue-500', bgLight: 'bg-blue-50' },
+    { label: 'Avg. Applications', value: avgApplications, change: 'Per job posting', icon: TrendingUp, color: 'bg-purple-500', bgLight: 'bg-purple-50' }
+  ];
 
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
@@ -252,9 +170,9 @@ export default function JobPostings() {
             {filteredJobs.map((job) => (
               <div key={job.id} className={`p-6 ${darkMode ? 'hover:bg-gray-800/50' : 'hover:bg-gray-50'} transition-colors`}>
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className={`${job.color} w-16 h-16 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg flex-shrink-0`}>
-                      {job.logo}
+                  <div className="flex items-start gap-4 flex-1 min-w-0">
+                    <div className={`bg-orange-500 w-16 h-16 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg flex-shrink-0`}>
+                      AP
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between mb-2">
@@ -263,7 +181,7 @@ export default function JobPostings() {
                           <div className={`flex items-center gap-3 text-sm mb-3 flex-wrap ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                             <span className="flex items-center gap-1">
                               <Building2 className="w-4 h-4" />
-                              {job.postedBy}
+                              Admin Team
                             </span>
                             <span className="flex items-center gap-1">
                               <MapPin className="w-4 h-4" />
@@ -272,15 +190,8 @@ export default function JobPostings() {
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                               darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
                             }`}>
-                              {job.type}
+                              {job.jobType}
                             </span>
-                            {job.featured && (
-                              <span className={`px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
-                                darkMode ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700'
-                              }`}>
-                                ⭐ Featured
-                              </span>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -291,27 +202,23 @@ export default function JobPostings() {
                       }`}>
                         <div>
                           <p className={`text-xs mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Salary Range</p>
-                          <p className={`font-semibold text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>{job.salary}</p>
+                          <p className={`font-semibold text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>{job.salaryMin && job.salaryMax ? `$${job.salaryMin/1000}k - $${job.salaryMax/1000}k` : 'N/A'}</p>
                         </div>
                         <div>
                           <p className={`text-xs mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Applications</p>
                           <p className="font-bold text-sm text-blue-500">{job.applications} applied</p>
                         </div>
                         <div>
-                          <p className={`text-xs mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Views</p>
-                          <p className={`font-semibold text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>{job.views} views</p>
+                          <p className={`text-xs mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Status</p>
+                          <p className={`font-semibold text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>{job.status}</p>
                         </div>
                         <div>
                           <p className={`text-xs mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Posted Date</p>
-                          <p className={`font-semibold text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>{job.postedDate}</p>
+                          <p className={`font-semibold text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>{new Date(job.createdAt).toLocaleDateString()}</p>
                         </div>
                       </div>
 
                       {/* Expiry Info */}
-                      <div className={`flex items-center gap-2 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        <Clock className="w-4 h-4" />
-                        <span>Expires on {job.expiryDate}</span>
-                      </div>
                     </div>
                   </div>
 

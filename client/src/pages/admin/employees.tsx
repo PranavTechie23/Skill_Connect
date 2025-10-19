@@ -1,134 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminBackButton from '@/components/AdminBackButton';
 import { useTheme } from '@/components/theme-provider';
 import { Users, Search, Plus, Edit, Trash2, MoreVertical, Mail, Calendar, MapPin, Briefcase, Award, TrendingUp, Clock, Filter, Eye, CheckCircle, XCircle } from 'lucide-react';
+import { adminService, User } from '@/lib/admin-service';
+import { useToast } from '@/hooks/use-toast';
 
 export default function AdminEmployees() {
   const { theme } = useTheme();
   const darkMode = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+  const [employees, setEmployees] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('All Status');
+  const { toast } = useToast();
+
+  const fetchEmployees = async () => {
+    setLoading(true);
+    try {
+      const allUsers = await adminService.getUsers();
+      // Assuming 'Professional' userType are employees
+      setEmployees(allUsers.filter(u => u.userType === 'Professional'));
+    } catch (error) {
+      console.error("Failed to fetch employees:", error);
+      toast({ title: "Error", description: "Could not fetch employee data.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
 
   const stats = [
-    { label: 'Total Employees', value: '893', change: '↑ 12 new this week', icon: Users, color: 'bg-green-500', bgLight: 'bg-green-50' },
-    { label: 'Active Users', value: '756', change: '85% active rate', icon: CheckCircle, color: 'bg-blue-500', bgLight: 'bg-blue-50' },
+    { label: 'Total Employees', value: employees.length, change: '↑ 12 new this week', icon: Users, color: 'bg-green-500', bgLight: 'bg-green-50' },
+    { label: 'Active Users', value: employees.length, change: '100% active rate', icon: CheckCircle, color: 'bg-blue-500', bgLight: 'bg-blue-50' },
     { label: 'Job Applications', value: '1,234', change: '↑ 45 this month', icon: Briefcase, color: 'bg-purple-500', bgLight: 'bg-purple-50' },
     { label: 'Profile Views', value: '8,421', change: '↑ 324 today', icon: Eye, color: 'bg-orange-500', bgLight: 'bg-orange-50' }
   ];
 
-  const employees = [
-    {
-      id: 1,
-      name: 'John Doe',
-      email: 'john@example.com',
-      avatar: 'JD',
-      status: 'Active',
-      joined: '2024-01-15',
-      lastActive: '2 hours ago',
-      location: 'San Francisco, CA',
-      skills: ['React', 'Node.js', 'TypeScript'],
-      applications: 5,
-      color: 'bg-blue-500'
-    },
-    {
-      id: 2,
-      name: 'Jane Smith',
-      email: 'jane@example.com',
-      avatar: 'JS',
-      status: 'Active',
-      joined: '2024-01-20',
-      lastActive: '5 minutes ago',
-      location: 'New York, NY',
-      skills: ['Python', 'Django', 'PostgreSQL'],
-      applications: 8,
-      color: 'bg-indigo-500'
-    },
-    {
-      id: 3,
-      name: 'Sarah Johnson',
-      email: 'sarah@example.com',
-      avatar: 'SJ',
-      status: 'Active',
-      joined: '2024-01-12',
-      lastActive: '30 minutes ago',
-      location: 'Austin, TX',
-      skills: ['UI/UX', 'Figma', 'Design Systems'],
-      applications: 3,
-      color: 'bg-teal-500'
-    },
-    {
-      id: 4,
-      name: 'Michael Chen',
-      email: 'michael@example.com',
-      avatar: 'MC',
-      status: 'Pending',
-      joined: '2024-01-25',
-      lastActive: '1 day ago',
-      location: 'Seattle, WA',
-      skills: ['Java', 'Spring Boot', 'AWS'],
-      applications: 2,
-      color: 'bg-purple-500'
-    },
-    {
-      id: 5,
-      name: 'Emily Rodriguez',
-      email: 'emily@example.com',
-      avatar: 'ER',
-      status: 'Active',
-      joined: '2024-01-08',
-      lastActive: '3 hours ago',
-      location: 'Miami, FL',
-      skills: ['Marketing', 'SEO', 'Content'],
-      applications: 6,
-      color: 'bg-pink-500'
-    },
-    {
-      id: 6,
-      name: 'David Kim',
-      email: 'david@example.com',
-      avatar: 'DK',
-      status: 'Active',
-      joined: '2024-01-18',
-      lastActive: '1 hour ago',
-      location: 'Los Angeles, CA',
-      skills: ['iOS', 'Swift', 'Mobile'],
-      applications: 4,
-      color: 'bg-orange-500'
-    },
-    {
-      id: 7,
-      name: 'Lisa Anderson',
-      email: 'lisa@example.com',
-      avatar: 'LA',
-      status: 'Inactive',
-      joined: '2024-01-05',
-      lastActive: '2 weeks ago',
-      location: 'Boston, MA',
-      skills: ['Data Science', 'Python', 'ML'],
-      applications: 1,
-      color: 'bg-gray-500'
-    },
-    {
-      id: 8,
-      name: 'Alex Martinez',
-      email: 'alex@example.com',
-      avatar: 'AM',
-      status: 'Active',
-      joined: '2024-01-22',
-      lastActive: '10 minutes ago',
-      location: 'Chicago, IL',
-      skills: ['DevOps', 'Docker', 'Kubernetes'],
-      applications: 7,
-      color: 'bg-cyan-500'
-    }
-  ];
-
   const filteredEmployees = employees.filter(employee => {
-    const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const name = `${employee.firstName} ${employee.lastName}`;
+    const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         employee.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'All Status' || employee.status === filterStatus;
-    return matchesSearch && matchesFilter;
+                         (employee.location || '').toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
   });
 
   return (
@@ -192,25 +107,6 @@ export default function AdminEmployees() {
                   }`}
                 />
               </div>
-              <div className="flex gap-2">
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className={`px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none cursor-pointer ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                >
-                  <option>All Status</option>
-                  <option>Active</option>
-                  <option>Pending</option>
-                  <option>Inactive</option>
-                </select>
-                <button className={`px-4 py-3 border rounded-lg transition-colors ${
-                  darkMode ? 'border-gray-600 hover:bg-gray-700 text-gray-400' : 'border-gray-300 hover:bg-gray-50 text-gray-600'
-                }`}>
-                  <Filter className="w-5 h-5" />
-                </button>
-              </div>
             </div>
           </div>
 
@@ -220,15 +116,15 @@ export default function AdminEmployees() {
               <div key={employee.id} className={`border rounded-xl p-6 transition-all ${
                 darkMode 
                   ? 'border-gray-700 hover:border-green-500/50 bg-gray-800/50'
-                  : 'border-gray-200 hover:border-green-300 bg-white'
+                  : 'border-gray-200 hover:border-green-300 bg-white' 
               } hover:shadow-lg`}>
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-start gap-4">
-                    <div className={`${employee.color} w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg`}>
-                      {employee.avatar}
+                    <div className={`bg-blue-500 w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg`}>
+                      {employee.firstName[0]}{employee.lastName[0]}
                     </div>
                     <div>
-                      <h3 className={`font-bold text-lg mb-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{employee.name}</h3>
+                      <h3 className={`font-bold text-lg mb-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{employee.firstName} {employee.lastName}</h3>
                       <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm flex items-center gap-1 mb-2`}>
                         <Mail className="w-4 h-4" />
                         {employee.email}
@@ -240,17 +136,9 @@ export default function AdminEmployees() {
                     </div>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    darkMode ? (
-                      employee.status === 'Active' ? 'bg-green-500/20 text-green-400' :
-                      employee.status === 'Pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                      'bg-gray-500/20 text-gray-400'
-                    ) : (
-                      employee.status === 'Active' ? 'bg-green-100 text-green-700' :
-                      employee.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-gray-100 text-gray-700'
-                    )
+                    darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-700'
                   }`}>
-                    {employee.status}
+                    Active
                   </span>
                 </div>
 
@@ -258,7 +146,7 @@ export default function AdminEmployees() {
                 <div className="mb-4">
                   <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-2 font-medium`}>Skills</p>
                   <div className="flex flex-wrap gap-2">
-                    {employee.skills.map((skill, idx) => (
+                    {employee.skills?.map((skill, idx) => (
                       <span key={idx} className={`px-3 py-1 rounded-full text-xs font-medium ${
                         darkMode 
                           ? 'bg-gray-700 text-gray-300'
@@ -276,15 +164,15 @@ export default function AdminEmployees() {
                 }`}>
                   <div>
                     <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Applications</p>
-                    <p className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{employee.applications}</p>
+                    <p className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{employee.applications || 0}</p>
                   </div>
                   <div>
                     <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Joined</p>
-                    <p className={`font-semibold text-xs ${darkMode ? 'text-white' : 'text-gray-900'}`}>{employee.joined}</p>
+                    <p className={`font-semibold text-xs ${darkMode ? 'text-white' : 'text-gray-900'}`}>{new Date(employee.createdAt).toLocaleDateString()}</p>
                   </div>
                   <div>
                     <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Last Active</p>
-                    <p className={`font-semibold text-xs ${darkMode ? 'text-white' : 'text-gray-900'}`}>{employee.lastActive}</p>
+                    <p className={`font-semibold text-xs ${darkMode ? 'text-white' : 'text-gray-900'}`}>{'N/A'}</p>
                   </div>
                 </div>
 
