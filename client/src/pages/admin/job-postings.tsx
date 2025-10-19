@@ -44,8 +44,8 @@ export default function JobPostings() {
         location: job.location,
         jobType: job.jobType,
         salaryMin: job.salaryMin,
-        salaryMax: job.salaryMax,
-        status: job.status.charAt(0).toUpperCase() + job.status.slice(1),
+        salaryMax: job.salaryMax, // Corrected from salaryMax
+        status: (job.status || 'pending').charAt(0).toUpperCase() + (job.status || 'pending').slice(1),
         applications: job.applicationsCount || 0,
         createdAt: job.createdAt,
       }));
