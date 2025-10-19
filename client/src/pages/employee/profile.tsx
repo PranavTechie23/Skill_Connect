@@ -1,17 +1,19 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   User, Mail, Phone, MapPin, Edit2, Save, X,
   Briefcase, GraduationCap, FileText,
   Linkedin, Github, Globe
 } from 'lucide-react';
 import { useTheme } from "@/components/theme-provider";
+import { useAuth } from '@/contexts/AuthContext';
 
 const Profile = () => {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const darkMode = theme === 'dark';
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('personal');
-
+  
   // Mock profile data
   const [profile, setProfile] = useState({
     personal: {
@@ -20,7 +22,7 @@ const Profile = () => {
       email: 'alex.johnson@techcorp.com',
       phone: '+1 (555) 123-4567',
       location: 'San Francisco, CA',
-      birthday: '1990-05-15',
+      birthday: '', // Not in user model
       bio: 'Senior Frontend Developer with 8+ years of experience building scalable web applications. Passionate about React, TypeScript, and user experience design.',
       avatar: null
     },
@@ -28,10 +30,10 @@ const Profile = () => {
       title: 'Senior Frontend Developer',
       department: 'Engineering',
       company: 'TechCorp Inc.',
-      startDate: '2020-03-01',
-      employeeId: 'TC-8472',
+      startDate: '', // Not in user model
+      employeeId: '', // Not in user model
       skills: ['React', 'TypeScript', 'Node.js', 'GraphQL', 'AWS', 'UI/UX Design'],
-      level: 'L5'
+      level: '' // Not in user model
     },
     education: [
       {
@@ -63,6 +65,30 @@ const Profile = () => {
     ]
   });
 
+  // Update profile with real user data from AuthContext
+  React.useEffect(() => {
+    if (user) {
+      setProfile(prev => ({
+        ...prev,
+        personal: {
+          ...prev.personal,
+          firstName: user.firstName || '',
+          lastName: user.lastName || '',
+          email: user.email || '',
+          phone: user.telephoneNumber || 'Not provided',
+          location: user.location || 'Not provided',
+          bio: user.profile?.bio || user.bio || 'No bio provided.',
+          avatar: user.profilePhoto || null,
+        },
+        professional: {
+          ...prev.professional,
+          title: user.profile?.headline || user.title || 'No title provided',
+          skills: user.profile?.skills || user.skills || [],
+          company: user.company?.name || 'Not specified',
+        }
+      }));
+    }
+  }, [user]);
   const handleSave = () => {
     setIsEditing(false);
     // In real app, save to backend here

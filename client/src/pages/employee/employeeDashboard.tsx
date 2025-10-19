@@ -17,19 +17,21 @@ import {
   Upload, Calendar, Building2
 } from 'lucide-react';
 
+import { apiFetch } from '@/lib/api';
+
 // Types
 interface Job {
   id: string;
   title: string;
   company: string;
   location: string;
-  skills: string[];
+  skills?: string[];
   salary: string;
   matchPercentage: number;
   postedTime: string;
   isNew: boolean;
   type: string;
-  applicants?: number;
+  applicationsCount?: number;
 }
 
 interface Application {
@@ -47,62 +49,6 @@ interface UserStats {
   interviewInvitations: number;
   profileCompletion: number;
 }
-
-// Mock data
-const mockJobs: Job[] = [
-  {
-    id: '1',
-    title: 'Senior Frontend Developer',
-    company: 'TechCorp Inc.',
-    location: 'San Francisco, CA',
-    skills: ['React', 'TypeScript', 'TailwindCSS', 'Node.js'],
-    salary: '$120k - $150k',
-    matchPercentage: 95,
-    postedTime: '2 days ago',
-    isNew: true,
-    type: 'Full-time',
-    applicants: 45
-  },
-  {
-    id: '2',
-    title: 'Full Stack Engineer',
-    company: 'StartupXYZ',
-    location: 'Remote',
-    skills: ['React', 'Python', 'PostgreSQL', 'AWS'],
-    salary: '$100k - $130k',
-    matchPercentage: 88,
-    postedTime: '1 week ago',
-    isNew: false,
-    type: 'Remote',
-    applicants: 67
-  },
-  {
-    id: '3',
-    title: 'UI/UX Developer',
-    company: 'DesignStudio',
-    location: 'New York, NY',
-    skills: ['React', 'Figma', 'CSS', 'JavaScript'],
-    salary: '$90k - $110k',
-    matchPercentage: 76,
-    postedTime: '3 days ago',
-    isNew: true,
-    type: 'Full-time',
-    applicants: 32
-  },
-  {
-    id: '4',
-    title: 'React Native Developer',
-    company: 'MobileFirst',
-    location: 'Austin, TX',
-    skills: ['React Native', 'TypeScript', 'Firebase'],
-    salary: '$95k - $120k',
-    matchPercentage: 82,
-    postedTime: '5 days ago',
-    isNew: false,
-    type: 'Contract',
-    applicants: 28
-  }
-];
 
 const mockApplications: Application[] = [
   {
@@ -167,12 +113,6 @@ const EmployeeDashboard: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMessages, setShowMessages] = useState(false);
 
-  const user = {
-    firstName: 'Alex',
-    email: 'alex@example.com',
-    avatar: 'A'
-  };
-
   useEffect(() => {
     fetchDashboardData();
   }, []);
@@ -194,7 +134,7 @@ const EmployeeDashboard: React.FC = () => {
   }, []);
 
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
 
   const resetNotificationsAndMessages = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: false, cleared: false })));
@@ -214,11 +154,33 @@ const EmployeeDashboard: React.FC = () => {
   };
 
   const fetchDashboardData = async () => {
-    setTimeout(() => {
-      setRecommendedJobs(mockJobs);
+    setLoading(true);
+    try {
+      const jobsResponse = await apiFetch('/api/jobs');
+      const jobsData = await jobsResponse.json();
+
+      const formattedJobs = jobsData.map((job: any) => ({
+        id: job.id,
+        title: job.title,
+        company: job.company?.name || 'N/A',
+        location: job.location,
+        skills: job.skills || [],
+        salary: job.salaryMin && job.salaryMax ? `$${job.salaryMin/1000}k - $${job.salaryMax/1000}k` : 'Not specified',
+        matchPercentage: Math.floor(Math.random() * (98 - 75 + 1) + 75), // Placeholder match %
+        postedTime: new Date(job.createdAt).toLocaleDateString(),
+        isNew: (new Date().getTime() - new Date(job.createdAt).getTime()) < 7 * 24 * 60 * 60 * 1000, // New if within 7 days
+        type: job.jobType,
+        applicationsCount: job.applicationsCount || 0,
+      }));
+
+      setRecommendedJobs(formattedJobs.slice(0, 3)); // Show top 3 recommended jobs
       setRecentApplications(mockApplications);
+    } catch (error) {
+      console.error("Failed to fetch dashboard data:", error);
+      // Optionally, set an error state to show a message to the user
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const toggleSaveJob = (jobId: string) => {
@@ -378,7 +340,7 @@ const EmployeeDashboard: React.FC = () => {
                   : 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border-blue-100'
               }`}>
                 {skill}
-              </span>
+              </span> ?? null
             ))}
             {job.skills.length > 3 && (
               <span className={`px-3 py-1.5 text-xs font-semibold rounded-lg ${
@@ -397,7 +359,7 @@ const EmployeeDashboard: React.FC = () => {
                 {job.salary}
               </span>
               <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                {job.applicants} applicants • {job.postedTime}
+                {job.applicationsCount} applicants • {job.postedTime}
               </span>
             </div>
             <div className="flex gap-2">
@@ -462,7 +424,7 @@ const EmployeeDashboard: React.FC = () => {
                 <h1 className={`text-2xl font-bold ${
                   darkMode ? 'text-white' : 'bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent'
                 }`}>
-                  Welcome back, {user.firstName}! 👋
+                  Welcome back, {user?.firstName || 'User'}! 👋
                 </h1>
                 <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
                   Let's find your dream job today
@@ -708,7 +670,7 @@ const EmployeeDashboard: React.FC = () => {
               <div className="relative group">
                 <button className="flex items-center gap-2 p-2 pr-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all">
                   <div className="w-9 h-9 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
-                    {user.avatar}
+                    {user?.firstName?.[0] || 'A'}{user?.lastName?.[0] || ''}
                   </div>
                   <ChevronDown className={`w-4 h-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
                 </button>
@@ -717,11 +679,9 @@ const EmployeeDashboard: React.FC = () => {
                   darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
                 }`}>
                   <div className={`px-4 py-3 border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-                    <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      {user.firstName}
+                    <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{user?.firstName} {user?.lastName}
                     </p>
-                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {user.email}
+                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{user?.email}
                     </p>
                   </div>
                   <button

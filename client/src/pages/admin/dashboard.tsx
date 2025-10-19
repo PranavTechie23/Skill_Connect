@@ -89,14 +89,16 @@ const AdminDashboard: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [statsData, usersData, jobsData, activityData] = await Promise.all([
+        const [statsData, usersData, jobsData, activityData, approvalsData] = await Promise.all([
           adminService.getStats(),
           adminService.getUsers(), // Assuming this gets recent users
           adminService.getJobs(), // Assuming this gets recent jobs
-          adminService.getAnalytics('7d').then(d => d.recentActivities || []) // Example for recent activity
+          adminService.getAnalytics('7d').then(d => d.recentActivities || []), // Example for recent activity
+          adminService.getApprovals() // Fetch pending approvals
         ]);
-        setStats(statsData || {});
-        setRecentUsers(usersData || []);
+        const pendingApprovalsCount = approvalsData?.length || 0;
+        setStats({ ...(statsData || {}), pendingApprovals: pendingApprovalsCount });
+        setRecentUsers((usersData || []).slice(0, 5));
         setRecentJobs((jobsData || []).slice(0, 5));
         setRecentActivity(activityData || []);
       } catch (error) {
@@ -376,7 +378,7 @@ const AdminDashboard: React.FC = () => {
                 <NavItem icon={UserCheck} label="Employees" id="employees" />
                 <NavItem icon={Briefcase} label="Job Postings" id="jobs" badge={stats.newJobsThisWeek} />
                 <NavItem icon={FileText} label="Applications" id="applications" />
-                <NavItem icon={AlertCircle} label="Pending Approvals" id="approvals" badge={stats.pendingApprovals || 0} />
+                <NavItem icon={AlertCircle} label="Pending Approvals" id="approvals" badge={stats.pendingApprovals} />
                 <NavItem icon={BarChart3} label="Analytics" id="analytics" />
                 <NavItem icon={Settings} label="System Settings" id="settings" />
               </div>
@@ -697,7 +699,7 @@ const AdminDashboard: React.FC = () => {
                         <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                           darkMode ? 'bg-amber-500 text-white' : 'bg-amber-600 text-white'
                         }`}>
-                          3
+                          {stats.pendingApprovals || 0}
                         </span> 
                       </div>
                       <p className={`text-xs ${darkMode ? 'text-amber-300' : 'text-amber-600'}`}>

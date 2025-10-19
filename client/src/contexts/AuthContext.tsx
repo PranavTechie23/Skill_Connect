@@ -197,8 +197,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw new Error(msg);
       }
 
-      const returnedUser: User = data?.user ?? data;
-      setUserState(returnedUser);
+      // After login, fetch the full user profile to get all relations (like company)
+      const meRes = await apiFetch("/api/auth/me", {
+        credentials: "include",
+      });
+      if (!meRes.ok) {
+        const returnedUser: User = data?.user ?? data;
+        setUserState(returnedUser); // Fallback to login response
+        return returnedUser;
+      }
+      const meData = await meRes.json();
+      const returnedUser: User = meData?.user ?? meData;
+      setUserState(returnedUser); // Set the full user profile
       return returnedUser;
     } finally {
       setIsLoading(false);

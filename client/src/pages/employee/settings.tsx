@@ -6,12 +6,14 @@ import {
   Check, Monitor, Smartphone as PhoneIcon
 } from 'lucide-react';
 import { useTheme } from "@/components/theme-provider";
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from "@/contexts/AuthContext";
 
 const SettingsPage = () => {
   const { theme } = useTheme();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const darkMode = theme === 'dark';
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('account');
   const [isEditing, setIsEditing] = useState(false);
   const [showOldPassword, setShowOldPassword] = useState(false);
@@ -91,6 +93,15 @@ const SettingsPage = () => {
   const handleCancel = () => {
     setIsEditing(false);
     // Reset form data here
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/', { replace: true });
+    } catch (e) {
+      console.warn('Logout failed:', e);
+    }
   };
 
   const getColorClasses = (color: 'blue' | 'green' | 'purple' | 'pink' | 'orange', isDark: boolean) => {
@@ -214,7 +225,9 @@ const SettingsPage = () => {
               
               {/* Danger Zone */}
               <div className="mt-6 pt-6 border-t border-gray-700">
-                <button className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl transition-all ${
+                <button 
+                  onClick={handleLogout}
+                  className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl transition-all ${
                   darkMode
                     ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300'
                     : 'text-red-600 hover:bg-red-50 hover:text-red-700'
