@@ -10,14 +10,24 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173, // Corrected port number
+    port: 5173,
     proxy: {
       "/api": {
         target: "http://localhost:5002",
         changeOrigin: true,
-        ws: true,
-        secure: false
+        secure: false,
+        rewrite: (path) => path,
+        configure: (proxy, options) => {
+          proxy.on('error', (err, req, res) => {
+            console.log('proxy error', err);
+            res.writeHead(500, {
+              'Content-Type': 'application/json',
+            });
+            res.end(JSON.stringify({ message: 'Backend server is not running. Please start the server.' }));
+          });
+        }
       }
-    }
+    },
+    cors: false
   }
 });

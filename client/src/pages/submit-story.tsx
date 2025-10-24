@@ -1,67 +1,110 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { apiFetch } from "@/lib/api";
+
+// Define the schema for story submission
+const storySchema = z.object({
+  name: z.string().min(1, "Your name is required."),
+  email: z.string().email("Please enter a valid email address."),
+  tags: z.string().optional(),
+  title: z.string().min(5, "Title must be at least 5 characters long."),
+  content: z.string().min(20, "Story content must be at least 20 characters long."),
+});
+
+type StoryFormData = z.infer<typeof storySchema>;
 
 export default function SubmitStory() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    title: "",
-    content: "",
-    tags: ""
+
+  const form = useForm<StoryFormData>({
+    resolver: zodResolver(storySchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      title: "",
+      content: "",
+      tags: "",
+    },
   });
 
+  // The form is public. Pre-fill name and email if a user is logged in for convenience.
   useEffect(() => {
-    if (!user) {
-      toast({
-        title: "Login Required",
-        description: "Please login to share your story",
-        variant: "destructive"
+    if (user) {
+      form.reset({
+        ...form.getValues(), // Keep any existing form data
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
       });
-      navigate("/login?redirect=/submit-story");
     }
-  }, [user, navigate, toast]);
+  }, [user, form]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: StoryFormData) => {
     setLoading(true);
 
+    // The payload should be a clean representation of the form data for public submission.
+    // The backend is responsible for processing this public submission.
+    // A persistent 500 error indicates the backend API needs to be updated
+    // to handle this payload without requiring a pre-existing authorId.
+    const storyPayload = {
+      name: data.name,
+      email: data.email,
+      title: data.title,
+      content: data.content,
+      tags: data.tags ? data.tags.split(",").map(tag => tag.trim()).filter(Boolean) : [],
+    };
+
     try {
-      const response = await fetch("http://localhost:5001/api/stories", {
+      const response = await apiFetch("/api/stories", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          title: formData.title,
-          content: formData.content,
-          tags: formData.tags.split(",").map(tag => tag.trim()).filter(Boolean)
-        })
+        credentials: "omit", // Do not send authentication cookies for public story submission
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(storyPayload)
       });
 
       if (!response.ok) {
-        throw new Error("Failed to submit story");
+        // Provide more specific feedback based on the error
+        if (response.status === 401) {
+          throw new Error("API endpoint is not public. Please check backend configuration for /api/stories.");
+        }
+        // Handle other errors, especially 500 Internal Server Error
+        let errorMessage = `Request failed: ${response.status} ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // The response was not JSON, which is common for 500 errors. The status text is the best we have.
+        }
+        throw new Error(errorMessage);
       }
 
       toast({
         title: "Success!",
-        description: "Your story has been submitted successfully.",
+        description: "Your story has been sent to review.",
       });
 
-      navigate("/stories");
+      form.reset(); // Clear form fields after successful submission
+      // Add a small delay before navigating to let the user read the toast
+      setTimeout(() => { // Redirect to home page as requested
+        navigate("/");
+      }, 2000);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to submit story. Please try again.",
+        description: (error as Error).message || "Failed to submit story. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -69,17 +112,13 @@ export default function SubmitStory() {
     }
   };
 
-  if (!user) {
-    return null; // Prevent form render while redirecting
-  }
-
   return (
     <div className="min-h-screen">
       <div className="max-w-2xl mx-auto p-6">
         <Card>
-          <CardHeader>
-            <h1 className="text-2xl font-bold">Share Your Story</h1>
-            <p className="text-muted-foreground">Share your success story with our community</p>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-2xl font-bold">Share Your Story</CardTitle>
+            <p className="text-muted-foreground text-sm">Share your success story with our community</p>
           </CardHeader>
           <CardContent>
             <motion.div
@@ -87,36 +126,94 @@ export default function SubmitStory() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Title</label>
-                  <Input
-                    required
-                    value={formData.title}
-                    onChange={e => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="Enter a title for your story"
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem> 
+                        <FormLabel>Your Name</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Enter your full name"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-2">Your Story</label>
-                  <Textarea
-                    required
-                    value={formData.content}
-                    onChange={e => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                    placeholder="Share your experience..."
-                    rows={8}
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem> 
+                        <FormLabel>Email Address</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="email"
+                            placeholder="you@example.com"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-2">Tags</label>
-                  <Input
-                    value={formData.tags}
-                    onChange={e => setFormData(prev => ({ ...prev, tags: e.target.value }))}
-                    placeholder="Add tags separated by commas (e.g. career, success, tips)"
+                  <FormField
+                    control={form.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Title</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Enter a title for your story"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
+
+                  <FormField
+                    control={form.control}
+                    name="content"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Your Story</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Share your experience..."
+                            rows={8}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="tags"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tags (Optional)</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Add tags separated by commas (e.g. career, success, tips)"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                 <div className="flex gap-4">
                   <Button type="submit" disabled={loading}>
@@ -125,12 +222,14 @@ export default function SubmitStory() {
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={() => navigate("/stories")}
+                    disabled={loading}
+                    onClick={() => navigate("/our-stories")}
                   >
                     Cancel
                   </Button>
                 </div>
-              </form>
+                </form>
+              </Form>
             </motion.div>
           </CardContent>
         </Card>

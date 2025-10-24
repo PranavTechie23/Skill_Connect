@@ -4,7 +4,7 @@ import { Card, CardHeader, CardFooter, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input"; 
 import { Textarea } from "@/components/ui/textarea";
-/*  */import { Label, labelVariants } from "@/components/ui/label";
+import { Label } from "@/components/ui/label";
 import { useNavigate, Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "../contexts/AuthContext";
@@ -12,25 +12,44 @@ import { apiFetch } from "@/lib/api";
 import { normalizeUserType } from "@/lib/utils";
 import { useLocation } from "react-router-dom";
 import { Eye, EyeOff, User as UserIcon, Building } from "lucide-react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 type Role = "employee" | "employer";
 
-interface RegisterPayload {
-  email: string;
-  password: string;
-  confirmPassword?: string;
-  firstName: string;
-  lastName: string;
-  userType: "Professional" | "Employer";
-  location?: string;
-  title?: string;
-  bio?: string;
-  skills?: string[];
-  companyName?: string;
-  companyWebsite?: string;
-  companyBio?: string;
-  telephoneNumber?: string;
-}
+const baseSchema = z.object({
+  email: z.string().email("Please enter a valid email."),
+  password: z.string().min(6, "Password must be at least 6 characters."),
+  confirmPassword: z.string().min(6, "Please confirm your password."),
+  firstName: z.string().min(1, "First name is required."),
+  lastName: z.string().min(1, "Last name is required."),
+  userType: z.enum(["employee", "employer"]),
+});
+
+const employeeSchema = baseSchema.extend({
+  location: z.string().optional(),
+  title: z.string().optional(),
+  bio: z.string().optional(),
+  skills: z.string().optional(),
+});
+
+const employerSchema = baseSchema.extend({
+  companyName: z.string().min(1, "Company name is required."),
+  location: z.string().min(1, "Location is required."),
+  telephoneNumber: z.string().length(10, "Telephone number must be 10 digits."),
+  companyWebsite: z.string().url("Please enter a valid URL.").optional().or(z.literal('')),
+  companyBio: z.string().optional(),
+});
+
+const signupSchema = z.discriminatedUnion("userType", [employeeSchema, employerSchema])
+  .refine(data => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+type SignupFormData = z.infer<typeof signupSchema>;
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -42,26 +61,21 @@ export default function Signup() {
   const [open, setOpen] = useState(true);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0); // 0..3 (4 steps)
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(location.state?.message || null);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
-  const [form, setForm] = useState({
-    email: "",
-    password: "",
-    confirmPassword: "",
-    firstName: "",
-    lastName: "",
-    userType: "employee" as Role,
-    location: "",
-    title: "",
-    bio: "",
-    skills: "",
-    companyName: "",
-    companyWebsite: "",
-    companyBio: "",
-    telephoneNumber: "",
+
+  const form = useForm<SignupFormData>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      confirmPassword: "",
+      firstName: "",
+      lastName: "",
+      userType: "employee",
+    },
+    mode: "onChange",
   });
 
   useEffect(() => {
@@ -73,11 +87,12 @@ export default function Signup() {
   // Debounced email check
   useEffect(() => {
     const handler = setTimeout(async () => {
-      const email = form.email.trim();
+      const email = form.getValues("email").trim();
       const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (email && emailPattern.test(email)) {
         setIsCheckingEmail(true);
         setEmailError(null);
+        form.clearErrors("email");
         try {
           const res = await apiFetch("/api/auth/check-email", {
             method: "POST",
@@ -87,8 +102,10 @@ export default function Signup() {
           const data = await res.json();
           if (!res.ok || data.exists) {
             setEmailError("This email is already in use.");
+            form.setError("email", { type: "manual", message: "This email is already in use." });
           } else {
             setEmailError(null);
+            form.clearErrors("email");
           }
         } catch (error) {
           // Fail open - don't block registration if check fails
@@ -98,11 +115,12 @@ export default function Signup() {
           setIsCheckingEmail(false);
         }
       } else {
-        setEmailError(email ? "Please enter a valid email." : null);
+        if (email) form.setError("email", { type: "manual", message: "Please enter a valid email." });
       }
     }, 500); // 500ms debounce delay
     return () => clearTimeout(handler);
-  }, [form.email]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.watch("email")]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -120,94 +138,59 @@ export default function Signup() {
     navigate("/");
   }
 
-  const update = (patch: Partial<typeof form>) => setForm(prev => ({ ...prev, ...patch }));
+  const next = async () => {
+    const fieldsToValidate: (keyof SignupFormData)[][] = [
+      ["email", "password", "confirmPassword"],
+      ["firstName", "lastName", "userType"],
+      form.getValues("userType") === "employer"
+        ? ["companyName", "location", "telephoneNumber"]
+        : [],
+    ];
 
-  const next = () => {
-    if (!validateStep(step)) return;
+    const isValid = await form.trigger(fieldsToValidate[step]);
+    if (!isValid) return;
+
     setStep(s => Math.min(3, s + 1));
   };
   
   const back = () => setStep(s => Math.max(0, s - 1));
 
   // map local role to backend userType
-  const mapUserType = (r: Role): RegisterPayload["userType"] => {
+  const mapUserType = (r: Role): "Professional" | "Employer" => {
     if (r === "employee") return "Professional";
     return "Employer";
   };
 
-  // --- validate step (trim email, basic email regex)
-  const validateStep = (s: number): boolean => {
-    if (s === 0) {
-      const email = form.email.trim();
-      const password = form.password;
-      const confirm = form.confirmPassword;
-
-      if (!email || !password || emailError) return false;
-      if (password.length < 6) return false;
-      if (password !== confirm) return false;
-
-      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailPattern.test(email)) return false;
-      
-      return true;
-    }
-    if (s === 1) {
-      return Boolean(form.firstName && form.lastName);
-    }
-    if (s === 2) {
-      if (form.userType === 'employer') {
-        const phoneRegex = /^\d{10}$/;
-        return Boolean(form.companyName && form.location && form.telephoneNumber && phoneRegex.test(form.telephoneNumber));
-      }
-      return true;
-    }
-    return true;
-  };
-
-  const isNextDisabled = !validateStep(step);
-  const isCreateDisabled = loading || !validateStep(0) || !validateStep(1) || !validateStep(2);
-
   // --- handle submit (re-validate, prevent double submits, defensive JSON parsing)
-  const handleSubmit = async () => {
+  const onSubmit = async (data: SignupFormData) => {
     if (loading) return;
-
-    if (!validateStep(0) || !validateStep(1) || !validateStep(2)) {
-      toast({
-        title: "Invalid information",
-        description: "Please fill all the required fields before continuing.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setLoading(true);
     try {
-      const payload: RegisterPayload = {
-        email: form.email.trim(),
-        password: form.password,
-        confirmPassword: form.confirmPassword,
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
-        userType: mapUserType(form.userType),
-        location: form.location?.trim() || undefined,
-        title: form.title?.trim() || undefined,
-        bio: form.bio?.trim() || undefined,
-        skills: form.skills ? form.skills.split(",").map(s => s.trim()).filter(Boolean) : [],
-        companyName: form.companyName?.trim() || undefined,
-        companyWebsite: form.companyWebsite?.trim() || undefined,
-        companyBio: form.companyBio?.trim() || undefined,
-        telephoneNumber: form.telephoneNumber?.trim() || undefined,
+      const payload = {
+        email: data.email.trim(),
+        password: data.password,
+        confirmPassword: data.confirmPassword,
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        userType: mapUserType(data.userType),
+        location: data.location?.trim() || undefined,
+        ...(data.userType === 'employee' && {
+          title: data.title?.trim() || undefined,
+          bio: data.bio?.trim() || undefined,
+          skills: data.skills ? data.skills.split(",").map(s => s.trim()).filter(Boolean) : [],
+        }),
+        ...(data.userType === 'employer' && {
+          companyName: data.companyName?.trim() || undefined,
+          companyWebsite: data.companyWebsite?.trim() || undefined,
+          companyBio: data.companyBio?.trim() || undefined,
+          telephoneNumber: data.telephoneNumber?.trim() || undefined,
+        }),
       };
 
       // Use AuthContext.register when available for consistent behavior
       let createdUser: any = null;
       if (auth && typeof auth.register === "function") {
-        try {
-          createdUser = await auth.register(payload);
-        } catch (e) {
-          // Let the outer catch handle toast/error
-          throw e;
-        }
+        createdUser = await auth.register(payload);
       } else {
         // Fallback to raw fetch if AuthContext.register isn't available
         const res = await fetch("/api/auth/register", {
@@ -296,6 +279,9 @@ export default function Signup() {
 
   if (!open) return null;
 
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const Step0 = (
     <div className="space-y-3">
       <div>
@@ -303,9 +289,8 @@ export default function Signup() {
         <Input
           value={form.email}
           onChange={e => update({ email: e.target.value })}
-          type="email"
-          placeholder="you@company.com"
-          autoComplete="email"
+          {...form.register("email")}
+          placeholder="you@example.com"
         />
         {isCheckingEmail && <p className="text-sm text-muted-foreground mt-1">Checking email...</p>}
         {emailError && <p className="text-sm text-destructive mt-1">{emailError}</p>}
@@ -317,9 +302,9 @@ export default function Signup() {
           <Input
             value={form.password}
             onChange={e => update({ password: e.target.value })}
+            {...form.register("password")}
             type={showPassword ? "text" : "password"}
             placeholder="At least 6 characters"
-            autoComplete="new-password"
           />
           <button
             type="button"
@@ -338,9 +323,9 @@ export default function Signup() {
           <Input
             value={form.confirmPassword}
             onChange={e => update({ confirmPassword: e.target.value })}
+            {...form.register("confirmPassword")}
             type={showConfirmPassword ? "text" : "password"}
             placeholder="Repeat your password"
-            autoComplete="new-password"
           />
           <button
             type="button"
@@ -359,20 +344,20 @@ export default function Signup() {
     <div className="space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <Label>First name</Label>
-          <Input value={form.firstName} onChange={e => update({ firstName: e.target.value })} placeholder="John" autoComplete="given-name" />
+          <Label>First Name</Label>
+          <Input {...form.register("firstName")} placeholder="John" />
         </div>
         <div>
-          <Label>Last name</Label>
-          <Input value={form.lastName} onChange={e => update({ lastName: e.target.value })} placeholder="Doe" autoComplete="family-name" />
+          <Label>Last Name</Label>
+          <Input {...form.register("lastName")} placeholder="Doe" />
         </div>
       </div>
 
       <div>
         <Label>I'm signing up as</Label>
         <div className="flex gap-2 mt-2" role="radiogroup" aria-label="User type">
-          {(["employee", "employer"] as Role[]).map(r => {
-            const active = form.userType === r;
+          {(["employee", "employer"] as const).map(r => {
+            const active = form.watch("userType") === r;
             return (
               <button
                 key={r}
@@ -407,23 +392,23 @@ export default function Signup() {
   const Step2Employee = (
     <div className="space-y-3">
       <div>
-        <Label>Location</Label>
-        <Input value={form.location} onChange={e => update({ location: e.target.value })} placeholder="City, Country" />
+        <Label>Location (Optional)</Label>
+        <Input {...form.register("location")} placeholder="City, Country" />
       </div>
 
       <div>
-        <Label>Title</Label>
-        <Input value={form.title} onChange={e => update({ title: e.target.value })} placeholder="Frontend Developer" />
+        <Label>Title (Optional)</Label>
+        <Input {...form.register("title")} placeholder="Frontend Developer" />
       </div>
 
       <div>
-        <Label>Bio</Label>
-        <Textarea value={form.bio} onChange={e => update({ bio: e.target.value })} placeholder="Short intro about you" />
+        <Label>Bio (Optional)</Label>
+        <Textarea {...form.register("bio")} placeholder="Short intro about you" />
       </div>
 
       <div>
-        <Label>Skills (comma separated)</Label>
-        <Input value={form.skills} onChange={e => update({ skills: e.target.value })} placeholder="React, Node.js, SQL" />
+        <Label>Skills (comma separated, Optional)</Label>
+        <Input {...form.register("skills")} placeholder="React, Node.js, SQL" />
       </div>
     </div>
   );
@@ -432,32 +417,27 @@ export default function Signup() {
     <div className="space-y-3">
       <div>
         <Label>Company Name</Label>
-        <Input value={form.companyName} onChange={e => update({ companyName: e.target.value })} placeholder="Tech Corp" required />
+        <Input {...form.register("companyName")} placeholder="Tech Corp" />
       </div>
 
       <div>
         <Label>Location</Label>
-        <Input value={form.location} onChange={e => update({ location: e.target.value })} placeholder="City, Country" required />
+        <Input {...form.register("location")} placeholder="City, Country" />
       </div>
 
       <div>
         <Label>Telephone Number</Label>
-        <Input value={form.telephoneNumber} onChange={e => {
-          const { value } = e.target;
-          if (/^\d*$/.test(value)) {
-            update({ telephoneNumber: value });
-          }
-        }} placeholder="+1 234 567 890" type="tel" required maxLength={10} />
+        <Input {...form.register("telephoneNumber")} placeholder="1234567890" type="tel" maxLength={10} />
       </div>
 
       <div>
         <Label>Company Website (Optional)</Label>
-        <Input value={form.companyWebsite} onChange={e => update({ companyWebsite: e.target.value })} placeholder="https://example.com" />
+        <Input {...form.register("companyWebsite")} placeholder="https://example.com" />
       </div>
 
       <div>
-        <Label>Company Bio</Label>
-        <Textarea value={form.companyBio} onChange={e => update({ companyBio: e.target.value })} placeholder="Brief description of your company" />
+        <Label>Company Bio (Optional)</Label>
+        <Textarea {...form.register("companyBio")} placeholder="Brief description of your company" />
       </div>
     </div>
   );
@@ -468,48 +448,48 @@ export default function Signup() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <Label>Email</Label>
-          <div className="mt-1">{form.email}</div>
+          <div className="mt-1">{form.getValues("email")}</div>
         </div>
         <div>
           <Label>Name</Label>
-          <div className="mt-1">{form.firstName} {form.lastName}</div>
+          <div className="mt-1">{form.getValues("firstName")} {form.getValues("lastName")}</div>
         </div>
         <div>
           <Label>User type</Label>
-          <div className="mt-1">{mapUserType(form.userType)}</div>
+          <div className="mt-1">{mapUserType(form.getValues("userType"))}</div>
         </div>
-        {form.userType === 'employee' ? (
+        {form.getValues("userType") === 'employee' ? (
           <>
             <div>
               <Label>Location</Label>
-              <div className="mt-1">{form.location || '—'}</div>
+              <div className="mt-1">{form.getValues("location") || '—'}</div>
             </div>
             <div>
               <Label>Title</Label>
-              <div className="mt-1">{form.title || '—'}</div>
+              <div className="mt-1">{form.getValues("title") || '—'}</div>
             </div>
             <div>
               <Label>Skills</Label>
-              <div className="mt-1">{form.skills || '—'}</div>
+              <div className="mt-1">{form.getValues("skills") || '—'}</div>
             </div>
           </>
         ) : (
           <>
             <div>
               <Label>Company Name</Label>
-              <div className="mt-1">{form.companyName || '—'}</div>
+              <div className="mt-1">{form.getValues("companyName") || '—'}</div>
             </div>
             <div>
               <Label>Location</Label>
-              <div className="mt-1">{form.location || '—'}</div>
+              <div className="mt-1">{form.getValues("location") || '—'}</div>
             </div>
             <div>
               <Label>Telephone Number</Label>
-              <div className="mt-1">{form.telephoneNumber || '—'}</div>
+              <div className="mt-1">{form.getValues("telephoneNumber") || '—'}</div>
             </div>
             <div>
               <Label>Company Website</Label>
-              <div className="mt-1">{form.companyWebsite || '—'}</div>
+              <div className="mt-1">{form.getValues("companyWebsite") || '—'}</div>
             </div>
           </>
         )}
@@ -521,7 +501,7 @@ export default function Signup() {
     </div>
   );
 
-  const steps = [Step0, Step1, form.userType === 'employee' ? Step2Employee : Step2Employer, Step3];
+  const steps = [Step0, Step1, form.watch("userType") === 'employee' ? Step2Employee : Step2Employer, Step3];
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
@@ -563,9 +543,11 @@ export default function Signup() {
               </div>
 
               {/* Step content */}
-              <div className="space-y-4">
-                {steps[step]}
-              </div>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  {steps[step]}
+                </form>
+              </Form>
 
               {/* Navigation */}
               <div className="mt-6 flex items-center justify-between">
@@ -575,12 +557,12 @@ export default function Signup() {
 
                 <div className="flex items-center gap-3">
                   {step < 3 && (
-                    <Button onClick={next} disabled={isNextDisabled}>
+                    <Button type="button" onClick={next}>
                       Continue
                     </Button>
                   )}
                   {step === 3 && (
-                    <Button onClick={handleSubmit} disabled={isCreateDisabled}>
+                    <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={loading || !form.formState.isValid}>
                       {loading ? "Creating..." : "Create account"}
                     </Button>
                   )}

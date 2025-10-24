@@ -16,6 +16,8 @@ interface Story {
     firstName: string;
     lastName: string;
   };
+  // Support for stories submitted by non-users from the public form
+  submitter_name?: string;
 }
 
 export default function Stories() {
@@ -31,10 +33,13 @@ export default function Stories() {
 
   async function fetchStories() {
     try {
+      // The `/api/stories` endpoint should return all approved stories,
+      // both from authenticated users and public submissions.
       const response = await apiFetch("/api/stories");
       if (!response.ok) throw new Error("Failed to fetch stories");
-      const data = await response.json();
-      setStories(data);
+      const allStories = await response.json();
+
+      setStories(allStories);
     } catch (error) {
       toast({
         title: "Error",
@@ -47,16 +52,7 @@ export default function Stories() {
   }
 
   const handleShareClick = () => {
-    if (!user) {
-      toast({
-        title: "Login Required",
-        description: "Please login to share your story",
-        variant: "destructive",
-      });
-      navigate("/login?redirect=/submit-story");
-    } else {
-      navigate("/submit-story");
-    }
+    navigate("/submit-story"); // Allow public submission
   };
 
   if (loading) {
@@ -80,8 +76,12 @@ export default function Stories() {
             {stories.map((story) => (
               <Card key={story.id} className="p-6">
                 <h2 className="text-2xl font-semibold mb-2">{story.title}</h2>
-                <p className="text-sm text-muted-foreground mb-4">
-                  By {story.author?.firstName} {story.author?.lastName} •{" "}
+                <p className="text-sm text-muted-foreground mb-4 capitalize">
+                  By{" "}
+                  {story.author
+                    ? `${story.author.firstName} ${story.author.lastName}`
+                    : story.submitter_name || "Anonymous"}
+                  {" • "}
                   {new Date(story.createdAt).toLocaleDateString()}
                 </p>
                 <p className="whitespace-pre-wrap">{story.content}</p>

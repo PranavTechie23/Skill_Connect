@@ -1,0 +1,8 @@
+-- Add test jobs
+INSERT INTO jobs (id, title, description, requirements, location, job_type, salary_min, salary_max, skills, company_id, employer_id, is_active, created_at)
+VALUES
+  ('1', 'Senior Software Engineer', 'Looking for an experienced software engineer to join our team.', 'At least 5 years of experience in web development.', 'Mumbai, India', 'full-time', 1500000, 2500000, '["JavaScript", "React", "Node.js", "PostgreSQL"]', NULL, NULL, true, CURRENT_TIMESTAMP),
+  ('2', 'Frontend Developer', 'Join our team as a frontend developer.', 'Experience with React and modern JavaScript.', 'Pune, India', 'full-time', 800000, 1500000, '["HTML", "CSS", "JavaScript", "React"]', NULL, NULL, true, CURRENT_TIMESTAMP),
+  ('3', 'Backend Developer', 'Backend developer needed for our growing team.', 'Strong understanding of Node.js and databases.', 'Bangalore, India', 'full-time', 1000000, 1800000, '["Node.js", "PostgreSQL", "Express", "TypeScript"]', NULL, NULL, true, CURRENT_TIMESTAMP),
+  ('4', 'UX/UI Designer', 'Creative designer needed for innovative projects.', 'Portfolio showing modern design skills and user research.', 'Hyderabad, India', 'full-time', 900000, 1600000, '["UI Design", "UX Research", "Figma", "Adobe XD"]', NULL, NULL, true, CURRENT_TIMESTAMP),
+  ('5', 'DevOps Engineer', 'Shape our infrastructure and deployment processes.', 'Experience with cloud platforms and CI/CD.', 'Bangalore, India', 'full-time', 1200000, 2200000, '["AWS", "Docker", "Kubernetes", "Jenkins"]', NULL, NULL, true, CURRENT_TIMESTAMP);

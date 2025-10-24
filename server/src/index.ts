@@ -11,28 +11,51 @@ dotenv.config({
   path: path.resolve(__dirname, "../.env")
 });
 
+// Set default port to 5002 explicitly
+const PORT = 5002;
+process.env.PORT = String(PORT);
+
 // Log environment variables (excluding sensitive data)
 console.log("Environment:", {
-  NODE_ENV: process.env.NODE_ENV,
-  PORT: process.env.PORT || 5001,
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  PORT: PORT,
   DATABASE_URL: process.env.DATABASE_URL ? "[SET]" : "[NOT SET]"
 });
+
 const app = express();
-const PORT = process.env.PORT ? Number(process.env.PORT) : 5001;
 
 const server = http.createServer(app);
 
 (async function start() {
   try {
+    // Configure CORS before any route handlers
+    app.use(cors({
+      origin: (origin, callback) => {
+        const allowedOrigins = [
+          'http://localhost:5173',
+          'http://127.0.0.1:5173',
+          'http://localhost:5174',
+          'http://localhost:5002'
+        ];
+        
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+          callback(null, true);
+        } else {
+          callback(new Error('CORS not allowed'));
+        }
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization']
+    }));
+
     // Basic health check endpoint
     app.get('/health', (req, res) => {
       res.json({ status: 'ok', timestamp: new Date().toISOString() });
     });
-
-    app.use(cors({
-      origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://localhost:5175'],
-      credentials: true
-    }));
     app.use(express.json());
 
     // Error handling middleware

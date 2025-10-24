@@ -19,8 +19,8 @@ export const apiFetch = async (url: string, options?: RequestInit) => {
 	try {
 		const response = await fetch(fullUrl, {
 			...options,
-			headers: { ...(options && (options as any).headers), ...headers },
-			credentials: "include",
+			headers: { ...(options && (options as any).headers), ...headers }, // Merge headers
+			credentials: options?.credentials ?? "include", // Allow overriding default 'include'
 		});
 		
 		// Check if response is ok (status in the range 200-299)

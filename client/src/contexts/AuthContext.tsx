@@ -119,13 +119,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     };
 
-    checkAuth();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, []);
+    return () => { cancelled = true; controller.abort(); };
+  }, []); // This effect now runs only once to set up the checkAuth function
 
   const setUser = (u: User | null) => setUserState(u);
 
@@ -140,11 +135,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         credentials: "include"
       });
 
+      // Defensive JSON parsing
+      const contentType = res.headers.get("content-type");
       let data: any = {};
-      try { data = await res.json(); } catch { data = {}; }
+      if (contentType && contentType.includes("application/json")) {
+        try {
+          data = await res.json();
+        } catch (e) {
+          console.error("Failed to parse JSON response on login:", e);
+          data = {};
+        }
+      }
 
       if (!res.ok) {
-        const msg = data?.message || data?.error || res.statusText || "Login failed";
+        // For 500 errors, provide a more user-friendly message.
+        if (res.status === 500) {
+          throw new Error("A server error occurred. Please try again later.");
+        }
+        const msg = data?.message || data?.error || `Login failed: ${res.statusText}`;
         throw new Error(msg);
       }
 
@@ -159,55 +167,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const register = async (userData: any): Promise<User> => {
     setIsLoading(true);
     try {
-      // First try a relative fetch so the dev server's proxy (Vite) forwards to backend.
-      // If that fails (dev proxy not available or network resolution issue),
-      // fall back to the explicit API_BASE_URL.
-      let res: Response | null = null;
-      try {
-        res = await fetch("/api/auth/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(userData),
-          credentials: "include"
-        });
-      } catch (err) {
-        // network-level failure for relative url; try direct backend URL if configured
-        if (API_BASE_URL) {
-          try {
-            res = await fetch(`${API_BASE_URL}/api/auth/register`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(userData),
-              credentials: "include"
-            });
-          } catch (err2) {
-            // rethrow original error to be handled by caller
-            throw err2;
-          }
-        } else {
-          throw err;
-        }
+      const res = await apiFetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userData),
+        credentials: "include",
+      });
+
+      const contentType = res.headers.get("content-type");
+      let data: any = {};
+      if (contentType && contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        // If not JSON, read as text to help debug server errors (like HTML error pages)
+        const text = await res.text();
+        console.error("Non-JSON response from register:", text);
       }
 
-      let data: any = {};
-      try { data = await res.json(); } catch { data = {}; }
-
-      if (!res || !res.ok) {
-        const msg = data?.message || data?.error || (res ? res.statusText : "Network error") || "Registration failed";
+      if (!res.ok) {
+        const msg = data?.message || data?.error || `Registration failed: ${res.statusText}`;
         throw new Error(msg);
       }
 
-      // After login, fetch the full user profile to get all relations (like company)
-      const meRes = await apiFetch("/api/auth/me", {
-        credentials: "include",
-      });
-      if (!meRes.ok) {
-        const returnedUser: User = data?.user ?? data;
-        setUserState(returnedUser); // Fallback to login response
-        return returnedUser;
-      }
-      const meData = await meRes.json();
-      const returnedUser: User = meData?.user ?? meData;
+      // The backend should return the full user object on successful registration.
+      const returnedUser: User = data?.user ?? data;
       setUserState(returnedUser); // Set the full user profile
       return returnedUser;
     } finally {
@@ -243,7 +226,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     isLoading
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = (): AuthContextType => {

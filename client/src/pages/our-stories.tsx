@@ -1,72 +1,126 @@
-﻿﻿import { Button } from "@/components/ui/button";
+﻿﻿import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { MessageSquareQuote } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { apiFetch } from "@/lib/api";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const stories = [
+interface Story {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  author?: {
+    firstName: string;
+    lastName:string;
+  };
+  // Support for stories submitted by non-users
+  submitter_name?: string;
+}
+
+// The original three success stories to ensure they are always available for display.
+// In a production environment, these would be added to the backend database.
+const fallbackStories: Story[] = [
   {
-    id: 1,
+    id: "fallback-1",
     title: "From Unemployed to Full-Stack Developer",
     content: "I was struggling to find a job for months. SkillConnect helped me find a company that valued my skills and now I am a full-stack developer.",
-    name: "Ravi Kumar"
+    submitter_name: "Ravi Kumar",
+    createdAt: "2023-10-26T10:00:00Z", // Fictional date to help with sorting
   },
   {
-    id: 2,
+    id: "fallback-2",
     title: "My First Freelance Gig",
     content: "I was new to freelancing and didn't know where to start. SkillConnect helped me find my first client and now I have a steady stream of work.",
-    name: "Aarti Verma"
+    submitter_name: "Aarti Verma",
+    createdAt: "2023-10-25T11:00:00Z",
   },
   {
-    id: 3,
+    id: "fallback-3",
     title: "Landed My Dream Job",
     content: "I always wanted to work for a big tech company. SkillConnect helped me get an interview with my dream company and I got the job!",
-    name: "Neha Singh"
-  }
+    submitter_name: "Neha Singh",
+    createdAt: "2023-10-24T12:00:00Z",
+  },
 ];
 
-const StoryCard = ({ story, index }: { story: typeof stories[0], index: number }) => (
+const StoryCard = ({ story, index }: { story: Story, index: number }) => {
+  // Determine the author's name from different possible data structures
+  const authorName = story.author 
+    ? `${story.author.firstName} ${story.author.lastName}` 
+    : story.submitter_name || "Anonymous";
+
+  return (
     <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1 + index * 0.2 }}
     >
         <Card className="h-full overflow-hidden transition-transform duration-300 ease-in-out hover:-translate-y-2 hover:shadow-xl">
-            <CardHeader>
+            <CardHeader className="pb-4">
                 <CardTitle className="text-lg font-semibold">{story.title}</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col justify-between">
+            <CardContent className="flex flex-col justify-between h-full">
                 <p className="text-muted-foreground mb-4 line-clamp-4">
                     {story.content}
                 </p>
-                <p className="text-sm font-medium text-primary">
-                    - {story.name}
+                <p className="text-sm font-medium text-primary mt-auto pt-2">
+                    - {authorName}
                 </p>
             </CardContent>
         </Card>
     </motion.div>
-);
+  );
+};
 
 export default function OurStories() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const title = "Our Success Stories";
+  
+  const [stories, setStories] = useState<Story[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleShareClick = () => {
-    if (!user) {
-      toast({
-        title: "Login Required",
-        description: "Please login to share your story",
-        variant: "destructive",
-      });
-      navigate("/login?redirect=/submit-story");
-    } else {
-      navigate("/submit-story");
-    }
-  };
+  useEffect(() => {
+    const fetchStories = async () => {
+      try {
+        // Fetch stories from both authenticated users and public submissions, then take the latest 3
+        const [storiesRes, publicStoriesRes] = await Promise.all([
+          apiFetch("/api/stories").catch(e => { console.error("Failed to fetch /api/stories", e); return null; }),
+          apiFetch("/api/public-stories").catch(e => { console.error("Failed to fetch /api/public-stories", e); return null; })
+        ]);
+
+        const storiesData = storiesRes && storiesRes.ok ? await storiesRes.json() : [];
+        const publicStoriesData = publicStoriesRes && publicStoriesRes.ok ? await publicStoriesRes.json() : [];
+
+        // Combine fetched stories with the fallback stories
+        const combinedStories = [...storiesData, ...publicStoriesData, ...fallbackStories];
+
+        // Remove duplicates based on title and author name, preferring fresh data over fallback
+        const uniqueStories = Array.from(new Map(combinedStories.map(story => [`${story.title}-${story.submitter_name || (story.author ? `${story.author.firstName} ${story.author.lastName}` : '')}`, story])).values());
+
+        const allStories = uniqueStories
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setStories(allStories.slice(0, 3)); // Get the 3 most recent stories
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Could not load success stories.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStories();
+  }, [toast]);
+
+  const handleShareClick = () => navigate("/submit-story");
 
   const sentenceVariants = {
     hidden: { opacity: 1 },
@@ -114,9 +168,22 @@ export default function OurStories() {
 
         {/* Stories Grid */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20">
-          {stories.map((story, index) => (
-            <StoryCard key={story.id} story={story} index={index} />
-          ))}
+          {loading ? (
+            Array.from({ length: 3 }).map((_, index) => (
+              <Card key={index} className="h-full">
+                <CardHeader className="pb-4">
+                  <Skeleton className="h-6 w-3/4" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-4 w-full mb-2" />
+                  <Skeleton className="h-4 w-full mb-4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </CardContent>
+              </Card>
+            ))
+          ) : stories.map((story, index) => (
+              <StoryCard key={story.id} story={story} index={index} />
+            ))}
         </section>
 
         {/* CTA Section */}

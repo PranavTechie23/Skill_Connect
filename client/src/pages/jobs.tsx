@@ -17,6 +17,27 @@ import {
   PaginationPrevious
 } from "@/components/ui/pagination";
 
+interface Job {
+  id: string;
+  title: string;
+  description: string;
+  requirements: string;
+  location: string;
+  jobType: string;
+  salaryMin: number;
+  salaryMax: number;
+  skills: string[];
+  companyId: string;
+  employerId: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+interface JobsApiResponse {
+  jobs: Job[];
+  totalCount: number;
+}
+
 export default function Jobs() {
   const [filters, setFilters] = useState({
     location: "",
@@ -44,19 +65,43 @@ export default function Jobs() {
     return params.toString();
   };
 
-  const { data: jobs = [], isLoading } = useQuery({
+  const { data, isLoading } = useQuery<JobsApiResponse>({
     queryKey: ["/api/jobs", { ...filters, page, itemsPerPage }],
-    queryFn: async () => {
-      const qs = buildJobsQueryString(filters, page, itemsPerPage);
-      const response = await apiFetch(`/api/jobs${qs ? `?${qs}` : ""}`);
-      if (!response.ok) throw new Error("Failed to fetch jobs");
-      return response.json();
+    queryFn: async (): Promise<JobsApiResponse> => {
+      try {
+        console.log('Fetching jobs with params:', { filters, page, itemsPerPage });
+        const qs = buildJobsQueryString(filters, page, itemsPerPage);
+        const response = await apiFetch(`/api/jobs?${qs}`);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('API Error:', response.status, errorText);
+          throw new Error(`Failed to fetch jobs: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log('API Response:', data);
+        
+        if (!data || !Array.isArray(data.jobs)) {
+          console.error('Invalid API response format:', data);
+          throw new Error('Invalid API response format');
+        }
+        
+        return {
+          jobs: data.jobs,
+          totalCount: data.totalCount || 0,
+        };
+      } catch (err) {
+        console.error('Error fetching jobs:', err);
+        throw err;
+      }
     },
     staleTime: 5 * 60 * 1000,
   });
 
-  // Rest of the file remains the same...
-  const totalPages = Math.ceil((jobs.length || 0) / itemsPerPage);
+  const jobs = data?.jobs ?? [];
+  const totalJobs = data?.totalCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalJobs / itemsPerPage));
 
   return (
     <div className="min-h-screen py-8">
@@ -94,7 +139,7 @@ export default function Jobs() {
                   Available Jobs
                 </h2>
                 <p className="text-gray-600">
-                  {jobs.length} jobs found
+                  {totalJobs > 0 ? `Showing ${jobs.length} of ${totalJobs} jobs` : "No jobs found"}
                 </p>
               </div>
             </div>
