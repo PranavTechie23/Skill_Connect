@@ -11,8 +11,8 @@ dotenv.config({
   path: path.resolve(__dirname, "../.env")
 });
 
-// Set default port to 5002 explicitly
-const PORT = 5002;
+// Set default port to 5003 explicitly
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5003;
 process.env.PORT = String(PORT);
 
 // Log environment variables (excluding sensitive data)
@@ -72,11 +72,13 @@ const server = http.createServer(app);
       await setupVite(app, server);
     }
 
-    server.listen(PORT, () => {
-      log(`Server listening on http://localhost:${PORT}`);
+    console.log('Attempting to start server on port:', PORT);
+    
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`✅ Server is running on http://localhost:${PORT}`);
       if (process.env.NODE_ENV !== "production") {
-        log("Vite is enabled for HMR and client-side development.");
-        log("Client available at http://localhost:5173");
+        console.log("📦 Vite is enabled for HMR and client-side development");
+        console.log("🌐 Client available at http://localhost:5173");
       }
     });
 

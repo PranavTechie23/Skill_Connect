@@ -89,17 +89,13 @@ export default function OurStories() {
   useEffect(() => {
     const fetchStories = async () => {
       try {
-        // Fetch stories from both authenticated users and public submissions, then take the latest 3
-        const [storiesRes, publicStoriesRes] = await Promise.all([
-          apiFetch("/api/stories").catch(e => { console.error("Failed to fetch /api/stories", e); return null; }),
-          apiFetch("/api/public-stories").catch(e => { console.error("Failed to fetch /api/public-stories", e); return null; })
-        ]);
-
-        const storiesData = storiesRes && storiesRes.ok ? await storiesRes.json() : [];
-        const publicStoriesData = publicStoriesRes && publicStoriesRes.ok ? await publicStoriesRes.json() : [];
+        const response = await apiFetch("/api/stories");
+        if (!response.ok) throw new Error("Failed to fetch stories");
+        
+        const storiesData = await response.json();
 
         // Combine fetched stories with the fallback stories
-        const combinedStories = [...storiesData, ...publicStoriesData, ...fallbackStories];
+        const combinedStories = [...storiesData, ...fallbackStories];
 
         // Remove duplicates based on title and author name, preferring fresh data over fallback
         const uniqueStories = Array.from(new Map(combinedStories.map(story => [`${story.title}-${story.submitter_name || (story.author ? `${story.author.firstName} ${story.author.lastName}` : '')}`, story])).values());
