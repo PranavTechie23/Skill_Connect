@@ -56,16 +56,17 @@ const server = http.createServer(app);
     app.get('/health', (req, res) => {
       res.json({ status: 'ok', timestamp: new Date().toISOString() });
     });
+    
     app.use(express.json());
+
+    // Register all API routes before the Vite/static middleware
+    await registerRoutes(app);
 
     // Error handling middleware
     app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
       console.error('Error:', err);
       res.status(500).json({ error: 'Internal Server Error' });
     });
-
-    await registerRoutes(app);
-
     if (process.env.NODE_ENV === "production") {
       serveStatic(app);
     } else {

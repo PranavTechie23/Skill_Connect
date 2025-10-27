@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const handleError = (res: any, error: any, defaultMessage: string) => {
   console.error('Error details:', {
+    context: 'handleError function', // Added context
     message: defaultMessage,
     error: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack : undefined

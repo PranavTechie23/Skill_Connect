@@ -365,35 +365,50 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllCompanies(): Promise<Company[]> {
-    const query = sql`
-      SELECT 
-        id::text,
-        name,
-        description,
-        location,
-        website,
-        industry,
-        size,
-        owner_id::text as "ownerId",
-        logo,
-        created_at as "createdAt"
-      FROM companies
-      ORDER BY created_at DESC
-    `;
-    
-    const result = await db.execute(query);
-    return result.rows.map(row => ({
-      id: String(row.id),
-      name: String(row.name),
-      description: String(row.description),
-      location: String(row.location),
-      website: String(row.website),
-      industry: String(row.industry),
-      size: String(row.size),
-      ownerId: String(row.ownerId),
-      logo: String(row.logo),
-      createdAt: row.createdAt instanceof Date ? row.createdAt : new Date(String(row.createdAt))
-    }));
+    try {
+      console.log('🔍 Storage: Entering getAllCompanies method.');
+      const query = sql`
+        SELECT 
+          c.id::text,
+          c.name,
+          c.description,
+          c.location,
+          c.website,
+          c.industry,
+          c.size,
+          c.owner_id::text as "ownerId",
+          c.logo,
+          c.created_at as "createdAt",
+          u.email as "ownerEmail",
+          COUNT(j.id)::integer as "jobPostings"
+        FROM companies c
+        LEFT JOIN users u ON c.owner_id = u.id
+        LEFT JOIN jobs j ON c.id = j.company_id
+        GROUP BY c.id, u.id
+        ORDER BY c.created_at DESC
+      `;
+      
+      const result = await db.execute(query);
+      console.log(`✅ Storage: getAllCompanies fetched ${result.rows.length} rows.`);
+      return result.rows.map((row: any) => ({
+        id: String(row.id),
+        name: String(row.name),
+        description: String(row.description),
+        location: String(row.location),
+        website: String(row.website),
+        industry: String(row.industry),
+        size: String(row.size),
+        ownerId: String(row.ownerId),
+        logo: String(row.logo),
+        createdAt: row.createdAt instanceof Date ? row.createdAt : new Date(String(row.createdAt)),
+        status: 'approved', // Default to 'approved' as status column doesn't exist
+        owner: { email: row.ownerEmail || 'N/A' },
+        jobs: { length: Number(row.jobPostings) || 0 }
+      }));
+    } catch (error) {
+      console.error('❌ Storage: Error in getAllCompanies:', error);
+      throw error;
+    }
   }
   
   async deleteCompany(id: string | number): Promise<void> {

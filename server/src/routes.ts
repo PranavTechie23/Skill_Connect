@@ -70,39 +70,27 @@ const requireAuth = (req: any, res: any, next: any) => {
 
 const requireAdmin = async (req: any, res: any, next: any) => {
   if (!req.session?.userId) {
+    console.warn('⚠️ requireAdmin: Not authenticated, userId missing from session.');
     return res.status(401).json({ message: "Not authenticated" });
   }
 
-  // For testing purposes, allow any authenticated user to access admin endpoints
-  // In production, you would want to check if the user has admin privileges
-  next();
+  // Handle the hardcoded admin user
+  if (req.session.userId === 'admin-001') {
+    return next();
+  }
+
+  // For regular users, check their userType in the database
+  const user = await storage.getUser(req.session.userId);
+  if (user?.userType === 'admin') {
+    return next();
+  }
+
+  return res.status(403).json({ message: "Forbidden: Admin access required" });
 };
 
 const sanitizeUser = (user: any) => {
   const { password, ...sanitizedUser } = user;
   return sanitizedUser;
-};
-
-const handleError = (res: any, error: any, defaultMessage: string) => {
-  console.error('Error details:', {
-    message: defaultMessage,
-    error: error instanceof Error ? error.message : String(error),
-    stack: error instanceof Error ? error.stack : undefined
-  });
-
-  if (error instanceof z.ZodError) {
-    return res.status(400).json({ message: "Validation error", errors: error.issues });
-  }
-
-  // Always include error message in development for debugging
-  if (process.env.NODE_ENV === 'development') {
-    return res.status(500).json({ 
-      message: defaultMessage,
-      error: error instanceof Error ? error.message : String(error)
-    });
-  }
-
-  res.status(500).json({ message: defaultMessage });
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -789,22 +777,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new user
   app.post("/api/admin/users", requireAdmin, async (req, res) => {
     try {
-      const data = registerSchema.parse(req.body);
+      console.log('Received /api/admin/users POST request. req.body:', req.body);
+      // Use a simpler schema for admin user creation, as not all registration fields are present.
+      const adminCreateUserSchema = z.object({
+        email: z.string().email(),
+        password: z.string().min(6),
+        firstName: z.string().min(1),
+        lastName: z.string().min(1),
+        userType: z.enum(['Professional', 'Employer', 'admin', 'job_seeker', 'employer', 'professional']),
+        location: z.string().optional(),
+        title: z.string().optional(), // For professionals
+        confirmPassword: z.string().optional(), // Added to allow frontend to send it without validation error
+      });
+
+      console.log('AdminCreateUserSchema userType options at runtime:', adminCreateUserSchema.shape.userType._def.options);
+      const data = adminCreateUserSchema.parse(req.body);
       
-      // Check if user already exists
       const existingUser = await storage.getUserByEmail(data.email);
       if (existingUser) {
         return res.status(400).json({ message: "User already exists" });
       }
 
       const hashedPassword = await bcrypt.hash(data.password, 10);
-      
-      const user = await storage.createUser({
-        ...data,
-        password: hashedPassword,
-        skills: Array.isArray(data.skills) ? data.skills : [],
-      } as any);
 
+      // Normalize userType to 'Professional' or 'Employer' for database consistency
+      let normalizedUserType: 'Professional' | 'Employer' | 'admin';
+      if (data.userType === 'job_seeker' || data.userType === 'professional') {
+        normalizedUserType = 'Professional';
+      } else if (data.userType === 'employer') {
+        normalizedUserType = 'Employer';
+      } else {
+        normalizedUserType = data.userType;
+      }
+
+      const userPayload: any = {
+        email: data.email,
+        password: hashedPassword,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        userType: normalizedUserType, // Use the normalized type for storage
+        location: data.location || null, // Ensure optional fields are null if not provided
+        profilePhoto: null, // Explicitly set to null as it's not provided by admin form
+        telephoneNumber: null, // Explicitly set to null as it's not provided by admin form
+      };
+
+      const user = await storage.createUser(userPayload);
+
+      // Create associated profile or company
+      if (normalizedUserType === 'Employer') {
+        await storage.createCompany({
+          name: `${data.firstName}'s Company`, // Default company name
+          description: null, // Explicitly set optional fields to null
+          website: null,
+          location: null,
+          industry: null,
+          size: null,
+          ownerId: user.id,
+          logo: null, // Explicitly set optional fields to null
+        });
+      } else if (normalizedUserType === 'Professional') {
+        await storage.createProfessionalProfile({
+          userId: user.id,
+          headline: data.title || null, // Ensure optional fields are null if not provided
+          bio: null, // Explicitly set optional fields to null
+          skills: [], // Start with empty skills
+        });
+      }
+      
       res.status(201).json(sanitizeUser(user));
     } catch (error) {
       handleError(res, error, "Failed to create user");
@@ -840,6 +879,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "User deleted successfully" });
     } catch (error) {
       handleError(res, error, "Failed to delete user");
+    }
+  });
+
+  // Admin: Get all jobs
+  app.get("/api/admin/jobs", requireAdmin, async (req, res) => {
+    try {
+      const { jobs } = await storage.getJobs();
+      res.json(jobs);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch jobs");
+    }
+  });
+
+  // Admin: Get all companies
+  app.get("/api/admin/companies", requireAdmin, async (req, res) => {
+    try {
+      console.log('✅ Admin API: Request received for /api/admin/companies');
+      const companies = await storage.getAllCompanies();
+      console.log('✅ Admin API: Successfully fetched companies from storage.');
+      res.json(companies);
+    } catch (error) {
+      console.error('❌ Admin API: Error in /api/admin/companies route handler:', error);
+      handleError(res, error, "Failed to fetch companies");
+    }
+  });
+
+  // Admin: Get all applications
+  app.get("/api/admin/applications", requireAdmin, async (req, res) => {
+    try {
+      const applications = await storage.getApplicationsByJob("all");
+      res.json(applications);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch applications");
+    }
+  });
+
+  // Admin: Get pending approvals (mocked for now)
+  app.get("/api/admin/approvals", requireAdmin, async (req, res) => {
+    try {
+      // This is a placeholder. You'll need to implement logic
+      // in your storage layer to fetch items pending approval.
+      res.json([]);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch approvals");
+    }
+  });
+
+  // Admin: Get analytics data (mocked for now)
+  app.get("/api/admin/analytics", requireAdmin, async (req, res) => {
+    try {
+      // This is a placeholder. You would build a real analytics object here.
+      res.json({ recentActivities: [] });
+    } catch (error) {
+      handleError(res, error, "Failed to fetch analytics");
     }
   });
 

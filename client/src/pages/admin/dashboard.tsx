@@ -6,7 +6,7 @@ import {
   Shield, Users, Building2, Briefcase, TrendingUp, Activity, Settings,
   LogOut, Moon, Sun, Menu, X, Search, MoreVertical, Eye, Edit,
   Trash2, CheckCircle, XCircle, AlertCircle, Clock, Mail,
-  Calendar, BarChart3, FileText, UserCheck, Pause, Play, Ban, ChevronDown, ArrowRight, Zap, Target, Award, MessageSquare, Bell, Home
+  Calendar, BarChart3, FileText, UserCheck, Pause, Play, Ban, ChevronDown, ArrowRight, Zap, Target, Award, MessageSquare, Bell, Home, DollarSign, TrendingDown
 } from 'lucide-react';
 import { adminService } from '@/lib/admin-service';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -111,6 +111,29 @@ const AdminDashboard: React.FC = () => {
     fetchData();
   }, []);
 
+  // Sync activeTab with route when location changes (keeps sidebar highlighted)
+  React.useEffect(() => {
+    if (location.pathname === '/admin' || location.pathname === '/admin/') {
+      setActiveTab('overview');
+    } else if (location.pathname.startsWith('/admin/settings')) {
+      setActiveTab('settings');
+    } else if (location.pathname.startsWith('/admin/users')) {
+      setActiveTab('users');
+    } else if (location.pathname.startsWith('/admin/companies')) {
+      setActiveTab('employers');
+    } else if (location.pathname.startsWith('/admin/employees')) {
+      setActiveTab('employees');
+    } else if (location.pathname.startsWith('/admin/jobs')) {
+      setActiveTab('jobs');
+    } else if (location.pathname.startsWith('/admin/applications')) {
+      setActiveTab('applications');
+    } else if (location.pathname.startsWith('/admin/approvals')) {
+      setActiveTab('approvals');
+    } else if (location.pathname.startsWith('/admin/analytics')) {
+      setActiveTab('analytics');
+    }
+  }, [location.pathname]);
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -142,8 +165,8 @@ const AdminDashboard: React.FC = () => {
       className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all group ${
         activeTab === id
           ? darkMode
-            ? 'bg-red-500/20 text-red-400'
-            : 'bg-red-50 text-red-700'
+            ? 'bg-gradient-to-r from-red-500/20 to-rose-500/20 text-red-400 shadow-lg shadow-red-500/10'
+            : 'bg-gradient-to-r from-red-50 to-rose-50 text-red-700 shadow-md'
           : darkMode
           ? 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
           : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
@@ -154,23 +177,14 @@ const AdminDashboard: React.FC = () => {
         <span className="font-medium">{label}</span>
       </div>
       {badge && (
-        <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-          darkMode ? 'bg-red-500 text-white' : 'bg-red-600 text-white'
+        <span className={`px-2.5 py-1 rounded-full text-xs font-bold shadow-md ${
+          darkMode ? 'bg-gradient-to-r from-red-500 to-rose-500 text-white' : 'bg-gradient-to-r from-red-600 to-rose-600 text-white'
         }`}>
           {badge}
         </span>
       )}
     </button>
   );
-
-  // Sync activeTab with route when location changes (keeps sidebar highlighted)
-  React.useEffect(() => {
-    if (location.pathname === '/admin' || location.pathname === '/admin/') {
-      setActiveTab('overview');
-    } else if (location.pathname.startsWith('/admin/settings')) {
-      setActiveTab('settings');
-    }
-  }, [location.pathname]);
 
   const getStatusBadge = (status: string) => {
     const configs = {
@@ -202,682 +216,685 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800' : 'bg-gradient-to-br from-gray-50 via-white to-gray-100'}`}>
         {/* Top Navbar */}
-      <nav className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b fixed top-0 left-0 right-0 z-50 backdrop-blur-lg bg-opacity-80`}>
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`}
-              >
-                {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
-              
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-rose-600 rounded-xl flex items-center justify-center text-white shadow-lg">
-                  <Shield className="w-6 h-6" />
+        <nav className={`${darkMode ? 'bg-gray-800/80 border-gray-700' : 'bg-white/80 border-gray-200'} border-b fixed top-0 left-0 right-0 z-50 backdrop-blur-xl`}>
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className={`p-2.5 rounded-xl transition-all ${darkMode ? 'hover:bg-gray-700 text-gray-300 hover:shadow-lg' : 'hover:bg-gray-100 text-gray-600'}`}
+                >
+                  {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                </button>
+                
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 bg-gradient-to-br from-red-500 via-rose-500 to-pink-600 rounded-xl flex items-center justify-center text-white shadow-xl shadow-red-500/30 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                    <Shield className="w-6 h-6 relative z-10" />
+                  </div>
+                  <div>
+                    <h1 className={`text-xl font-bold bg-gradient-to-r ${darkMode ? 'from-white to-gray-300' : 'from-gray-900 to-gray-700'} bg-clip-text text-transparent`}>
+                      Admin Control Panel
+                    </h1>
+                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      SkillConnect Management System
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h1 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                    Admin Control Panel
-                  </h1>
-                  <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                    SkillConnect Admin Panel
-                  </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setTheme(darkMode ? 'light' : 'dark')}
+                  className={`p-2.5 rounded-xl transition-all shadow-md ${darkMode ? 'bg-gradient-to-br from-gray-700 to-gray-600 text-yellow-400 hover:shadow-lg hover:shadow-yellow-500/20' : 'bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700 hover:shadow-lg'}`}
+                >
+                  {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                </button>
+
+                <div className="relative">
+                  <button onClick={() => { generateNotifications(); setShowNotifications(s => !s); setShowMessages(false); }} className={`relative p-2.5 rounded-xl transition-all shadow-md ${darkMode ? 'text-gray-300 hover:bg-gray-700 hover:shadow-lg' : 'text-gray-600 hover:bg-gray-100'}`}>
+                    <Bell className="w-5 h-5" />
+                    {notifications.length > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-rose-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shadow-lg animate-pulse">
+                        {notifications.length}
+                      </span>
+                    )}
+                  </button>
+
+                  {showNotifications && notifications.length > 0 && (
+                    <div className={`absolute right-0 mt-2 w-80 rounded-2xl shadow-2xl border py-2 z-40 transition-all animate-in ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                      <div className={`px-4 py-3 border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                        <div className="flex items-center justify-between">
+                          <span className={`font-bold text-lg ${darkMode ? 'text-white' : 'text-gray-900'}`}>Notifications</span>
+                          <button onClick={() => setNotifications([])} className={`text-xs font-medium px-3 py-1 rounded-lg ${darkMode ? 'text-red-400 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50'}`}>Clear All</button>
+                        </div>
+                      </div>
+                      <div className="max-h-80 overflow-auto">
+                        {notifications.map(n => (
+                          <div key={n.id} className={`px-4 py-3 border-b last:border-b-0 hover:bg-opacity-50 cursor-pointer transition-all ${darkMode ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-100 hover:bg-gray-50'}`}>
+                            <div className={`text-sm font-semibold mb-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{n.title}</div>
+                            <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{n.time}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <button onClick={() => { generateMessages(); setShowMessages(s => !s); setShowNotifications(false); }} className={`relative p-2.5 rounded-xl transition-all shadow-md ${darkMode ? 'text-gray-300 hover:bg-gray-700 hover:shadow-lg' : 'text-gray-600 hover:bg-gray-100'}`}>
+                    <MessageSquare className="w-5 h-5" />
+                    {messagesList.length > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shadow-lg animate-pulse">
+                        {messagesList.length}
+                      </span>
+                    )}
+                  </button>
+
+                  {showMessages && messagesList.length > 0 && (
+                    <div className={`absolute right-0 mt-2 w-80 rounded-2xl shadow-2xl border py-2 z-40 transition-all ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                      <div className={`px-4 py-3 border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                        <div className="flex items-center justify-between">
+                          <span className={`font-bold text-lg ${darkMode ? 'text-white' : 'text-gray-900'}`}>Messages</span>
+                          <button onClick={() => setMessagesList([])} className={`text-xs font-medium px-3 py-1 rounded-lg ${darkMode ? 'text-blue-400 hover:bg-blue-500/10' : 'text-blue-600 hover:bg-blue-50'}`}>Clear All</button>
+                        </div>
+                      </div>
+                      <div className="max-h-80 overflow-auto">
+                        {messagesList.map(m => (
+                          <div key={m.id} className={`px-4 py-3 border-b last:border-b-0 hover:bg-opacity-50 cursor-pointer transition-all ${darkMode ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-100 hover:bg-gray-50'}`}>
+                            <div className="flex items-center justify-between mb-1">
+                              <div className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{m.from}</div>
+                              <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{m.time}</div>
+                            </div>
+                            <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{m.preview}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative group">
+                  <button className={`flex items-center gap-2 p-2 pr-3 rounded-xl transition-all ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
+                    <div className="w-9 h-9 bg-gradient-to-br from-red-500 via-rose-500 to-pink-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+                      {admin.avatar}
+                    </div>
+                    <ChevronDown className={`w-4 h-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+                  </button>
+
+                  <div className={`absolute right-0 mt-2 w-56 rounded-xl shadow-2xl border py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all ${
+                    darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                  }`}>
+                    <div className={`px-4 py-3 border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                      <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{admin.name}</p>
+                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{admin.email}</p>
+                    </div>
+                    <button onClick={() => navigate('/admin/settings')} className={`w-full px-4 py-2 text-left flex items-center gap-3 ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'}`}>
+                      <Settings className="w-4 h-4" />
+                      Settings
+                    </button>
+                    <div className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'} mt-2 pt-2`}>
+                      <button onClick={handleLogout} className={`w-full px-4 py-2 text-left flex items-center gap-3 ${darkMode ? 'hover:bg-red-500/10 text-red-400' : 'hover:bg-red-50 text-red-600'}`}>
+                        <LogOut className="w-4 h-4" />
+                        Logout
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
+        </nav>
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setTheme(darkMode ? 'light' : 'dark')}
-                className={`p-2.5 rounded-xl ${darkMode ? 'bg-gray-700 text-yellow-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'} transition-all`}
-              >
-                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-              </button>
-
-              <div className="relative">
-                <button onClick={() => { generateNotifications(); setShowNotifications(s => !s); setShowMessages(false); }} className={`relative p-2.5 rounded-xl transition-all ${darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'}`}>
-                  <Bell className="w-5 h-5" />
-                  {notifications.length > 0 && (
-                    <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
-                      {notifications.length}
-                    </span>
-                  )}
-                </button>
-
-                {/* Notifications dropdown */}
-                {showNotifications && notifications.length > 0 && (
-                  <div className={`absolute right-0 mt-2 w-80 rounded-xl shadow-xl border py-2 z-40 transition-all ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                    <div className="px-4 py-2 border-b">
-                      <div className="flex items-center justify-between">
-                        <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Notifications</span>
-                        <button onClick={() => setNotifications([])} className="text-xs text-gray-400">Clear</button>
-                      </div>
-                    </div>
-                    <div className="max-h-64 overflow-auto">
-                      {notifications.map(n => (
-                        <div key={n.id} className={`px-4 py-3 border-b last:border-b-0 ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-                          <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{n.title}</div>
-                          <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{n.time}</div>
-                        </div>
-                      ))}
-                    </div>
+        <div className="flex pt-20">
+          {/* Sidebar */}
+          <aside className={`${sidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 overflow-hidden border-r ${
+            darkMode ? 'bg-gray-800/50 border-gray-700/50 backdrop-blur-xl' : 'bg-white/80 border-gray-200 backdrop-blur-xl'
+          }`}>
+            <div className="p-6 space-y-6 h-[calc(100vh-5rem)] overflow-y-auto">
+              {/* Quick Stats */}
+              <div>
+                <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  System Overview
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className={`p-4 rounded-xl shadow-lg hover:shadow-xl transition-all cursor-pointer ${darkMode ? 'bg-gradient-to-br from-red-500/20 to-rose-500/20 border border-red-500/30' : 'bg-gradient-to-br from-red-50 to-rose-50 border border-red-200'}`}>
+                    <Users className={`w-6 h-6 mb-2 ${darkMode ? 'text-red-400' : 'text-red-600'}`} />
+                    <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {stats.totalUsers || 0}
+                    </p>
+                    <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Users</p>
                   </div>
-                )}
+                  <div className={`p-4 rounded-xl shadow-lg hover:shadow-xl transition-all cursor-pointer ${darkMode ? 'bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-500/30' : 'bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200'}`}>
+                    <Briefcase className={`w-6 h-6 mb-2 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+                    <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {stats.activeJobs || 0}
+                    </p>
+                    <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Active Jobs</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="relative">
-                <button onClick={() => { generateMessages(); setShowMessages(s => !s); setShowNotifications(false); }} className={`relative p-2.5 rounded-xl transition-all ${darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'}`}>
-                  <MessageSquare className="w-5 h-5" />
-                  {messagesList.length > 0 && (
-                    <span className="absolute top-0 right-0 bg-blue-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
-                      {messagesList.length}
-                    </span>
-                  )}
-                </button>
-
-                {/* Messages dropdown */}
-                {showMessages && messagesList.length > 0 && (
-                  <div className={`absolute right-0 mt-2 w-80 rounded-xl shadow-xl border py-2 z-40 transition-all ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                    <div className="px-4 py-2 border-b">
-                      <div className="flex items-center justify-between">
-                        <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Messages</span>
-                        <button onClick={() => setMessagesList([])} className="text-xs text-gray-400">Clear</button>
-                      </div>
-                    </div>
-                    <div className="max-h-64 overflow-auto">
-                      {messagesList.map(m => (
-                        <div key={m.id} className={`px-4 py-3 border-b last:border-b-0 ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{m.from}</div>
-                              <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{m.preview}</div>
-                            </div>
-                            <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{m.time}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+              {/* Navigation */}
+              <div>
+                <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Navigation
+                </h3>
+                <div className="space-y-1.5">
+                  <NavItem icon={Home} label="Overview" id="overview" />
+                  <NavItem icon={Users} label="User Management" id="users" badge={stats.newUsersThisWeek} />
+                  <NavItem icon={Building2} label="Employers" id="employers" />
+                  <NavItem icon={UserCheck} label="Employees" id="employees" />
+                  <NavItem icon={Briefcase} label="Job Postings" id="jobs" badge={stats.newJobsThisWeek} />
+                  <NavItem icon={FileText} label="Applications" id="applications" />
+                  <NavItem icon={AlertCircle} label="Pending Approvals" id="approvals" badge={stats.pendingApprovals} />
+                  <NavItem icon={BarChart3} label="Analytics" id="analytics" />
+                  <NavItem icon={Settings} label="System Settings" id="settings" />
+                </div>
               </div>
 
-              <div className="relative group">
-                <button className="flex items-center gap-2 p-2 pr-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all">
-                  <div className="w-9 h-9 bg-gradient-to-br from-red-500 to-rose-600 rounded-xl flex items-center justify-center text-white font-bold">
-                    {admin.avatar}
+              {/* System Status */}
+              <div className={`p-5 rounded-2xl shadow-xl relative overflow-hidden ${
+                darkMode ? 'bg-gradient-to-br from-emerald-600 to-green-600' : 'bg-gradient-to-br from-emerald-500 to-green-600'
+              } text-white`}>
+                <div className="absolute inset-0 bg-white/10"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Activity className="w-5 h-5" />
+                    <h3 className="font-bold text-lg">System Status</h3>
                   </div>
-                  <ChevronDown className={`w-4 h-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
-                </button>
+                  <div className="space-y-2.5 text-sm">
+                    <div className="flex items-center justify-between p-2 bg-white/10 rounded-lg">
+                      <span className="text-white/90 font-medium">Server</span>
+                      <span className="flex items-center gap-1.5 font-semibold">
+                        <div className="w-2 h-2 bg-white rounded-full animate-pulse shadow-lg"></div>
+                        Online
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-white/10 rounded-lg">
+                      <span className="text-white/90 font-medium">Database</span>
+                      <span className="flex items-center gap-1.5 font-semibold">
+                        <div className="w-2 h-2 bg-white rounded-full animate-pulse shadow-lg"></div>
+                        Connected
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 bg-white/10 rounded-lg">
+                      <span className="text-white/90 font-medium">API</span>
+                      <span className="flex items-center gap-1.5 font-semibold">
+                        <div className="w-2 h-2 bg-white rounded-full animate-pulse shadow-lg"></div>
+                        Running
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
 
-                <div className={`absolute right-0 mt-2 w-56 rounded-xl shadow-xl border py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all ${
+          {/* Main Content */}
+          <main className="flex-1 p-8 overflow-auto h-[calc(100vh-5rem)]">
+            <div className="max-w-[1600px] mx-auto space-y-8">
+              {/* Header with Welcome Message */}
+              <div className={`rounded-2xl p-6 shadow-lg ${darkMode ? 'bg-gradient-to-r from-gray-800 to-gray-700 border border-gray-700' : 'bg-gradient-to-r from-white to-gray-50 border border-gray-200'}`}>
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div>
+                    <h1 className={`text-3xl font-bold mb-2 bg-gradient-to-r ${darkMode ? 'from-white to-gray-300' : 'from-gray-900 to-gray-700'} bg-clip-text text-transparent`}>
+                      Welcome back, {admin.name}! 👋
+                    </h1>
+                    <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Monitor and manage all platform activities from your control center
+                    </p>
+                  </div>
+                  <div className={`px-6 py-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                    <div className="flex items-center gap-3">
+                      <Calendar className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+                      <div>
+                        <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {new Date().toLocaleDateString('en-US', { weekday: 'long' })}
+                        </p>
+                        <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stats Cards - Enhanced */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                <div className={`rounded-2xl border p-6 hover:shadow-2xl transition-all group cursor-pointer relative overflow-hidden ${
                   darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
                 }`}>
-                  <div className={`px-4 py-3 border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-                    <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{admin.name}</p>
-                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{admin.email}</p>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-transparent rounded-full -mr-16 -mt-16"></div>
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                        <Users className="w-6 h-6 text-white" />
+                      </div>
+                      <Zap className="w-5 h-5 text-blue-500 opacity-50" />
+                    </div>
+                    <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Total Users
+                    </p>
+                    <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {stats.totalUsers || 0}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <TrendingUp className="w-4 h-4 text-emerald-500" />
+                      <span className="text-sm font-medium text-emerald-500">
+                        +{stats.newUsersThisWeek || 0} this week
+                      </span>
+                    </div>
                   </div>
-                  <button onClick={() => navigate('/admin/settings')} className={`w-full px-4 py-2 text-left flex items-center gap-3 ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'}`}>
-                    <Settings className="w-4 h-4" />
-                    Settings
-                  </button>
-                  <div className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'} mt-2 pt-2`}>
-                    <button onClick={handleLogout} className={`w-full px-4 py-2 text-left flex items-center gap-3 ${darkMode ? 'hover:bg-red-500/10 text-red-400' : 'hover:bg-red-50 text-red-600'}`}>
-                      <LogOut className="w-4 h-4" />
-                      Logout
+                </div>
+
+                <div className={`rounded-2xl border p-6 hover:shadow-2xl transition-all group cursor-pointer relative overflow-hidden ${
+                  darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                }`}>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-500/10 to-transparent rounded-full -mr-16 -mt-16"></div>
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                        <Building2 className="w-6 h-6 text-white" />
+                      </div>
+                      <Target className="w-5 h-5 text-green-500 opacity-50" />
+                    </div>
+                    <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Total Companies
+                    </p>
+                    <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {stats.totalCompanies || 0}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <TrendingUp className="w-4 h-4 text-emerald-500" />
+                      <span className="text-sm font-medium text-emerald-500">
+                        +5 this month
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`rounded-2xl border p-6 hover:shadow-2xl transition-all group cursor-pointer relative overflow-hidden ${
+                  darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                }`}>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-500/10 to-transparent rounded-full -mr-16 -mt-16"></div>
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="p-3 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                        <Briefcase className="w-6 h-6 text-white" />
+                      </div>
+                      <Award className="w-5 h-5 text-amber-500 opacity-50" />
+                    </div>
+                    <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Active Jobs
+                    </p>
+                    <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {stats.activeJobs || 0}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <TrendingUp className="w-4 h-4 text-emerald-500" />
+                      <span className="text-sm font-medium text-emerald-500">
+                        +{stats.newJobsThisWeek || 0} new
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`rounded-2xl border p-6 hover:shadow-2xl transition-all group cursor-pointer relative overflow-hidden ${
+                  darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                }`}>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-red-500/10 to-transparent rounded-full -mr-16 -mt-16"></div>
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="p-3 bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                        <AlertCircle className="w-6 h-6 text-white" />
+                      </div>
+                      <Bell className="w-5 h-5 text-red-500 opacity-50" />
+                    </div>
+                    <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Pending Approvals
+                    </p>
+                    <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {stats.pendingApprovals || 0}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Clock className="w-4 h-4 text-amber-500" />
+                      <span className="text-sm font-medium text-amber-500">
+                        Needs attention
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Content Grid */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                {/* Recent Users */}
+                <div className={`rounded-2xl border p-6 xl:col-span-2 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      Recent Users
+                    </h2>
+                    <button 
+                      onClick={() => navigate('/admin/users')}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                        darkMode 
+                          ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      View All
+                      <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
 
-  <div className="flex mt-16">
-        {/* Sidebar */}
-        <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} transition-all duration-300 overflow-hidden border-r ${
-          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        }`}>
-          <div className="p-6 space-y-6">
-            {/* Quick Stats */}
-            <div>
-              <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                System Overview
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-red-50'}`}>
-                  <Users className={`w-5 h-5 mb-1 ${darkMode ? 'text-red-400' : 'text-red-600'}`} />
-                  <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {stats.totalUsers || 0}
-                  </p>
-                  <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Users</p>
-                </div>
-                <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-blue-50'}`}>
-                  <Briefcase className={`w-5 h-5 mb-1 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                  <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {stats.activeJobs || 0}
-                  </p>
-                  <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Active Jobs</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation */}
-            <div>
-              <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                Navigation
-              </h3>
-              <div className="space-y-1">
-                <NavItem icon={Home} label="Overview" id="overview" />
-                <NavItem icon={Users} label="User Management" id="users" badge={stats.newUsersThisWeek} />
-                <NavItem icon={Building2} label="Employers" id="employers" />
-                <NavItem icon={UserCheck} label="Employees" id="employees" />
-                <NavItem icon={Briefcase} label="Job Postings" id="jobs" badge={stats.newJobsThisWeek} />
-                <NavItem icon={FileText} label="Applications" id="applications" />
-                <NavItem icon={AlertCircle} label="Pending Approvals" id="approvals" badge={stats.pendingApprovals} />
-                <NavItem icon={BarChart3} label="Analytics" id="analytics" />
-                <NavItem icon={Settings} label="System Settings" id="settings" />
-              </div>
-            </div>
-
-            {/* System Status */}
-            <div className={`p-4 rounded-xl ${
-              darkMode ? 'bg-gradient-to-br from-emerald-600 to-green-600' : 'bg-gradient-to-br from-emerald-500 to-green-600'
-            } text-white`}>
-              <div className="flex items-center gap-2 mb-2">
-                <Activity className="w-5 h-5" />
-                <h3 className="font-bold">System Status</h3>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-white/90">Server</span>
-                  <span className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                    Online
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-white/90">Database</span>
-                  <span className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                    Connected
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-white/90">API</span>
-                  <span className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                    Running
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 p-8 overflow-auto">
-          <div className="max-w-7xl mx-auto space-y-8">
-            {/* Header */}
-            <div>
-              <h1 className={`text-3xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                Dashboard Overview
-              </h1>
-              <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-                Monitor and manage all platform activities
-              </p>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className={`rounded-2xl border p-6 hover:shadow-xl transition-all group ${
-                darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-              }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                    <Users className="w-6 h-6 text-white" />
-                  </div>
-                  <Zap className="w-5 h-5 text-blue-500" />
-                </div>
-                <p className={`text-sm font-medium mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Total Users
-                </p>
-                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {stats.totalUsers || 0}
-                </p>
-                <p className="text-xs text-emerald-600 font-semibold mt-2">
-                  ↑ {stats.newUsersThisWeek || 0} new this week
-                </p>
-              </div>
-
-              <div className={`rounded-2xl border p-6 hover:shadow-xl transition-all group ${
-                darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-              }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                    <Building2 className="w-6 h-6 text-white" />
-                  </div>
-                  <Target className="w-5 h-5 text-purple-500" />
-                </div>
-                <p className={`text-sm font-medium mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Employers
-                </p>
-                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {stats.totalCompanies || 0}
-                </p>
-                <p className="text-xs text-blue-600 font-semibold mt-2">
-                  {stats.totalUsers > 0 ? Math.round(((stats.totalCompanies || 0) / stats.totalUsers) * 100) : 0}% of users
-                </p>
-              </div>
-
-              <div className={`rounded-2xl border p-6 hover:shadow-xl transition-all group ${
-                darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-              }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-500 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                    <UserCheck className="w-6 h-6 text-white" />
-                  </div>
-                  <Award className="w-5 h-5 text-emerald-500" />
-                </div>
-                <p className={`text-sm font-medium mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Employees
-                </p>
-                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {(stats.totalUsers || 0) - (stats.totalCompanies || 0)}
-                </p>
-                <p className="text-xs text-emerald-600 font-semibold mt-2">
-                  {stats.totalUsers > 0 ? Math.round((((stats.totalUsers || 0) - (stats.totalCompanies || 0)) / stats.totalUsers) * 100) : 0}% of users
-                </p>
-              </div>
-
-              <div className={`rounded-2xl border p-6 hover:shadow-xl transition-all group ${
-                darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-              }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                    <Briefcase className="w-6 h-6 text-white" />
-                  </div>
-                  <TrendingUp className="w-5 h-5 text-amber-500" />
-                </div>
-                <p className={`text-sm font-medium mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Active Jobs
-                </p>
-                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {stats.activeJobs || 0}
-                </p>
-                <p className="text-xs text-amber-600 font-semibold mt-2">
-                  ↑ {stats.newJobsThisWeek || 0} posted this week
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Recent Users Table */}
-              <div className="lg:col-span-2">
-                <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${darkMode ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
-                        <Users className={`w-5 h-5 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                      </div>
-                      <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Recent Users
-                      </h2>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} />
-                        <input
-                          type="text"
-                          placeholder="Search users..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className={`pl-10 pr-4 py-2 rounded-lg border text-sm ${
-                            darkMode 
-                              ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-500'
-                              : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400'
-                          }`}
-                        />
-                      </div>
-                      <select
-                        value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
-                        className={`px-3 py-2 rounded-lg border text-sm ${
-                          darkMode
-                            ? 'bg-gray-700 border-gray-600 text-white'
-                            : 'bg-white border-gray-200 text-gray-900'
-                        }`}
-                      >
-                        <option value="all">All Users</option>
-                        <option value="employee">Employees</option>
-                        <option value="employer">Employers</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {recentUsers.map(user => {
                       const userStatus = user.status || 'active';
-                      const statusBadge = getStatusBadge(userStatus);
-                      const StatusIcon = statusBadge.Icon;
-
+                      const statusConfig = getStatusBadge(userStatus);
+                      const StatusIcon = statusConfig.Icon;
+                      
                       return (
-                        <div
-                          key={user.id}
-                          className={`p-4 rounded-xl border transition-all ${
-                            darkMode 
-                              ? 'bg-gray-700/50 border-gray-600 hover:bg-gray-700'
-                              : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold shadow-lg ${
-                                user.userType === 'Professional' || user.userType === 'employee' || user.userType === 'job_seeker'
-                                  ? 'bg-gradient-to-br from-blue-500 to-indigo-600'
-                                  : 'bg-gradient-to-br from-purple-500 to-pink-600'
-                              }`}>{user.firstName?.[0] || ''}{user.lastName?.[0] || ''}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h3 className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                                    {user.firstName} {user.lastName}
-                                  </h3>
-                                  <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${
-                                    user.userType === 'Professional' || user.userType === 'employee' || user.userType === 'job_seeker'
-                                      ? darkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700'
-                                      : darkMode ? 'bg-purple-500/20 text-purple-400' : 'bg-purple-100 text-purple-700' 
-                                  }`}>
-                                    {user.userType}
-                                  </span>
-                                </div>
-                                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                  {user.email || 'No email'}
-                                </p>
-                                <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'} mt-1`}>
-                                  Joined {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'} • Last active Recently
-                                </p>
-                              </div>
+                        <div key={user.id} className={`flex items-center justify-between p-4 rounded-xl border transition-all hover:shadow-lg ${
+                          darkMode ? 'border-gray-700 hover:bg-gray-700/50' : 'border-gray-200 hover:bg-gray-50'
+                        }`}>
+                          <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-semibold shadow-lg ${
+                              darkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-900'
+                            }`}>
+                              {user.firstName?.[0] || ''}{user.lastName?.[0] || ''}
                             </div>
-
-                            <div className="flex items-center gap-3">
-                              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${statusBadge.color}`}>
-                                <StatusIcon className="w-3.5 h-3.5" />
-                                {userStatus.charAt(0).toUpperCase() + userStatus.slice(1)}
-                              </span>
-
-                              <div className="relative group/menu">
-                                <button className={`p-2 rounded-lg transition-colors ${
-                                  darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
-                                }`}>
-                                  <MoreVertical className="w-5 h-5" />
-                                </button>
-                                <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl border py-2 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-10 ${
-                                  darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-                                }`}>
-                                  <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                    darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
-                                  }`}>
-                                    <Eye className="w-4 h-4" />
-                                    View Details
-                                  </button>
-                                  <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                    darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
-                                  }`}>
-                                    <Edit className="w-4 h-4" />
-                                    Edit User
-                                  </button>
-                                  <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                    darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
-                                  }`}>
-                                    <Mail className="w-4 h-4" />
-                                    Send Message
-                                  </button>
-                                  <div className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'} my-2`}></div>
-                                  {userStatus === 'active' ? (
-                                    <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                      darkMode ? 'hover:bg-amber-500/10 text-amber-400' : 'hover:bg-amber-50 text-amber-600'
-                                    }`}>
-                                      <Ban className="w-4 h-4" />
-                                      Suspend User
-                                    </button>
-                                  ) : (
-                                    <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                      darkMode ? 'hover:bg-emerald-500/10 text-emerald-400' : 'hover:bg-emerald-50 text-emerald-600'
-                                    }`}>
-                                      <CheckCircle className="w-4 h-4" />
-                                      Activate User
-                                    </button>
-                                  )}
-                                  <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                    darkMode ? 'hover:bg-red-500/10 text-red-400' : 'hover:bg-red-50 text-red-600'
-                                  }`}>
-                                    <Trash2 className="w-4 h-4" />
-                                    Delete User
-                                  </button>
-                                </div>
-                              </div>
+                            <div>
+                              <h3 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                {user.firstName} {user.lastName}
+                              </h3>
+                              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {user.email || 'No email'}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-4">
+                            <span className={`px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-1.5 ${
+                              statusConfig.color
+                            }`}>
+                              <StatusIcon className="w-3 h-3" />
+                              {userStatus.charAt(0).toUpperCase() + userStatus.slice(1)}
+                            </span>
+                            
+                            <div className="flex items-center gap-2">
+                              <button className={`p-2 rounded-lg transition-all ${
+                                darkMode 
+                                  ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-200' 
+                                  : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
+                              }`}>
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button className={`p-2 rounded-lg transition-all ${
+                                darkMode 
+                                  ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-200' 
+                                  : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
+                              }`}>
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button className={`p-2 rounded-lg transition-all ${
+                                darkMode 
+                                  ? 'hover:bg-red-500/10 text-red-400 hover:text-red-300' 
+                                  : 'hover:bg-red-50 text-red-600 hover:text-red-700'
+                              }`}>
+                                <Trash2 className="w-4 h-4" />
+                              </button>
                             </div>
                           </div>
                         </div>
                       );
                     })}
                   </div>
-
-                  <button className={`w-full mt-4 py-3 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${
-                    darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                  }`}>
-                    View All Users
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Sidebar - Stats & Actions */}
-              <div className="space-y-6">
-                {/* Pending Approvals */}
-                <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className={`p-2 rounded-lg ${darkMode ? 'bg-amber-500/20' : 'bg-amber-100'}`}>
-                      <AlertCircle className={`w-5 h-5 ${darkMode ? 'text-amber-400' : 'text-amber-600'}`} />
-                    </div>
-                    <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                      Pending Approvals
-                    </h3>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className={`p-3 rounded-lg ${darkMode ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-200'} border`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`text-sm font-semibold ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>
-                          New Employers
-                        </span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                          darkMode ? 'bg-amber-500 text-white' : 'bg-amber-600 text-white'
-                        }`}>
-                          {stats.pendingApprovals || 0}
-                        </span> 
-                      </div>
-                      <p className={`text-xs ${darkMode ? 'text-amber-300' : 'text-amber-600'}`}>
-                        Pending company verification
-                      </p>
-                    </div>
-
-                    <div className={`p-3 rounded-lg ${darkMode ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-200'} border`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`text-sm font-semibold ${darkMode ? 'text-blue-400' : 'text-blue-700'}`}>
-                          Job Postings
-                        </span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                          darkMode ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'
-                        }`}>
-                          5
-                        </span>
-                      </div>
-                      <p className={`text-xs ${darkMode ? 'text-blue-300' : 'text-blue-600'}`}>
-                        Awaiting content review
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={() => navigate('/admin/approvals', { replace: true })}
-                      className="w-full py-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg hover:from-red-700 hover:to-rose-700 transition-all font-semibold text-sm flex items-center justify-center gap-2"
-                    >
-                      Review All
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
                 </div>
 
-                {/* Recent Activity */}
-                <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className={`p-2 rounded-lg ${darkMode ? 'bg-green-500/20' : 'bg-green-100'}`}>
-                      <Activity className={`w-5 h-5 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
-                    </div>
-                    <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                {/* Recent Activity & Quick Actions */}
+                <div className="space-y-8">
+                  {/* Recent Activity */}
+                  <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <h2 className={`text-xl font-bold mb-6 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                       Recent Activity
-                    </h3>
-                  </div>
-
-                  <div className="space-y-3">
-                    {recentActivity.slice(0, 3).map((activity: any, index: number) => (
-                      <div key={index} className={`p-3 rounded-xl border ${darkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
-                        <div className="flex items-start gap-3">
-                          <div className={`p-2 rounded-lg ${darkMode ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
-                            {activity.type === 'user' && <Users className={`w-4 h-4 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />}
-                            {activity.type === 'job' && <Briefcase className={`w-4 h-4 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />}
-                            {activity.type === 'application' && <FileText className={`w-4 h-4 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />}
+                    </h2>
+                    
+                    <div className="space-y-4">
+                      {recentActivity.slice(0, 3).map((activity: any, index: number) => (
+                        <div key={index} className="flex items-start gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center mt-1 ${
+                            activity.type === 'user' 
+                              ? 'bg-blue-500/20 text-blue-500' 
+                              : activity.type === 'job'
+                              ? 'bg-green-500/20 text-green-500'
+                              : 'bg-purple-500/20 text-purple-500'
+                          }`}>
+                            {activity.type === 'user' && <Users className="w-4 h-4" />}
+                            {activity.type === 'job' && <Briefcase className="w-4 h-4" />}
+                            {activity.type === 'application' && <FileText className="w-4 h-4" />}
                           </div>
                           <div className="flex-1">
-                            <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{activity.action}</p>
-                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{activity.user}</p>
-                            <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'} mt-1`}>{activity.time}</p>
+                            <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                              {activity.action}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {activity.user}
+                              </span>
+                              <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                •
+                              </span>
+                              <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                {activity.time}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                    <h2 className={`text-xl font-bold mb-6 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      Quick Actions
+                    </h2>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <button 
+                        onClick={() => navigate('/admin/users')}
+                        className={`p-4 rounded-xl border transition-all hover:shadow-lg flex flex-col items-center gap-2 ${
+                          darkMode 
+                            ? 'border-gray-700 hover:bg-gray-700/50 text-gray-300' 
+                            : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <Users className="w-6 h-6" />
+                        <span className="text-sm font-medium">Add User</span>
+                      </button>
+                      
+                      <button 
+                        onClick={() => navigate('/admin/jobs')}
+                        className={`p-4 rounded-xl border transition-all hover:shadow-lg flex flex-col items-center gap-2 ${
+                          darkMode 
+                            ? 'border-gray-700 hover:bg-gray-700/50 text-gray-300' 
+                            : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <Briefcase className="w-6 h-6" />
+                        <span className="text-sm font-medium">Post Job</span>
+                      </button>
+                      
+                      <button 
+                        onClick={() => navigate('/admin/analytics')}
+                        className={`p-4 rounded-xl border transition-all hover:shadow-lg flex flex-col items-center gap-2 ${
+                          darkMode 
+                            ? 'border-gray-700 hover:bg-gray-700/50 text-gray-300' 
+                            : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <BarChart3 className="w-6 h-6" />
+                        <span className="text-sm font-medium">Reports</span>
+                      </button>
+                      
+                      <button 
+                        onClick={() => navigate('/admin/settings')}
+                        className={`p-4 rounded-xl border transition-all hover:shadow-lg flex flex-col items-center gap-2 ${
+                          darkMode 
+                            ? 'border-gray-700 hover:bg-gray-700/50 text-gray-300' 
+                            : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <Settings className="w-6 h-6" />
+                        <span className="text-sm font-medium">Settings</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-
               </div>
-            </div>
 
-
-
-            {/* Recent Jobs Table */}
-            <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${darkMode ? 'bg-purple-500/20' : 'bg-purple-100'}`}>
-                    <Briefcase className={`w-5 h-5 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-                  </div>
+              {/* Recent Jobs Table */}
+              <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                <div className="flex items-center justify-between mb-6">
                   <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                     Recent Job Postings
                   </h2>
-                </div>
-                <button className="text-blue-600 hover:text-blue-700 font-semibold text-sm flex items-center gap-2 group">
-                  View All
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {recentJobs.map(job => {
-                  const statusBadge = getStatusBadge(job.status);
-                  const StatusIcon = statusBadge.Icon;
-
-                  return (
-                    <div
-                      key={job.id}
-                      className={`p-4 rounded-xl border transition-all ${
+                  <div className="flex items-center gap-4">
+                    <div className={`relative ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Search jobs..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className={`pl-10 pr-4 py-2.5 rounded-xl border text-sm transition-all ${
+                          darkMode 
+                            ? 'bg-gray-700 border-gray-600 placeholder-gray-500 text-white focus:border-red-500' 
+                            : 'bg-gray-50 border-gray-300 placeholder-gray-400 text-gray-900 focus:border-red-500'
+                        }`}
+                      />
+                    </div>
+                    
+                    <select 
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className={`px-4 py-2.5 rounded-xl border text-sm transition-all ${
                         darkMode 
-                          ? 'bg-gray-700/50 border-gray-600 hover:bg-gray-700'
-                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                          ? 'bg-gray-700 border-gray-600 text-white focus:border-red-500' 
+                          : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-red-500'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
-                            {typeof job.company === 'string' ? job.company.substring(0, 2) : 'N/A'}
-                          </div>
-                          <div className="flex-1">
-                            <h3 className={`font-bold mb-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                              {job.title}
-                            </h3>
-                            <div className={`flex items-center gap-4 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                              <span className="flex items-center gap-1">
-                                <Building2 className="w-4 h-4" />
-                                {job.company?.name}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Users className="w-4 h-4" />
-                                {job.applications} applications
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-4 h-4" />
-                                {job.postedDate}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
+                      <option value="all">All Status</option>
+                      <option value="active">Active</option>
+                      <option value="paused">Paused</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                  </div>
+                </div>
 
-                        <div className="flex items-center gap-3">
-                          <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${statusBadge.color}`}>
-                            <StatusIcon className="w-3.5 h-3.5 inline mr-1" />
-                            {job.status ? job.status.charAt(0).toUpperCase() + job.status.slice(1) : 'N/A'}
-                          </span>
-
-                          <div className="relative group/menu">
-                            <button className={`p-2 rounded-lg transition-colors ${
-                              darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
-                            }`}>
-                              <MoreVertical className="w-5 h-5" />
-                            </button>
-                            <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl border py-2 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-10 ${
-                              darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-                            }`}>
-                              <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className={`border-b ${
+                        darkMode ? 'border-gray-700' : 'border-gray-200'
+                      }`}>
+                        <th className={`text-left py-4 px-4 font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          Job Title
+                        </th>
+                        <th className={`text-left py-4 px-4 font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          Company
+                        </th>
+                        <th className={`text-left py-4 px-4 font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          Status
+                        </th>
+                        <th className={`text-left py-4 px-4 font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          Applications
+                        </th>
+                        <th className={`text-left py-4 px-4 font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          Posted
+                        </th>
+                        <th className={`text-left py-4 px-4 font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentJobs.map(job => {
+                        const jobStatus = job.status || 'active';
+                        const statusConfig = getStatusBadge(jobStatus);
+                        const StatusIcon = statusConfig.Icon;
+                        
+                        return (
+                          <tr key={job.id} className={`border-b ${
+                            darkMode ? 'border-gray-700 hover:bg-gray-700/50' : 'border-gray-200 hover:bg-gray-50'
+                          } transition-all`}>
+                            <td className="py-4 px-4">
+                              <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                {job.title}
+                              </p>
+                            </td>
+                            <td className="py-4 px-4">
+                              <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                {job.company?.name || 'N/A'}
+                              </p>
+                            </td>
+                            <td className="py-4 px-4">
+                              <span className={`px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-1.5 w-fit ${
+                                statusConfig.color
                               }`}>
-                                <Eye className="w-4 h-4" />
-                                View Details
-                              </button>
-                              <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
-                              }`}>
-                                <Edit className="w-4 h-4" />
-                                Edit Job
-                              </button>
-                              <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                darkMode ? 'hover:bg-amber-500/10 text-amber-400' : 'hover:bg-amber-50 text-amber-600'
-                              }`}>
-                                {job.status === 'active' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                                {job.status === 'active' ? 'Pause' : 'Resume'} Job
-                              </button>
-                              <div className={`border-t ${darkMode ? 'border-gray-700' : 'border-gray-100'} my-2`}></div>
-                              <button className={`w-full px-4 py-2 text-left flex items-center gap-3 text-sm ${
-                                darkMode ? 'hover:bg-red-500/10 text-red-400' : 'hover:bg-red-50 text-red-600'
-                              }`}>
-                                <Trash2 className="w-4 h-4" />
-                                Delete Job
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                                <StatusIcon className="w-3 h-3" />
+                                {jobStatus.charAt(0).toUpperCase() + jobStatus.slice(1)}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4">
+                              <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                                {job.applications || 0}
+                              </p>
+                            </td>
+                            <td className="py-4 px-4">
+                              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {job.postedDate || 'N/A'}
+                              </p>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-2">
+                                <button className={`p-2 rounded-lg transition-all ${
+                                  darkMode 
+                                    ? 'hover:bg-gray-600 text-gray-400 hover:text-gray-200' 
+                                    : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
+                                }`}>
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button className={`p-2 rounded-lg transition-all ${
+                                  jobStatus === 'active' 
+                                    ? 'text-amber-500 hover:bg-amber-500/10' 
+                                    : 'text-emerald-500 hover:bg-emerald-500/10'
+                                }`}>
+                                  {jobStatus === 'active' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                                </button>
+                                <button className={`p-2 rounded-lg transition-all ${
+                                  darkMode 
+                                    ? 'hover:bg-red-500/10 text-red-400 hover:text-red-300' 
+                                    : 'hover:bg-red-50 text-red-600 hover:text-red-700'
+                                }`}>
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
-        </main>
-      </div>
+          </main>
+        </div>
       </div>
     </ErrorBoundary>
   );
