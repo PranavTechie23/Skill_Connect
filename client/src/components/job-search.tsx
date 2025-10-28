@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Briefcase, ChevronsUpDown, DollarSign } from "lucide-react";
+import { Search, MapPin, Briefcase, ChevronsUpDown, IndianRupee } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,28 +61,100 @@ const JOB_TYPES = ["All Jobs", "Full-time", "Part-time", "Contract", "Internship
 
 const SALARY_RANGES = [
   "All Salaries",
-  "$0-$50k",
-  "$50k-$100k",
-  "$100k-$150k",
-  "$150k+",
+  "₹0 - ₹500k",
+  "₹500k - ₹1000k",
+  "₹1000k - ₹1500k",
+  "₹1500k+",
 ];
 
 const JOB_TITLES = [
   "All Job Titles",
+  // Tech Jobs
   "Web Developer",
-  "Software Engineer",
+  "Software Engineer", 
   "Data Scientist",
   "UX Designer",
   "Product Manager",
+  "Senior Full Stack Developer",
+  "Machine Learning Engineer",
+  "DevOps Cloud Architect",
+  "Mobile App Developer",
+  "Cloud Solutions Architect",
+  "Cybersecurity Analyst",
+  "Blockchain Developer",
+  "Data Engineer",
+  "QA Automation Engineer",
+  "Systems Administrator",
+  "Technical Writer",
+  "Sales Engineer",
+  "HR Technology Specialist",
+  "Financial Software Developer",
+  "E-commerce Developer",
+  "Game Developer",
+  "AR/VR Engineer",
+  "IoT Solutions Architect",
+  "Embedded Systems Engineer",
+  "React Native Developer",
+  "Vue.js Frontend Lead",
+  "Node.js Backend Expert",
+  "Python Django Developer",
+  "Java Spring Boot Developer",
+  ".NET Core Specialist",
+  "Go Language Engineer",
+  "Flutter Mobile Developer",
+  "AWS Solutions Architect", 
+  "Azure Cloud Engineer",
+  "Kubernetes Administrator",
+  "Database Architect",
+  "MySQL Database Administrator",
+  "Machine Learning Ops Engineer",
+  "Computer Vision Engineer",
+  "Technical Product Manager",
+  "Web3 Developer",
+  "Cybersecurity Threat Hunter",
+  
+  // Local Jobs
   "Carpenter",
   "Plumber",
+  "Electrician",
   "House Maid",
   "Cleaner",
   "Wireman",
-  "WatchMan",
+  "Architect",
+  "Watchman",
   "Delivery Man",
-  "Driver",  
-  ];
+  "Driver",
+  "Cook",
+  "Gardener",
+  "Security Guard",
+  "Receptionist",
+  "Office Assistant",
+  "Sales Executive",
+  "Accountant",
+  "Teacher",
+  "Nurse",
+  "Doctor",
+  "Mechanic",
+  "Painter",
+  "Mason",
+  "Welder",
+  "Tailor",
+  "Beautician",
+  "Barber",
+  "Driver",
+  "Delivery Boy",
+  "Peon",
+  "Supervisor",
+  "Manager",
+  "Cashier",
+  "Waiter",
+  "Chef",
+  "Housekeeper",
+  "Babysitter",
+  "Elderly Caretaker",
+  "Driver Cum Helper",
+  "Office Boy"
+];
 
 export default function JobSearch({ onSearch, className = "" }: JobSearchProps) {
   const [jobTitle, setJobTitle] = useState("All Job Titles");
@@ -186,7 +258,7 @@ export default function JobSearch({ onSearch, className = "" }: JobSearchProps) 
               value={salary}
               setValue={setSalary}
               options={SALARY_RANGES}
-              icon={DollarSign}
+              icon={IndianRupee}
               label="Salary"
             />
           </div>

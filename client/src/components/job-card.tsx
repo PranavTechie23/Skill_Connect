@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge"; 
-import { MapPin, Clock, DollarSign, Heart, Code, Megaphone, Users, Building } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { MapPin, Clock, IndianRupee, Heart, Code, Megaphone, Users, Building } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -21,13 +21,15 @@ export default function JobCard({ job }: JobCardProps) {
   const navigate = useNavigate();
 
   const getJobIcon = (skills: string[]) => {
+    const iconColorClass = "text-gray-700 dark:text-white";
+
     if (skills.some(skill => ['React', 'JavaScript', 'TypeScript', 'Node.js', 'Web', 'Frontend', 'Backend'].includes(skill))) {
-      return <Code className="text-primary text-xl" />;
+      return <Code className={`${iconColorClass} text-xl`} />;
     }
     if (skills.some(skill => ['Marketing', 'Social Media', 'Advertising', 'SEO'].includes(skill))) {
-      return <Megaphone className="text-secondary text-xl" />;
+      return <Megaphone className={`${iconColorClass} text-xl`} />;
     }
-    return <Users className="text-accent text-xl" />;
+    return <Users className={`${iconColorClass} text-xl`} />;
   };
 
   const getSkillColor = (skill: string) => {
@@ -82,9 +84,9 @@ export default function JobCard({ job }: JobCardProps) {
 
   const formatSalary = (min?: number, max?: number) => {
     if (!min && !max) return "Salary not specified";
-    if (min && max) return `$${min.toLocaleString()} - $${max.toLocaleString()}`;
-    if (min) return `$${min.toLocaleString()}+`;
-    return `Up to $${max?.toLocaleString()}`;
+    if (min && max) return `₹${min / 1000}k - ₹${max / 1000}k`;
+    if (min) return `₹${min / 1000}k+`;
+    return `Up to ₹${max! / 1000}k`;
   };
 
   return (
@@ -93,12 +95,12 @@ export default function JobCard({ job }: JobCardProps) {
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center mb-3">
-              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mr-4 shadow-sm">
+              <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-xl flex items-center justify-center mr-4 shadow-sm">
                 {getJobIcon(job.skills)}
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-gray-900 tracking-tight">{job.title}</h3>
-                <p className="text-gray-600 flex items-center">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white tracking-tight">{job.title}</h3>
+                <p className="text-gray-600 dark:text-gray-300 flex items-center">
                   {job.company ? (
                     <>
                       <Building className="h-4 w-4 mr-1" />
@@ -120,7 +122,7 @@ export default function JobCard({ job }: JobCardProps) {
                 <span className="capitalize">{job.jobType.replace('_', '-')}</span>
               </div>
               <div className="flex items-center">
-                <DollarSign className="mr-1 h-4 w-4" />
+                <IndianRupee className="mr-1 h-4 w-4" />
                 <span>{formatSalary(job.salaryMin, job.salaryMax)}</span>
               </div>
             </div>

@@ -113,24 +113,12 @@ export const adminService = {
   },
 
   createUser: async (data: CreateUserData): Promise<User> => {
-    const response = await apiFetch('/api/admin/users', { 
-      method: 'POST', 
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data) 
-    });
+    const response = await apiFetch('/api/admin/users', { method: 'POST', body: JSON.stringify(data) });
     return safeJsonResponse(response);
   },
 
   updateUser: async (id: string, data: UpdateUserData): Promise<User> => {
-    const response = await apiFetch(`/api/admin/users/${id}`, { 
-      method: 'PUT', 
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data) 
-    });
+    const response = await apiFetch(`/api/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(data) });
     return safeJsonResponse(response);
   },
 
@@ -152,13 +140,7 @@ export const adminService = {
   },
 
   updateApplication: async (id: string, status: string) => {
-    const response = await apiFetch(`/api/admin/applications/${id}`, { 
-      method: 'PUT', 
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ status }) 
-    });
+    const response = await apiFetch(`/api/admin/applications/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
     return safeJsonResponse(response);
   },
 
@@ -169,13 +151,7 @@ export const adminService = {
   },
 
   updateJob: async (id: string, data: any) => {
-    const response = await apiFetch(`/api/admin/jobs/${id}`, { 
-      method: 'PUT', 
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data) 
-    });
+    const response = await apiFetch(`/api/admin/jobs/${id}`, { method: 'PUT', body: JSON.stringify(data) });
     return safeJsonResponse(response);
   },
 
@@ -191,13 +167,7 @@ export const adminService = {
   },
 
   updateCompany: async (id: string, data: any) => {
-    const response = await apiFetch(`/api/admin/companies/${id}`, { 
-      method: 'PUT', 
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data) 
-    });
+    const response = await apiFetch(`/api/admin/companies/${id}`, { method: 'PUT', body: JSON.stringify(data) });
     return safeJsonResponse(response);
   },
 
@@ -213,13 +183,7 @@ export const adminService = {
   },
 
   updateApproval: async (id: string, status: string) => {
-    const response = await apiFetch(`/api/admin/approvals/${id}`, { 
-      method: 'PUT', 
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ status }) 
-    });
+    const response = await apiFetch(`/api/admin/approvals/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
     return safeJsonResponse(response);
   },
 

@@ -1,22 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '@/components/theme-provider';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
-  Shield, Users, Building2, Briefcase, TrendingUp, Activity, Settings,
-  LogOut, Moon, Sun, Menu, X, Search, MoreVertical, Eye, Edit,
-  Trash2, CheckCircle, XCircle, AlertCircle, Clock, Mail,
+  Shield, Users, Building2, Briefcase, TrendingUp, Activity, Settings, IndianRupee,
+  LogOut, Moon, Sun, Menu, X, Search, MoreVertical, Eye, Edit, Link as LinkIcon,
+  Trash2, CheckCircle, XCircle, AlertCircle, Clock, Mail, Phone,
   Calendar, BarChart3, FileText, UserCheck, Pause, Play, Ban, ChevronDown, ArrowRight, Zap, Target, Award, MessageSquare, Bell, Home, DollarSign, TrendingDown
 } from 'lucide-react';
-import { adminService } from '@/lib/admin-service';
+import { adminService, type UpdateUserData } from '@/lib/admin-service';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { useToast } from '@/hooks/use-toast';
 
 const AdminDashboard: React.FC = () => {
-  // use global theme provider so toggling here applies across the app
   const { theme, setTheme } = useTheme();
   const darkMode = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [loading, setLoading] = useState(false);
@@ -24,6 +24,12 @@ const AdminDashboard: React.FC = () => {
   const [recentUsers, setRecentUsers] = useState<any[]>([]);
   const [recentJobs, setRecentJobs] = useState<any[]>([]);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const [userToEdit, setUserToEdit] = useState<any | null>(null);
+  const [userToDelete, setUserToDelete] = useState<any | null>(null);
+  const [selectedJob, setSelectedJob] = useState<any | null>(null);
+
+  const { toast } = useToast();
 
   const admin = {
     name: 'Admin User',
@@ -81,6 +87,114 @@ const AdminDashboard: React.FC = () => {
     setMessagesList(items);
   };
 
+  const loadUsers = async () => {
+    try {
+      const usersData = await adminService.getUsers();
+      setRecentUsers((usersData || []).slice(0, 5));
+    } catch (error) {
+      console.error("Failed to reload users", error);
+      toast({ title: "Error", description: "Could not refresh user list.", variant: "destructive" });
+    }
+  };
+
+  const loadJobs = async () => {
+    try {
+      const jobsData = await adminService.getJobs();
+      setRecentJobs((jobsData || []).slice(0, 5));
+    } catch (error) {
+      console.error("Failed to reload jobs", error);
+      toast({ title: "Error", description: "Could not refresh job list.", variant: "destructive" });
+    }
+  };
+
+  const handleViewUser = async (user: any) => {
+    try {
+      // Fetch complete user details from backend
+      const userDetails = await adminService.getUserById(user.id);
+      setSelectedUser(userDetails);
+    } catch (error) {
+      console.error("Failed to fetch user details:", error);
+      toast({ title: "Error", description: "Failed to load user details.", variant: "destructive" });
+    }
+  };
+
+  const handleEditUser = (user: any) => {
+    setUserToEdit(user);
+  };
+
+  const handleDeleteUserClick = (user: any) => {
+    setUserToDelete(user);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userToEdit) return;
+
+    const updatedData: UpdateUserData = {
+      firstName: userToEdit.firstName,
+      lastName: userToEdit.lastName,
+      email: userToEdit.email,
+      location: userToEdit.location,
+    };
+
+    try {
+      await adminService.updateUser(userToEdit.id, updatedData);
+      toast({ title: "Success", description: "User updated successfully." });
+      setUserToEdit(null);
+      loadUsers();
+    } catch (error) {
+      console.error("Failed to update user:", error);
+      toast({ title: "Error", description: "Failed to update user.", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    try {
+      await adminService.deleteUser(userToDelete.id);
+      toast({ title: "Success", description: "User deleted successfully." });
+      setUserToDelete(null);
+      loadUsers();
+    } catch (error) {
+      console.error("Failed to delete user:", error);
+      toast({ title: "Error", description: "Failed to delete user.", variant: "destructive" });
+    }
+  };
+
+  const handleViewJob = async (job: any) => {
+    try {
+      // Fetch complete job details from backend
+      const jobDetails = await adminService.getJobById(job.id);
+      setSelectedJob(jobDetails);
+    } catch (error) {
+      console.error("Failed to fetch job details:", error);
+      toast({ title: "Error", description: "Failed to load job details.", variant: "destructive" });
+    }
+  };
+
+  const handleToggleJobStatus = async (job: any) => {
+    try {
+      const newStatus = job.status === 'active' ? 'paused' : 'active';
+      await adminService.updateJobStatus(job.id, newStatus);
+      toast({ title: "Success", description: `Job ${newStatus === 'active' ? 'activated' : 'paused'} successfully.` });
+      loadJobs();
+    } catch (error) {
+      console.error("Failed to update job status:", error);
+      toast({ title: "Error", description: "Failed to update job status.", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteJob = async (job: any) => {
+    try {
+      await adminService.deleteJob(job.id);
+      toast({ title: "Success", description: "Job deleted successfully." });
+      loadJobs();
+    } catch (error) {
+      console.error("Failed to delete job:", error);
+      toast({ title: "Error", description: "Failed to delete job.", variant: "destructive" });
+    }
+  };
+
   // initialize a few items on mount
   useEffect(() => {
     generateNotifications();
@@ -97,13 +211,36 @@ const AdminDashboard: React.FC = () => {
           adminService.getApprovals() // Fetch pending approvals
         ]);
         const pendingApprovalsCount = approvalsData?.length || 0;
+
+        // Process data for Recent Activity feed
+        const newUsersActivity = (usersData || [])
+          .slice(0, 2)
+          .map(user => ({
+            type: 'user',
+            action: `New user registered: ${user.firstName} ${user.lastName}`,
+            user: user.email,
+            time: new Date(user.createdAt).toLocaleDateString(),
+            id: `user-${user.id}`
+          }));
+
+        const newJobsActivity = (jobsData || [])
+          .slice(0, 2)
+          .map((job: any) => ({
+            type: 'job',
+            action: `New job posted: ${job.title}`,
+            user: job.company?.name || 'N/A',
+            time: new Date(job.createdAt).toLocaleDateString(),
+            id: `job-${job.id}`
+          }));
+
+        const combinedActivity = [...newUsersActivity, ...newJobsActivity].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+
         setStats({ ...(statsData || {}), pendingApprovals: pendingApprovalsCount });
         setRecentUsers((usersData || []).slice(0, 5));
         setRecentJobs((jobsData || []).slice(0, 5));
-        setRecentActivity(activityData || []);
+        setRecentActivity(combinedActivity.slice(0, 4));
       } catch (error) {
         console.error("Failed to fetch admin data", error);
-        // Keep using mock data on error for now, or show an error state
       } finally {
         setLoading(false);
       }
@@ -113,25 +250,8 @@ const AdminDashboard: React.FC = () => {
 
   // Sync activeTab with route when location changes (keeps sidebar highlighted)
   React.useEffect(() => {
-    if (location.pathname === '/admin' || location.pathname === '/admin/') {
-      setActiveTab('overview');
-    } else if (location.pathname.startsWith('/admin/settings')) {
-      setActiveTab('settings');
-    } else if (location.pathname.startsWith('/admin/users')) {
-      setActiveTab('users');
-    } else if (location.pathname.startsWith('/admin/companies')) {
-      setActiveTab('employers');
-    } else if (location.pathname.startsWith('/admin/employees')) {
-      setActiveTab('employees');
-    } else if (location.pathname.startsWith('/admin/jobs')) {
-      setActiveTab('jobs');
-    } else if (location.pathname.startsWith('/admin/applications')) {
-      setActiveTab('applications');
-    } else if (location.pathname.startsWith('/admin/approvals')) {
-      setActiveTab('approvals');
-    } else if (location.pathname.startsWith('/admin/analytics')) {
-      setActiveTab('analytics');
-    }
+    const path = location.pathname.split('/admin/')[1] || 'dashboard';
+    setActiveTab(path);
   }, [location.pathname]);
 
   const handleLogout = async () => {
@@ -140,26 +260,14 @@ const AdminDashboard: React.FC = () => {
     } catch (e) {
       console.warn('Logout failed:', e);
     }
-    navigate('/', { replace: true });
+    navigate('/login', { replace: true });
   };
 
   const NavItem = ({ icon: Icon, label, id, badge }: any) => (
     <button
       onClick={() => {
         setActiveTab(id);
-        // map sidebar ids to admin routes
-        const routeMap: Record<string, string> = {
-          overview: '/admin',
-          users: '/admin/users',
-          employers: '/admin/companies',
-          employees: '/admin/employees',
-          jobs: '/admin/jobs',
-          applications: '/admin/applications',
-          approvals: '/admin/approvals',
-          analytics: '/admin/analytics',
-          settings: '/admin/settings',
-        };
-        const to = routeMap[id] || '/admin';
+        const to = id === 'dashboard' ? '/admin' : `/admin/${id}`;
         navigate(to);
       }}
       className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all group ${
@@ -202,7 +310,7 @@ const AdminDashboard: React.FC = () => {
       },
       paused: { 
         color: darkMode ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-blue-50 text-blue-700 border-blue-200', 
-        icon: Pause 
+        icon: Pause
       },
       closed: { 
         color: darkMode ? 'bg-gray-500/20 text-gray-400 border-gray-500/30' : 'bg-gray-50 text-gray-700 border-gray-200', 
@@ -216,7 +324,7 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800' : 'bg-gradient-to-br from-gray-50 via-white to-gray-100'}`}>
+      <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
         {/* Top Navbar */}
         <nav className={`${darkMode ? 'bg-gray-800/80 border-gray-700' : 'bg-white/80 border-gray-200'} border-b fixed top-0 left-0 right-0 z-50 backdrop-blur-xl`}>
           <div className="px-6 py-4">
@@ -383,13 +491,13 @@ const AdminDashboard: React.FC = () => {
                   Navigation
                 </h3>
                 <div className="space-y-1.5">
-                  <NavItem icon={Home} label="Overview" id="overview" />
+                  <NavItem icon={Home} label="Dashboard" id="dashboard" />
                   <NavItem icon={Users} label="User Management" id="users" badge={stats.newUsersThisWeek} />
-                  <NavItem icon={Building2} label="Employers" id="employers" />
+                  <NavItem icon={Building2} label="Companies" id="companies" />
                   <NavItem icon={UserCheck} label="Employees" id="employees" />
                   <NavItem icon={Briefcase} label="Job Postings" id="jobs" badge={stats.newJobsThisWeek} />
                   <NavItem icon={FileText} label="Applications" id="applications" />
-                  <NavItem icon={AlertCircle} label="Pending Approvals" id="approvals" badge={stats.pendingApprovals} />
+                  <NavItem icon={AlertCircle} label="Approvals" id="approvals" badge={stats.pendingApprovals} />
                   <NavItem icon={BarChart3} label="Analytics" id="analytics" />
                   <NavItem icon={Settings} label="System Settings" id="settings" />
                 </div>
@@ -434,10 +542,10 @@ const AdminDashboard: React.FC = () => {
           </aside>
 
           {/* Main Content */}
-          <main className="flex-1 p-8 overflow-auto h-[calc(100vh-5rem)]">
+          <main className={`flex-1 p-8 overflow-auto h-[calc(100vh-5rem)] transition-all duration-300 ${sidebarOpen ? 'lg:ml-80' : 'ml-0'}`}>
             <div className="max-w-[1600px] mx-auto space-y-8">
               {/* Header with Welcome Message */}
-              <div className={`rounded-2xl p-6 shadow-lg ${darkMode ? 'bg-gradient-to-r from-gray-800 to-gray-700 border border-gray-700' : 'bg-gradient-to-r from-white to-gray-50 border border-gray-200'}`}>
+              <div className={`rounded-2xl p-6 shadow-lg ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                 <div className="flex items-center justify-between flex-wrap gap-4">
                   <div>
                     <h1 className={`text-3xl font-bold mb-2 bg-gradient-to-r ${darkMode ? 'from-white to-gray-300' : 'from-gray-900 to-gray-700'} bg-clip-text text-transparent`}>
@@ -466,7 +574,7 @@ const AdminDashboard: React.FC = () => {
               {/* Stats Cards - Enhanced */}
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                 <div className={`rounded-2xl border p-6 hover:shadow-2xl transition-all group cursor-pointer relative overflow-hidden ${
-                  darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                  darkMode ? 'bg-gray-800 border-gray-700 hover:border-blue-500' : 'bg-white border-gray-200 hover:border-blue-300'
                 }`}>
                   <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-transparent rounded-full -mr-16 -mt-16"></div>
                   <div className="relative z-10">
@@ -492,7 +600,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
 
                 <div className={`rounded-2xl border p-6 hover:shadow-2xl transition-all group cursor-pointer relative overflow-hidden ${
-                  darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                  darkMode ? 'bg-gray-800 border-gray-700 hover:border-green-500' : 'bg-white border-gray-200 hover:border-green-300'
                 }`}>
                   <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-500/10 to-transparent rounded-full -mr-16 -mt-16"></div>
                   <div className="relative z-10">
@@ -518,7 +626,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
 
                 <div className={`rounded-2xl border p-6 hover:shadow-2xl transition-all group cursor-pointer relative overflow-hidden ${
-                  darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                  darkMode ? 'bg-gray-800 border-gray-700 hover:border-amber-500' : 'bg-white border-gray-200 hover:border-amber-300'
                 }`}>
                   <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-500/10 to-transparent rounded-full -mr-16 -mt-16"></div>
                   <div className="relative z-10">
@@ -544,7 +652,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
 
                 <div className={`rounded-2xl border p-6 hover:shadow-2xl transition-all group cursor-pointer relative overflow-hidden ${
-                  darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                  darkMode ? 'bg-gray-800 border-gray-700 hover:border-red-500' : 'bg-white border-gray-200 hover:border-red-300'
                 }`}>
                   <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-red-500/10 to-transparent rounded-full -mr-16 -mt-16"></div>
                   <div className="relative z-10">
@@ -626,25 +734,34 @@ const AdminDashboard: React.FC = () => {
                             </span>
                             
                             <div className="flex items-center gap-2">
-                              <button className={`p-2 rounded-lg transition-all ${
-                                darkMode 
-                                  ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-200' 
-                                  : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
-                              }`}>
+                              <button 
+                                onClick={() => handleViewUser(user)}
+                                className={`p-2 rounded-lg transition-all ${
+                                  darkMode 
+                                    ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-200' 
+                                    : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
+                                }`}
+                              >
                                 <Eye className="w-4 h-4" />
                               </button>
-                              <button className={`p-2 rounded-lg transition-all ${
-                                darkMode 
-                                  ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-200' 
-                                  : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
-                              }`}>
+                              <button 
+                                onClick={() => handleEditUser(user)}
+                                className={`p-2 rounded-lg transition-all ${
+                                  darkMode 
+                                    ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-200' 
+                                    : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
+                                }`}
+                              >
                                 <Edit className="w-4 h-4" />
                               </button>
-                              <button className={`p-2 rounded-lg transition-all ${
-                                darkMode 
-                                  ? 'hover:bg-red-500/10 text-red-400 hover:text-red-300' 
-                                  : 'hover:bg-red-50 text-red-600 hover:text-red-700'
-                              }`}>
+                              <button 
+                                onClick={() => handleDeleteUserClick(user)}
+                                className={`p-2 rounded-lg transition-all ${
+                                  darkMode 
+                                    ? 'hover:bg-red-500/10 text-red-400 hover:text-red-300' 
+                                    : 'hover:bg-red-50 text-red-600 hover:text-red-700'
+                                }`}
+                              >
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
@@ -664,8 +781,8 @@ const AdminDashboard: React.FC = () => {
                     </h2>
                     
                     <div className="space-y-4">
-                      {recentActivity.slice(0, 3).map((activity: any, index: number) => (
-                        <div key={index} className="flex items-start gap-3">
+                      {recentActivity.map((activity: any) => (
+                        <div key={activity.id} className="flex items-start gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center mt-1 ${
                             activity.type === 'user' 
                               ? 'bg-blue-500/20 text-blue-500' 
@@ -802,7 +919,7 @@ const AdminDashboard: React.FC = () => {
                       <tr className={`border-b ${
                         darkMode ? 'border-gray-700' : 'border-gray-200'
                       }`}>
-                        <th className={`text-left py-4 px-4 font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        <th className={`text-left py-4 px-4 font-semibold text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                           Job Title
                         </th>
                         <th className={`text-left py-4 px-4 font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -856,31 +973,40 @@ const AdminDashboard: React.FC = () => {
                               </p>
                             </td>
                             <td className="py-4 px-4">
-                              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                {job.postedDate || 'N/A'}
+                              <p className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {new Date(job.createdAt).toLocaleDateString()}
                               </p>
                             </td>
                             <td className="py-4 px-4">
-                              <div className="flex items-center gap-2">
-                                <button className={`p-2 rounded-lg transition-all ${
-                                  darkMode 
-                                    ? 'hover:bg-gray-600 text-gray-400 hover:text-gray-200' 
-                                    : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
-                                }`}>
+                              <div className="flex items-center gap-1">
+                                <button 
+                                  onClick={() => handleViewJob(job)} 
+                                  className={`p-2 rounded-lg transition-all ${
+                                    darkMode 
+                                      ? 'hover:bg-gray-600 text-gray-400 hover:text-gray-200' 
+                                      : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
+                                  }`}
+                                >
                                   <Eye className="w-4 h-4" />
                                 </button>
-                                <button className={`p-2 rounded-lg transition-all ${
-                                  jobStatus === 'active' 
-                                    ? 'text-amber-500 hover:bg-amber-500/10' 
-                                    : 'text-emerald-500 hover:bg-emerald-500/10'
-                                }`}>
+                                <button 
+                                  onClick={() => handleToggleJobStatus(job)}
+                                  className={`p-2 rounded-lg transition-all ${
+                                    jobStatus === 'active' 
+                                      ? 'text-amber-500 hover:bg-amber-500/10' 
+                                      : 'text-emerald-500 hover:bg-emerald-500/10'
+                                  }`}
+                                >
                                   {jobStatus === 'active' ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                                 </button>
-                                <button className={`p-2 rounded-lg transition-all ${
-                                  darkMode 
-                                    ? 'hover:bg-red-500/10 text-red-400 hover:text-red-300' 
-                                    : 'hover:bg-red-50 text-red-600 hover:text-red-700'
-                                }`}>
+                                <button 
+                                  onClick={() => handleDeleteJob(job)}
+                                  className={`p-2 rounded-lg transition-all ${
+                                    darkMode 
+                                      ? 'hover:bg-red-500/10 text-red-400 hover:text-red-300' 
+                                      : 'hover:bg-red-50 text-red-600 hover:text-red-700'
+                                  }`}
+                                >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
@@ -895,6 +1021,183 @@ const AdminDashboard: React.FC = () => {
             </div>
           </main>
         </div>
+
+        {/* Job Detail Modal */}
+        {selectedJob && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-8">
+            <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'} rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto`}>
+              <div className="p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>Job Details</h2>
+                  <button onClick={() => setSelectedJob(null)} className={`p-2 rounded-xl transition-all ${darkMode ? 'hover:bg-gray-700 text-gray-500' : 'hover:bg-gray-100 text-gray-400'}`}>
+                    <XCircle className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="space-y-6">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg bg-gradient-to-br from-blue-500 to-indigo-600`}>
+                      {selectedJob.company?.name?.substring(0, 2).toUpperCase() || 'NA'}
+                    </div>
+                    <div>
+                      <h3 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{selectedJob.title}</h3>
+                      <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>{selectedJob.company?.name || 'N/A'}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className={`p-4 rounded-2xl ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                      <p className={`text-sm font-bold ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>LOCATION</p>
+                      <p className={`text-lg font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{selectedJob.location}</p>
+                    </div>
+                    <div className={`p-4 rounded-2xl ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                      <p className={`text-sm font-bold ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>JOB TYPE</p>
+                      <p className={`text-lg font-black ${darkMode ? 'text-white' : 'text-gray-900'} capitalize`}>{selectedJob.jobType}</p>
+                    </div>
+                    <div className={`p-4 rounded-2xl ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                      <p className={`text-sm font-bold ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>SALARY</p>
+                      <p className={`text-lg font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                        {selectedJob.salaryMin && selectedJob.salaryMax ? `₹${selectedJob.salaryMin/1000}k - ₹${selectedJob.salaryMax/1000}k` : 'Not specified'}
+                      </p>
+                    </div>
+                    <div className={`p-4 rounded-2xl ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                      <p className={`text-sm font-bold ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>APPLICATIONS</p>
+                      <p className={`text-lg font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{selectedJob.applications || 0}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className={`text-sm font-bold ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-2`}>DESCRIPTION</p>
+                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{selectedJob.description}</p>
+                  </div>
+                  <div>
+                    <p className={`text-sm font-bold ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-2`}>REQUIREMENTS</p>
+                    <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{selectedJob.requirements}</p>
+                  </div>
+                  <div className="flex gap-4 pt-4">
+                    <button className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-lg transition-all">
+                      <LinkIcon className="w-5 h-5" />
+                      View Public Page
+                    </button>
+                    <button className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold transition-all ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>
+                      <Edit className="w-5 h-5" />
+                      Edit Job
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* User Detail Modal */}
+        {selectedUser && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-8">
+            <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'} rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto`}>
+              <div className="p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>User Profile</h2>
+                  <button onClick={() => setSelectedUser(null)} className={`p-2 rounded-xl transition-all ${darkMode ? 'hover:bg-gray-700 text-gray-500' : 'hover:bg-gray-100 text-gray-400'}`}>
+                    <XCircle className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="space-y-6">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg ${selectedUser.userType === 'Professional' ? 'bg-gradient-to-br from-green-500 to-emerald-600' : 'bg-gradient-to-br from-purple-500 to-pink-600'}`}>
+                      {selectedUser.firstName.substring(0, 1).toUpperCase()}{selectedUser.lastName.substring(0, 1).toUpperCase()}
+                    </div>
+                    <div>
+                      <h3 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{selectedUser.firstName} {selectedUser.lastName}</h3>
+                      <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>{selectedUser.email}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className={`p-4 rounded-2xl ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                      <p className={`text-sm font-bold ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>TYPE</p>
+                      <p className={`text-lg font-black ${darkMode ? 'text-white' : 'text-gray-900'} capitalize`}>{selectedUser.userType}</p>
+                    </div>
+                    <div className={`p-4 rounded-2xl ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                      <p className={`text-sm font-bold ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>STATUS</p>
+                      <p className={`text-lg font-black ${darkMode ? 'text-white' : 'text-gray-900'} capitalize`}>{selectedUser.status || 'active'}</p>
+                    </div>
+                    {selectedUser.location && (
+                      <div className={`p-4 rounded-2xl ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                        <p className={`text-sm font-bold ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>LOCATION</p>
+                        <p className={`text-lg font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{selectedUser.location}</p>
+                      </div>
+                    )}
+                    <div className={`p-4 rounded-2xl ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                      <p className={`text-sm font-bold ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>JOINED</p>
+                      <p className={`text-lg font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{new Date(selectedUser.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit User Modal */}
+        {userToEdit && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-8">
+            <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'} rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto`}>
+              <form onSubmit={handleUpdateUser} className="p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>Edit User</h2>
+                  <button type="button" onClick={() => setUserToEdit(null)} className={`p-2 rounded-xl transition-all ${darkMode ? 'hover:bg-gray-700 text-gray-500' : 'hover:bg-gray-100 text-gray-400'}`}>
+                    <XCircle className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={`block text-sm font-bold mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>First Name</label>
+                      <input value={userToEdit.firstName} onChange={(e) => setUserToEdit({ ...userToEdit, firstName: e.target.value })} className={`w-full px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-all font-medium ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
+                    </div>
+                    <div>
+                      <label className={`block text-sm font-bold mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Last Name</label>
+                      <input value={userToEdit.lastName} onChange={(e) => setUserToEdit({ ...userToEdit, lastName: e.target.value })} className={`w-full px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-all font-medium ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={`block text-sm font-bold mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Email</label>
+                    <input type="email" value={userToEdit.email} onChange={(e) => setUserToEdit({ ...userToEdit, email: e.target.value })} className={`w-full px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-all font-medium ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
+                  </div>
+                  <div>
+                    <label className={`block text-sm font-bold mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Location</label>
+                    <input value={userToEdit.location || ''} onChange={(e) => setUserToEdit({ ...userToEdit, location: e.target.value })} className={`w-full px-4 py-3 rounded-xl focus:border-blue-500 outline-none transition-all font-medium ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200'}`} />
+                  </div>
+                  <div className="flex gap-4 pt-4">
+                    <button type="button" onClick={() => setUserToEdit(null)} className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>Cancel</button>
+                    <button type="submit" className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-lg transition-all">Save Changes</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {userToDelete && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'} rounded-3xl shadow-2xl max-w-md w-full p-8 border-2`}>
+              <div className="text-center">
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-gradient-to-br ${darkMode ? 'from-red-500/20 to-red-900/20' : 'from-red-100 to-red-200'}`}>
+                  <AlertCircle className="w-8 h-8 text-red-500" />
+                </div>
+                <h2 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>Delete User?</h2>
+                <p className={`mt-2 mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Are you sure you want to delete <strong>{userToDelete.firstName} {userToDelete.lastName}</strong>? This action cannot be undone.
+                </p>
+                <div className="flex gap-4">
+                  <button onClick={() => setUserToDelete(null)} className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}>
+                    Cancel
+                  </button>
+                  <button onClick={handleDeleteUser} className="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-xl font-bold hover:shadow-lg transition-all">
+                    Yes, Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </ErrorBoundary>
   );
