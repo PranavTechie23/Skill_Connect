@@ -1,12 +1,21 @@
 import dashboardRouter from "./routes/dashboard";
 import jobsRouter from "./routes/jobs";
-import type { Express } from "express";
+import { type Express, Router } from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { storage } from "./storage";
-import { loginSchema as sharedLoginSchema, registerSchema } from "../../shared/schema";
+import { 
+  loginSchema as sharedLoginSchema, 
+  registerSchema, 
+  type User,
+  type InsertUser,
+  type InsertCompany, 
+  type InsertProfessionalProfile,
+  professionalProfiles,
+  companies
+} from "../../shared/schema";
 import { handleError } from "./utils";
 
 declare module 'express-session' {
@@ -35,17 +44,17 @@ const insertCompanySchema = z.object({
   location: z.string().optional(),
   industry: z.string().optional(),
   size: z.string().optional(),
-  ownerId: z.number().int().positive(),
+  ownerId: z.string(),
 });
 
 const insertMessageSchema = z.object({
-  senderId: z.number().int().positive(),
-  receiverId: z.number().int().positive(),
+  senderId: z.string(),
+  receiverId: z.string(),
   content: z.string().min(1),
 }).required();
 
 const insertExperienceSchema = z.object({
-  userId: z.number().int().positive(),
+  userId: z.string(),
   company: z.string().min(1),
   position: z.string().min(1),
   description: z.string().optional(),
@@ -57,6 +66,8 @@ const insertExperienceSchema = z.object({
 const storySchema = z.object({
   title: z.string().min(1),
   content: z.string().min(1),
+  name: z.string().optional(), // From public form
+  email: z.string().email().optional(), // From public form
   tags: z.array(z.string()).optional(),
 });
 
@@ -94,6 +105,8 @@ const sanitizeUser = (user: any) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Apply session middleware to all routes so req.session is available everywhere.
+  // Public routes can read it, and authenticated routes are still protected by requireAuth.
   app.use(
     session({
       secret: process.env.SESSION_SECRET || 'your-secret-key',
@@ -108,9 +121,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       name: 'skillconnect.sid'
     }) as any
   );
-  
-  // Job routes
-  app.use("/api/jobs", jobsRouter);
 
   // Auth routes
   app.post("/api/auth/register", async (req, res) => {
@@ -131,12 +141,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const hashedPassword = await bcrypt.hash(data.password, 10);
-
-        if (typeof normalizedUserType === 'string') {
-          const s = normalizedUserType.toLowerCase();
-          if (s.includes('pro')) normalizedUserType = 'Professional';
-          else if (s.includes('employ')) normalizedUserType = 'Employer';
-        }
 
         // Convert skills to a string representation
         if (Array.isArray(data.skills)) {
@@ -163,19 +167,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // After user is created, use the returned user.id for subsequent operations
         if (normalizedUserType === 'Employer') {
-          await storage.createCompany({
+          const newCompany = {
             name: data.companyName || `${data.firstName}'s Company`,
-            description: data.companyBio,
-            website: data.companyWebsite,
-            ownerId: user.id, // Use the user ID directly (should be string)
-          });
+            description: data.companyBio || null,
+            website: data.companyWebsite || null,
+            location: null,
+            size: null,
+            industry: null,
+            logo: null,
+            ownerId: user.id
+          } as const;
+
+          await storage.createCompany(newCompany as unknown as InsertCompany);
         } else if (normalizedUserType === 'Professional') {
-          await storage.createProfessionalProfile({
-            userId: user.id, // Use the user ID directly (should be string)
-            headline: data.title || "", // Use title if provided
-            bio: data.bio || "", // Use bio if provided
-            skills: skillsArr || [] // Use skills array
-          });
+          // Create a professional profile
+          const newProfile = {
+            userId: user.id,
+            headline: data.title || null,
+            bio: data.bio || null,
+            skills: skillsArr || []
+          } as const;
+
+          await storage.createProfessionalProfile(newProfile as unknown as InsertProfessionalProfile);
+          
+
         }
 
       } catch (dbErr: any) {
@@ -228,6 +243,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: 'Admin',
           lastName: 'User',
           userType: 'admin',
+          createdAt: new Date(),
+          password: '', // Add required field for sanitization
         };
         req.session.userId = adminUser.id;
         return res.json({ user: sanitizeUser(adminUser) });
@@ -311,7 +328,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/logout", (req, res) => {
+  // Stories routes (Public)
+  app.post("/api/stories", async (req, res) => {
+    try {
+      console.log('Received story submission:', req.body);
+      const data = storySchema.parse(req.body);
+      const story = await storage.createStory({
+        title: data.title,
+        content: data.content,
+        tags: data.tags || [], // Already an array from frontend
+        submitterName: data.name,
+        submitterEmail: data.email,
+        authorId: req.session?.userId ? String(req.session.userId) : null,
+        createdAt: new Date()
+      });
+      res.json({ success: true, story });
+    } catch (error) {
+      console.error('Story submission error:', error);
+      handleError(res, error, "Failed to submit story");
+    }
+  });
+
+  app.get("/api/stories", async (req, res) => {
+    try {
+      const stories = await storage.getStories();
+      res.json(stories);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch stories");
+    }
+  });
+
+  // --- Authenticated Routes ---
+  const authRouter = Router();
+
+  // Job routes (assuming they might need auth features later)
+  authRouter.use("/jobs", jobsRouter);
+
+  // Logout
+  authRouter.post("/auth/logout", (req, res) => {
     req.session.destroy((err) => {
       if (err) {
         return res.status(500).json({ message: "Logout failed" });
@@ -320,7 +374,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  app.get("/api/auth/me", requireAuth, async (req, res) => {
+  // Get current user
+  authRouter.get("/auth/me", requireAuth, async (req, res) => {
     try {
       const user = await storage.getUser(req.session.userId);
       if (!user) {
@@ -353,7 +408,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/me/profile", requireAuth, async (req, res) => {
+  // Update current user profile
+  authRouter.put("/me/profile", requireAuth, async (req, res) => {
     try {
         const user = await storage.getUser(req.session.userId);
         if (!user) {
@@ -377,7 +433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User routes
-  app.get("/api/users/:id", async (req, res) => {
+  authRouter.get("/users/:id", requireAuth, async (req, res) => {
     try {
       const user = await storage.getUser(req.params.id);
       if (!user) {
@@ -389,7 +445,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/users/:id", requireAuth, async (req, res) => {
+  authRouter.put("/users/:id", requireAuth, async (req, res) => {
     try {
       if (req.params.id !== req.session.userId) {
         return res.status(403).json({ message: "Not authorized to update this user" });
@@ -408,7 +464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Company routes
-  app.get("/api/companies", async (req, res) => {
+  authRouter.get("/companies", requireAuth, async (req, res) => {
     try {
       const ownerId = req.query.ownerId as string;
       const companies = ownerId 
@@ -420,7 +476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/companies", requireAuth, async (req, res) => {
+  authRouter.post("/companies", requireAuth, async (req, res) => {
     try {
       const data = insertCompanySchema.parse(req.body);
 
@@ -445,7 +501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/companies/:id", async (req, res) => {
+  authRouter.get("/companies/:id", requireAuth, async (req, res) => {
     try {
       const company = await storage.getCompany(req.params.id);
       if (!company) {
@@ -458,7 +514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Application routes
-  app.get("/api/applications", requireAuth, async (req, res) => {
+  authRouter.get("/applications", requireAuth, async (req, res) => {
     try {
       const applicantId = req.query.applicantId as string;
       const jobId = req.query.jobId as string;
@@ -498,7 +554,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             app.applicantId ? storage.getUser(app.applicantId) : null,
           ]);
           
-          const company = job?.companyId ? await storage.getCompany(job.companyId) : null;
+          const company = job?.companyId ? await storage.getCompany(String(job.companyId)) : null;
           
           return {
             ...app,
@@ -515,7 +571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/applications", requireAuth, async (req, res) => {
+  authRouter.post("/applications", requireAuth, async (req, res) => {
     try {
       const data = {
         ...req.body,
@@ -536,7 +592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/applications/:id", requireAuth, async (req, res) => {
+  authRouter.put("/applications/:id", requireAuth, async (req, res) => {
     try {
       const application = await storage.getApplication(req.params.id);
       if (!application) {
@@ -558,7 +614,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Message routes
-  app.get("/api/messages", requireAuth, async (req, res) => {
+  authRouter.get("/messages", requireAuth, async (req, res) => {
     try {
       const userId = req.session.userId;
       const otherUserId = req.query.otherUserId as string;
@@ -575,7 +631,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/messages", requireAuth, async (req, res) => {
+  authRouter.post("/messages", requireAuth, async (req, res) => {
     try {
       const data = insertMessageSchema.parse(req.body);
 
@@ -596,7 +652,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/messages/:id/read", requireAuth, async (req, res) => {
+  authRouter.put("/messages/:id/read", requireAuth, async (req, res) => {
     try {
       const message = await storage.getMessage(req.params.id);
       if (!message) {
@@ -615,7 +671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Experience routes
-  app.get("/api/experiences", async (req, res) => {
+  authRouter.get("/experiences", requireAuth, async (req, res) => {
     try {
       const userId = req.query.userId as string;
       if (!userId) {
@@ -629,7 +685,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/experiences", requireAuth, async (req, res) => {
+  authRouter.post("/experiences", requireAuth, async (req, res) => {
     try {
       const validatedData = insertExperienceSchema.parse(req.body);
       
@@ -654,7 +710,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/experiences/:id", requireAuth, async (req, res) => {
+  authRouter.put("/experiences/:id", requireAuth, async (req, res) => {
     try {
       const experience = await storage.getExperience(req.params.id);
       if (!experience) {
@@ -672,7 +728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/experiences/:id", requireAuth, async (req, res) => {
+  authRouter.delete("/experiences/:id", requireAuth, async (req, res) => {
     try {
       const experience = await storage.getExperience(req.params.id);
       if (!experience) {
@@ -690,31 +746,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Stories routes
-  app.post("/api/stories", requireAuth, async (req, res) => {
-    try {
-      const data = storySchema.parse(req.body);
-      const story = await storage.createStory({
-        title: data.title,
-        content: data.content,
-        tags: data.tags || [],
-        authorId: Number(req.session.userId),
-        createdAt: new Date()
-      });
-      res.json({ success: true, story });
-    } catch (error) {
-      handleError(res, error, "Failed to submit story");
-    }
-  });
-
-  app.get("/api/stories", async (req, res) => {
-    try {
-      const stories = await storage.getStories();
-      res.json(stories);
-    } catch (error) {
-      handleError(res, error, "Failed to fetch stories");
-    }
-  });
+  // Mount the authenticated router
+  app.use("/api", authRouter);
 
   // Debug route
   app.get("/api/debug/storage", async (req, res) => {
@@ -784,13 +817,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: z.string().min(6),
         firstName: z.string().min(1),
         lastName: z.string().min(1),
-        userType: z.enum(['Professional', 'Employer', 'admin', 'job_seeker', 'employer', 'professional']),
+        userType: z.enum(['Professional', 'Employer', 'admin']),
         location: z.string().optional(),
         title: z.string().optional(), // For professionals
         confirmPassword: z.string().optional(), // Added to allow frontend to send it without validation error
       });
 
-      console.log('AdminCreateUserSchema userType options at runtime:', adminCreateUserSchema.shape.userType._def.options);
+      console.log('AdminCreateUserSchema userType options at runtime:', adminCreateUserSchema.shape.userType._def.values);
       const data = adminCreateUserSchema.parse(req.body);
       
       const existingUser = await storage.getUserByEmail(data.email);
@@ -802,46 +835,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Normalize userType to 'Professional' or 'Employer' for database consistency
       let normalizedUserType: 'Professional' | 'Employer' | 'admin';
-      if (data.userType === 'job_seeker' || data.userType === 'professional') {
+      if (data.userType === 'Professional') {
         normalizedUserType = 'Professional';
-      } else if (data.userType === 'employer') {
+      } else if (data.userType === 'Employer') {
         normalizedUserType = 'Employer';
       } else {
         normalizedUserType = data.userType;
       }
 
-      const userPayload: any = {
+      const user = await storage.createUser({
         email: data.email,
         password: hashedPassword,
         firstName: data.firstName,
         lastName: data.lastName,
-        userType: normalizedUserType, // Use the normalized type for storage
-        location: data.location || null, // Ensure optional fields are null if not provided
-        profilePhoto: null, // Explicitly set to null as it's not provided by admin form
-        telephoneNumber: null, // Explicitly set to null as it's not provided by admin form
-      };
-
-      const user = await storage.createUser(userPayload);
+        userType: normalizedUserType,
+        location: data.location || null,
+        profilePhoto: null,
+        telephoneNumber: null
+      } as unknown as InsertUser);
 
       // Create associated profile or company
       if (normalizedUserType === 'Employer') {
         await storage.createCompany({
-          name: `${data.firstName}'s Company`, // Default company name
-          description: null, // Explicitly set optional fields to null
+          name: `${data.firstName}'s Company`,
+          description: null,
           website: null,
           location: null,
           industry: null,
           size: null,
           ownerId: user.id,
-          logo: null, // Explicitly set optional fields to null
-        });
+        } as unknown as InsertCompany);
       } else if (normalizedUserType === 'Professional') {
         await storage.createProfessionalProfile({
           userId: user.id,
-          headline: data.title || null, // Ensure optional fields are null if not provided
-          bio: null, // Explicitly set optional fields to null
-          skills: [], // Start with empty skills
-        });
+          headline: data.title || null,
+          bio: null,
+          skills: []
+        } as unknown as InsertProfessionalProfile);
       }
       
       res.status(201).json(sanitizeUser(user));

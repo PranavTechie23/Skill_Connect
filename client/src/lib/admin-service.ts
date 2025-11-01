@@ -58,7 +58,7 @@ export interface CreateUserData {
   password: string;
   firstName: string;
   lastName: string;
-  userType: 'job_seeker' | 'employer' | 'admin';
+  userType: 'Professional' | 'Employer' | 'admin';
   location?: string;
   title?: string;
   bio?: string;

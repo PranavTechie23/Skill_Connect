@@ -17,7 +17,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
-type Role = "employee" | "employer";
+type Role = "Professional" | "Employer";
 
 const baseSchema = z.object({
   email: z.string().email("Please enter a valid email."),
@@ -25,7 +25,7 @@ const baseSchema = z.object({
   confirmPassword: z.string().min(6, "Please confirm your password."),
   firstName: z.string().min(1, "First name is required."),
   lastName: z.string().min(1, "Last name is required."),
-  userType: z.enum(["employee", "employer"]),
+  userType: z.enum(["Professional", "Employer"]),
 });
 
 const employeeSchema = baseSchema.extend({
@@ -73,7 +73,7 @@ export default function Signup() {
       confirmPassword: "",
       firstName: "",
       lastName: "",
-      userType: "employee",
+      userType: "Professional",
     },
     mode: "onChange",
   });
@@ -99,8 +99,13 @@ export default function Signup() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email }),
           });
-          const data = await res.json();
-          if (!res.ok || data.exists) {
+          let data: { exists?: boolean } = {};
+          try {
+            data = await res.json();
+          } catch (err) {
+            console.warn("Failed to parse email check response:", err);
+          }
+          if (!res.ok || data?.exists) {
             setEmailError("This email is already in use.");
             form.setError("email", { type: "manual", message: "This email is already in use." });
           } else {
@@ -142,7 +147,7 @@ export default function Signup() {
     const fieldsToValidate: (keyof SignupFormData)[][] = [
         ["email", "password", "confirmPassword"],
         ["firstName", "lastName", "userType"],
-        form.getValues("userType") === "employer"
+        form.getValues("userType") === "Employer"
           ? ["companyName", "location", "telephoneNumber"] as (keyof SignupFormData)[]
           : [],
       ];
@@ -157,8 +162,7 @@ export default function Signup() {
 
   // map local role to backend userType
   const mapUserType = (r: Role): "Professional" | "Employer" => {
-    if (r === "employee") return "Professional";
-    return "Employer";
+    return r; // No need to map anymore since we're using the same values
   };
 
   // --- handle submit (re-validate, prevent double submits, defensive JSON parsing)
@@ -174,12 +178,12 @@ export default function Signup() {
         lastName: data.lastName.trim(),
         userType: mapUserType(data.userType),
         location: data.location?.trim() || undefined,
-        ...(data.userType === 'employee' && {
+        ...(data.userType === 'Professional' && {
           title: 'title' in data ? data.title?.trim() || undefined : undefined,
           bio: 'bio' in data ? data.bio?.trim() || undefined : undefined,
           skills: 'skills' in data && data.skills ? data.skills.split(",").map(s => s.trim()).filter(Boolean) : [],
         }),
-        ...(data.userType === 'employer' && {
+        ...(data.userType === 'Employer' && {
           companyName: 'companyName' in data ? data.companyName?.trim() || undefined : undefined,
           companyWebsite: 'companyWebsite' in data ? data.companyWebsite?.trim() || undefined : undefined,
           companyBio: 'companyBio' in data ? data.companyBio?.trim() || undefined : undefined,
@@ -257,9 +261,9 @@ export default function Signup() {
 
   const getUserTypeIcon = (type: Role) => {
     switch (type) {
-      case 'employee':
+      case 'Professional':
         return <UserIcon className="h-5 w-5 text-blue-600" />;
-      case 'employer':
+      case 'Employer':
         return <Building className="h-5 w-5 text-green-600" />;
       default:
         return <UserIcon className="h-5 w-5" />;
@@ -268,9 +272,9 @@ export default function Signup() {
 
   const getUserTypeDescription = (type: Role) => {
     switch (type) {
-      case 'employee':
+      case 'Professional':
         return "Find jobs and build your professional profile";
-      case 'employer':
+      case 'Employer':
         return "Post jobs and find talented professionals";
       default:
         return "";
@@ -350,7 +354,7 @@ export default function Signup() {
       <div>
         <Label>I'm signing up as</Label>
         <div className="flex gap-2 mt-2" role="radiogroup" aria-label="User type">
-          {(["employee", "employer"] as const).map(r => {
+          {(["Professional", "Employer"] as const).map(r => {
             const active = form.watch("userType") === r;
             return (
               <button
@@ -360,7 +364,7 @@ export default function Signup() {
                 role="radio"
                 aria-checked={active}
                 aria-pressed={active}
-                aria-label={r === 'employee' ? 'Professional' : 'Employer'}
+                aria-label={r}
                 className={
                   `flex items-center gap-2 px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 transition-colors ` +
                   (active
@@ -371,7 +375,7 @@ export default function Signup() {
                 {getUserTypeIcon(r)}
                 <div className="text-left">
                   <div className={`text-sm font-medium ${active ? 'text-gray-900 dark:text-white' : 'text-gray-900 dark:text-gray-100'}`}>
-                    {r === 'employee' ? 'Professional' : 'Employer'}
+                    {r}
                   </div>
                   <div className="text-xs opacity-80 dark:opacity-80 text-gray-600 dark:text-gray-300">{getUserTypeDescription(r)}</div>
                 </div>
@@ -452,7 +456,7 @@ export default function Signup() {
           <Label>User type</Label>
           <div className="mt-1">{mapUserType(form.getValues("userType"))}</div>
         </div>
-        {form.getValues("userType") === 'employee' ? (
+        {form.getValues("userType") === 'Professional' ? (
           <>
             <div>
               <Label>Location</Label>
@@ -495,7 +499,7 @@ export default function Signup() {
     </div>
   );
 
-  const steps = [Step0, Step1, form.watch("userType") === 'employee' ? Step2Employee : Step2Employer, Step3];
+  const steps = [Step0, Step1, form.watch("userType") === 'Professional' ? Step2Employee : Step2Employer, Step3];
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">

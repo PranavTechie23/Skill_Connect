@@ -4,8 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   Shield, Users, Building2, Briefcase, TrendingUp, Activity, Settings, BookOpen,
-  LogOut, Moon, Sun, Menu, X, Search, MoreVertical, Eye, Edit, Link as LinkIcon,
-  Trash2, CheckCircle, XCircle, AlertCircle, Clock, Mail, Phone,
+  LogOut, Moon, Sun, Menu, Search, MoreVertical, Eye, Edit, Link as LinkIcon,
+  Trash2, CheckCircle, XCircle, AlertCircle, Clock, Mail, Phone, X,
   Calendar, BarChart3, FileText, UserCheck, Pause, Play, Ban, ChevronDown, ArrowRight, Zap, Target, Award, MessageSquare, Bell, Home, DollarSign, TrendingDown
 } from 'lucide-react';
 import { adminService, type UpdateUserData } from '@/lib/admin-service';
@@ -296,7 +296,7 @@ const AdminDashboard: React.FC = () => {
         const to = id === 'dashboard' ? '/admin' : `/admin/${id}`;
         navigate(to);
       }}
-      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all group ${
+      className={`w-full flex items-center justify-between px-5 py-3.5 rounded-xl transition-all group ${
         activeTab === id
           ? darkMode
             ? 'bg-gradient-to-r from-red-500/20 to-rose-500/20 text-red-400 shadow-lg shadow-red-500/10'
@@ -306,12 +306,12 @@ const AdminDashboard: React.FC = () => {
           : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
       }`}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         <Icon className="w-5 h-5" />
         <span className="font-medium">{label}</span>
       </div>
       {badge && (
-        <span className={`px-2.5 py-1 rounded-full text-xs font-bold shadow-md ${
+        <span className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-md ${
           darkMode ? 'bg-gradient-to-r from-red-500 to-rose-500 text-white' : 'bg-gradient-to-r from-red-600 to-rose-600 text-white'
         }`}>
           {badge}
@@ -353,18 +353,18 @@ const AdminDashboard: React.FC = () => {
       <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
         {/* Top Navbar */}
         <nav className={`${darkMode ? 'bg-gray-800/80 border-gray-700' : 'bg-white/80 border-gray-200'} border-b fixed top-0 left-0 right-0 z-50 backdrop-blur-xl`}>
-          <div className="px-6 py-4">
+          <div className="px-8 py-5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-6">
                 <button
                   onClick={() => setSidebarOpen(!sidebarOpen)}
-                  className={`p-2.5 rounded-xl transition-all ${darkMode ? 'hover:bg-gray-700 text-gray-300 hover:shadow-lg' : 'hover:bg-gray-100 text-gray-600'}`}
+                  className={`p-3 rounded-xl transition-all ${darkMode ? 'hover:bg-gray-700 text-gray-300 hover:shadow-lg' : 'hover:bg-gray-100 text-gray-600'}`}
                 >
                   {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                 </button>
                 
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 bg-gradient-to-br from-red-500 via-rose-500 to-pink-600 rounded-xl flex items-center justify-center text-white shadow-xl shadow-red-500/30 relative overflow-hidden">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-red-500 via-rose-500 to-pink-600 rounded-xl flex items-center justify-center text-white shadow-xl shadow-red-500/30 relative overflow-hidden">
                     <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
                     <Shield className="w-6 h-6 relative z-10" />
                   </div>
@@ -398,11 +398,11 @@ const AdminDashboard: React.FC = () => {
                   </button>
 
                   {showNotifications && notifications.length > 0 && (
-                    <div className={`absolute right-0 mt-2 w-80 rounded-2xl shadow-2xl border py-2 z-40 transition-all animate-in ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                      <div className={`px-4 py-3 border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                    <div className={`absolute right-0 mt-3 w-96 rounded-2xl shadow-2xl border py-3 z-40 transition-all animate-in ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                      <div className={`px-6 py-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
                         <div className="flex items-center justify-between">
                           <span className={`font-bold text-lg ${darkMode ? 'text-white' : 'text-gray-900'}`}>Notifications</span>
-                          <button onClick={() => setNotifications([])} className={`text-xs font-medium px-3 py-1 rounded-lg ${darkMode ? 'text-red-400 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50'}`}>Clear All</button>
+                          <button onClick={() => setNotifications([])} className={`text-xs font-medium px-4 py-2 rounded-lg ${darkMode ? 'text-red-400 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50'}`}>Clear All</button>
                         </div>
                       </div>
                       <div className="max-h-80 overflow-auto">
@@ -487,10 +487,10 @@ const AdminDashboard: React.FC = () => {
           <aside className={`${sidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 overflow-hidden border-r ${
             darkMode ? 'bg-gray-800/50 border-gray-700/50 backdrop-blur-xl' : 'bg-white/80 border-gray-200 backdrop-blur-xl'
           }`}>
-            <div className="p-6 space-y-6 h-[calc(100vh-5rem)] overflow-y-auto">
+            <div className="p-8 space-y-8 h-[calc(100vh-5rem)] overflow-y-auto">
               {/* Quick Stats */}
               <div>
-                <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                <h3 className={`text-xs font-bold uppercase tracking-wider mb-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   System Overview
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
@@ -599,8 +599,8 @@ const AdminDashboard: React.FC = () => {
               </div>
 
               {/* Stats Cards - Enhanced */}
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                <div className={`rounded-2xl border p-6 hover:shadow-2xl transition-all group cursor-pointer relative overflow-hidden ${
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
+                <div className={`rounded-2xl border p-8 hover:shadow-2xl transition-all group cursor-pointer relative overflow-hidden ${
                   darkMode ? 'bg-gray-800 border-gray-700 hover:border-blue-500' : 'bg-white border-gray-200 hover:border-blue-300'
                 }`}>
                   <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-transparent rounded-full -mr-16 -mt-16"></div>
@@ -708,14 +708,14 @@ const AdminDashboard: React.FC = () => {
               {/* Main Content Grid */}
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                 {/* Recent Users */}
-                <div className={`rounded-2xl border p-6 xl:col-span-2 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                <div className={`rounded-2xl border p-8 xl:col-span-2 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                  <div className="flex items-center justify-between mb-8">
+                    <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                       Recent Users
                     </h2>
                     <button 
                       onClick={() => navigate('/admin/users')}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                      className={`flex items-center gap-3 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                         darkMode 
                           ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
                           : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
@@ -726,14 +726,14 @@ const AdminDashboard: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-5">
                     {recentUsers.map(user => {
                       const userStatus = user.status || 'active';
                       const statusConfig = getStatusBadge(userStatus);
                       const StatusIcon = statusConfig.Icon;
                       
                       return (
-                        <div key={user.id} className={`flex items-center justify-between p-4 rounded-xl border transition-all hover:shadow-lg ${
+                        <div key={user.id} className={`flex items-center justify-between p-6 rounded-xl border transition-all hover:shadow-lg ${
                           darkMode ? 'border-gray-700 hover:bg-gray-700/50' : 'border-gray-200 hover:bg-gray-50'
                         }`}>
                           <div className="flex items-center gap-4">

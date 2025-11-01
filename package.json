@@ -4,7 +4,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "cd server && npm run dev",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
     "fix:schema": "tsx scripts/fix-telephone-number.ts",
@@ -12,7 +12,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "add-test-jobs": "tsx scripts/add-test-jobs.ts"
+    "add-test-jobs": "tsx scripts/add-test-jobs.ts",
+    "install:all": "npm install && cd client && npm install && cd ../server && npm install"
   },
   "devDependencies": {
     "@types/pg": "^8.15.5",

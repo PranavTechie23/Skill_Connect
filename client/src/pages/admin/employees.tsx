@@ -53,7 +53,7 @@ export default function AdminEmployees() {
     }
 
     try {
-      await adminService.createUser({ ...newEmployee, userType: 'job_seeker' });
+      await adminService.createUser({ ...newEmployee, userType: 'Professional' });
       toast({ title: "Success", description: "Employee created successfully." });
       setIsModalOpen(false);
       setNewEmployee({ email: '', password: '', firstName: '', lastName: '' });

@@ -11,7 +11,24 @@ import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 
 interface JobCardProps {
-  job: any;
+  job: {
+    id: string;
+    title: string;
+    description: string;
+    location: string;
+    jobType?: string;
+    salaryMin?: number;
+    salaryMax?: number;
+    skills: string[];
+    company?: {
+      name: string;
+    };
+    employer?: {
+      firstName: string;
+      lastName: string;
+    };
+    createdAt?: string;
+  };
 }
 
 export default function JobCard({ job }: JobCardProps) {
@@ -71,7 +88,7 @@ export default function JobCard({ job }: JobCardProps) {
     if (!user) {
       navigate('/signup', { state: { message: 'Register yourself on the portal to apply for this job.' } });
     }
-    if (user.userType !== 'Professional') {
+    if (!user || user.userType !== 'Professional') {
       toast({
         title: "Access denied",
         description: "Only job seekers can apply for jobs.",
@@ -119,7 +136,7 @@ export default function JobCard({ job }: JobCardProps) {
               </div>
               <div className="flex items-center">
                 <Clock className="mr-1 h-4 w-4" />
-                <span className="capitalize">{job.jobType.replace('_', '-')}</span>
+                <span className="capitalize">{job.jobType ? job.jobType.replace('_', '-') : 'Not specified'}</span>
               </div>
               <div className="flex items-center">
                 <IndianRupee className="mr-1 h-4 w-4" />
@@ -127,7 +144,7 @@ export default function JobCard({ job }: JobCardProps) {
               </div>
             </div>
             <div className="flex flex-wrap gap-2 mb-4">
-              {job.skills.slice(0, 3).map((skill: string, index: number) => (
+              {Array.isArray(job.skills) && job.skills.slice(0, 3).map((skill: string, index: number) => (
                 <Badge 
                   key={index}
                   variant="secondary"
@@ -136,7 +153,7 @@ export default function JobCard({ job }: JobCardProps) {
                   {skill}
                 </Badge>
               ))}
-              {job.skills.length > 3 && (
+              {Array.isArray(job.skills) && job.skills.length > 3 && (
                 <Badge variant="outline" className="rounded-full px-3">
                   +{job.skills.length - 3} more
                 </Badge>

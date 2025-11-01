@@ -1,6 +1,6 @@
 {
   "version": "7",
-  "dialect": "postgresql",
+  "dialect": "sqlite",
   "entries": [
     {
       "idx": 0,
@@ -21,6 +21,13 @@
       "version": "7",
       "when": 1756390846983,
       "tag": "0002_add_telephone_number",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1756390946983,
+      "tag": "0005_add_stories_table",
       "breakpoints": true
     }
   ]

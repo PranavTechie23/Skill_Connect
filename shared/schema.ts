@@ -1,10 +1,10 @@
-import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp, jsonb, serial } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { pgTable, text, varchar, timestamp, integer, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey(),
+  id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   firstName: text("first_name").notNull(),
@@ -17,15 +17,15 @@ export const users = pgTable("users", {
 });
 
 export const professionalProfiles = pgTable("professional_profiles", {
-    id: serial("id").primaryKey(),
-    userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
+    id: integer("id").primaryKey(),
+    userId: text("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
     headline: text("headline"),
     bio: text("bio"),
-    skills: jsonb("skills").$type<string[]>().default([]),
+    skills: jsonb("skills").default('[]'), // Store as native JSON
 });
 
 export const companies = pgTable("companies", {
-  id: varchar("id").primaryKey(),
+  id: text("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
   website: text("website"),
@@ -33,12 +33,12 @@ export const companies = pgTable("companies", {
   size: text("size"),
   industry: text("industry"),
   logo: text("logo"),
-  ownerId: varchar("owner_id").references(() => users.id),
+  ownerId: text("owner_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const jobs = pgTable("jobs", {
-  id: varchar("id").primaryKey(),
+  id: text("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description").notNull(),
   requirements: text("requirements").notNull(),
@@ -46,17 +46,17 @@ export const jobs = pgTable("jobs", {
   jobType: text("job_type").notNull(), // 'full-time' | 'part-time' | 'contract' | 'remote'
   salaryMin: integer("salary_min"),
   salaryMax: integer("salary_max"),
-  skills: jsonb("skills").$type<string[]>().default([]),
-  companyId: varchar("company_id").references(() => companies.id, { onDelete: 'cascade' }),
-  employerId: varchar("employer_id").references(() => users.id, { onDelete: 'cascade' }),
+  skills: jsonb("skills").default('[]'), // Store as native JSON
+  companyId: text("company_id").references(() => companies.id, { onDelete: 'cascade' }),
+  employerId: text("employer_id").references(() => users.id, { onDelete: 'cascade' }),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const applications = pgTable("applications", {
-  id: serial("id").primaryKey(),
-  jobId: varchar("job_id").references(() => jobs.id),
-  applicantId: varchar("applicant_id").references(() => users.id, { onDelete: 'cascade' }),
+  id: integer("id").primaryKey(),
+  jobId: text("job_id").references(() => jobs.id),
+  applicantId: text("applicant_id").references(() => users.id, { onDelete: 'cascade' }),
   status: text("status").notNull().default("applied"),
   coverLetter: text("cover_letter"),
   resume: text("resume"),
@@ -66,9 +66,9 @@ export const applications = pgTable("applications", {
 });
 
 export const messages = pgTable("messages", {
-  id: serial("id").primaryKey(),
-  senderId: varchar("sender_id").references(() => users.id, { onDelete: 'cascade' }),
-  receiverId: varchar("receiver_id").references(() => users.id, { onDelete: 'cascade' }),
+  id: integer("id").primaryKey(),
+  senderId: text("sender_id").references(() => users.id, { onDelete: 'cascade' }),
+  receiverId: text("receiver_id").references(() => users.id, { onDelete: 'cascade' }),
   applicationId: integer("application_id").references(() => applications.id),
   content: text("content").notNull(),
   isRead: boolean("is_read").default(false),
@@ -76,23 +76,25 @@ export const messages = pgTable("messages", {
 });
 
 export const experiences = pgTable("experiences", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }),
+  id: integer("id").primaryKey(),
+  userId: text("user_id").references(() => users.id, { onDelete: 'cascade' }),
   title: text("title").notNull(),
   company: text("company").notNull(),
   description: text("description"),
-  startDate: text("start_date").notNull(),
-  endDate: text("end_date"),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
   isCurrent: boolean("is_current").default(false),
 });
 
 export const stories = pgTable('stories', {
-  id: serial('id').primaryKey(),
+  id: integer('id').primaryKey(),
   title: text('title').notNull(),
   content: text('content').notNull(),  
-  authorId: varchar("author_id").references(() => users.id, { onDelete: 'cascade' }),
-  tags: jsonb("tags").$type<string[]>().default([]),
-  createdAt: timestamp('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+  authorId: text("author_id").references(() => users.id, { onDelete: 'set null' }),
+  submitterName: text('submitter_name'), // For guest submissions
+  submitterEmail: text('submitter_email'), // For guest submissions
+  tags: text("tags").array().default([]), // Store as native array
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 
@@ -138,7 +140,7 @@ export const insertStorySchema = z.object({
   title: z.string().min(1, "Title is required"),
   content: z.string().min(1, "Content is required"),
   tags: z.array(z.string()).optional(),
-  authorId: z.string(),
+  authorId: z.string().nullable(),
 });
 
 
@@ -153,7 +155,7 @@ export const registerSchema = z.object({
   password: z.string().min(6),
   firstName: z.string(),
   lastName: z.string(),
-  userType: z.enum(["Professional", "Employer", "job_seeker", "employer", "admin"]),
+  userType: z.enum(["Professional", "Employer", "admin"]),
   location: z.string().optional(),
   profilePhoto: z.string().optional(),
   confirmPassword: z.string(),
@@ -174,7 +176,7 @@ export const adminCreateUserSchema = z.object({
   password: z.string().min(6),
   firstName: z.string(),
   lastName: z.string(),
-  userType: z.enum(["job_seeker", "employer", "admin"]),
+  userType: z.enum(["Professional", "Employer", "admin"]),
   location: z.string().optional(),
   title: z.string().optional(),
 });

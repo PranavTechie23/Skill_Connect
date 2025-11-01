@@ -28,29 +28,32 @@ const server = http.createServer(app);
 
 (async function start() {
   try {
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'http://localhost:5174',
+      'http://localhost:5002'
+    ];
+
     // Configure CORS before any route handlers
     app.use(cors({
       origin: (origin, callback) => {
-        const allowedOrigins = [
-          'http://localhost:5173',
-          'http://127.0.0.1:5173',
-          'http://localhost:5174',
-          'http://localhost:5002'
-        ];
-        
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
         
-        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+        if (allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {
-          callback(new Error('CORS not allowed'));
+          callback(new Error('Not allowed by CORS'));
         }
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization']
     }));
+
+    // Explicitly handle preflight requests
+    app.options('*', cors());
 
     // Basic health check endpoint
     app.get('/health', (req, res) => {

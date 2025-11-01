@@ -70,7 +70,7 @@ export default function SubmitStory() {
     try {
       const response = await apiFetch("/api/stories", {
         method: "POST",
-        credentials: "omit", // Do not send authentication cookies for public story submission
+        credentials: "same-origin", // Use same-origin to avoid browser conflicts with other authenticated calls.
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(storyPayload)
       });
