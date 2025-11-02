@@ -15,6 +15,13 @@
       "when": 1760196766252,
       "tag": "0001_cheerful_goblin_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1762062528218,
+      "tag": "0002_conscious_whizzer",
+      "breakpoints": true
     }
   ]
 }

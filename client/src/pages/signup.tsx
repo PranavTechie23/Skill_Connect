@@ -28,26 +28,30 @@ const baseSchema = z.object({
   userType: z.enum(["Professional", "Employer"]),
 });
 
-const employeeSchema = baseSchema.extend({
+
+
+const signupSchema = z.object({
+  ...baseSchema.shape,
   location: z.string().optional(),
   title: z.string().optional(),
   bio: z.string().optional(),
   skills: z.string().optional(),
-});
-
-const employerSchema = baseSchema.extend({
-  companyName: z.string().min(1, "Company name is required."),
-  location: z.string().min(1, "Location is required."),
-  telephoneNumber: z.string().length(10, "Telephone number must be 10 digits."),
+  companyName: z.string().optional(),
   companyWebsite: z.string().url("Please enter a valid URL.").optional().or(z.literal('')),
   companyBio: z.string().optional(),
+  telephoneNumber: z.string().length(10, "Telephone number must be 10 digits.").optional(),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+}).refine(data => {
+  if (data.userType === "Employer") {
+    return !!data.companyName && !!data.location && !!data.telephoneNumber;
+  }
+  return true;
+}, {
+  message: "Required fields missing for employer registration",
+  path: ["companyName"],
 });
-
-const signupSchema = z.discriminatedUnion("userType", [employeeSchema, employerSchema])
-  .refine(data => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
 
 type SignupFormData = z.infer<typeof signupSchema>;
 

@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { LogOut, Menu, X, Info, BookOpen, LayoutDashboard } from "lucide-react";
 import { normalizeUserType } from "@/lib/utils";
 import { useState } from "react";
+import { NavItem } from "@/components/NavItem";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -57,66 +58,37 @@ export default function Navbar() {
 
           {/* Desktop Navigation & User Actions */}
           <div className="hidden md:flex items-center gap-4">
-            <Link to="/">
-              <Button
-                variant={isActive("/") ? "default" : "ghost"}
-                className="rounded-full px-6 py-2 text-lg"
-              >
-                 Home
-              </Button>
-            </Link>
-            <Link to="/jobs">
-              <Button
-                variant={isActive("/jobs") ? "default" : "ghost"}
-                className="rounded-full px-6 py-2 text-lg"
-              >
-                Jobs
-              </Button>
-            </Link>
+            <NavItem to="/" isActive={isActive("/")}>
+              Home
+            </NavItem>
+            
+            <NavItem to="/jobs" isActive={isActive("/jobs")}>
+              Jobs
+            </NavItem>
+
             {user?.userType === "Professional" && (
-              <Link to="/applications">
-                <Button
-                  variant={isActive("/applications") ? "default" : "ghost"}
-                  className="rounded-full px-6 py-2 text-lg"
-                >
-                  Applications
-                </Button>
-              </Link>
+              <NavItem to="/applications" isActive={isActive("/applications")}>
+                Applications
+              </NavItem>
             )}
+
             {user?.userType === "Employer" && (
-              <Link to="/employer/dashboard">
-                <Button
-                  variant={isActive("/employer") ? "default" : "ghost"}
-                  className="rounded-full px-6 py-2 text-lg"
-                >
-                  Post Jobs
-                </Button>
-              </Link>
+              <NavItem to="/employer/dashboard" isActive={isActive("/employer")}>
+                Post Jobs
+              </NavItem>
             )}
-            <Link to="/about">
-              <Button
-                variant={isActive("/about") ? "default" : "ghost"}
-                className="rounded-full px-6 py-2 text-lg"
-              >
-                About Us
-              </Button>
-            </Link>
-            <Link to="/our-stories">
-              <Button
-                variant={isActive("/our-stories") ? "default" : "ghost"}
-                className="rounded-full px-6 py-2 text-lg"
-              >
-                Our Stories
-              </Button>
-            </Link>
-            <Link to="/dashboards">
-              <Button
-                variant={isActive("/dashboards") ? "default" : "ghost"}
-                className="rounded-full px-6 py-2 text-lg"
-              >
-                Dashboards
-              </Button>
-            </Link>
+
+            <NavItem to="/about" isActive={isActive("/about")}>
+              About Us
+            </NavItem>
+
+            <NavItem to="/our-stories" isActive={isActive("/our-stories")}>
+              Our Stories
+            </NavItem>
+
+            <NavItem to="/dashboards" isActive={isActive("/dashboards")}>
+              Dashboards
+            </NavItem>
             <ModeToggle />
             {user && !isMarketingHome ? (
               <>
@@ -125,39 +97,42 @@ export default function Navbar() {
                   const normalized = normalizeUserType((user as any)?.userType);
                   const dashboardPath = normalized === "professional" ? "/employee/dashboard" : normalized === "employer" ? "/employer/dashboard" : "/";
                   return (
-                    <Link to={dashboardPath}>
-                      <Button variant="outline" size="lg" className="rounded-full">
-                        <LayoutDashboard className="h-5 w-5 mr-2" />
-                        Dashboard
-                      </Button>
-                    </Link>
+                    <NavItem 
+                      to={dashboardPath} 
+                      isActive={isActive(dashboardPath)}
+                      icon={<LayoutDashboard className="h-5 w-5 mr-2" />}
+                      variant="secondary"
+                    >
+                      Dashboard
+                    </NavItem>
                   );
                 })()}
-                <Button
-                  variant="ghost"
-                  size="lg"
+                <NavItem 
+                  to="#" 
+                  isActive={false}
                   onClick={handleLogout}
-                  className="rounded-full"
+                  icon={<LogOut className="h-5 w-5 mr-2" />}
+                  variant="ghost"
                 >
-                  <LogOut className="h-5 w-5 mr-2" />
                   Logout
-                </Button>
+                </NavItem>
               </>
             ) : (
               <>
-                <Link to="/login">
-                  <Button variant="ghost" size="lg" className="rounded-full">
-                    Sign In
-                  </Button>
-                </Link>
-                <Link to="/signup">
-                  <Button
-                    size="lg"
-                    className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                  >
-                    Sign Up
-                  </Button>
-                </Link>
+                <NavItem 
+                  to="/login"
+                  isActive={isActive("/login")}
+                  className="cursor-pointer overflow-visible"
+                >
+                  Sign In
+                </NavItem>
+                <NavItem 
+                  to="/signup"
+                  isActive={isActive("/signup")}
+                  variant="default"
+                >
+                  Sign Up
+                </NavItem>
               </>
             )}
           </div>
@@ -167,69 +142,75 @@ export default function Navbar() {
         {isMenuOpen && (
           <div className="md:hidden border-t border-white/15 py-4">
             <div className="flex flex-col gap-2">
-              <Link to="/" onClick={() => setIsMenuOpen(false)}>
-                <Button
-                  variant={isActive("/") ? "default" : "ghost"}
-                  className="w-full justify-start rounded-full"
-                >
-                  Home
-                </Button>
-              </Link>
-              <Link to="/jobs" onClick={() => setIsMenuOpen(false)}>
-                <Button
-                  variant={isActive("/jobs") ? "default" : "ghost"}
-                  className="w-full justify-start rounded-full"
-                >
-                  Jobs
-                </Button>
-              </Link>
+              <NavItem 
+                to="/" 
+                isActive={isActive("/")} 
+                fullWidth 
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Home
+              </NavItem>
+
+              <NavItem 
+                to="/jobs" 
+                isActive={isActive("/jobs")} 
+                fullWidth 
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Jobs
+              </NavItem>
+
               {user?.userType === "Professional" && (
-                <Link to="/applications" onClick={() => setIsMenuOpen(false)}>
-                  <Button
-                    variant={isActive("/applications") ? "default" : "ghost"}
-                    className="w-full justify-start rounded-full"
-                  >
-                    Applications
-                  </Button>
-                </Link>
+                <NavItem 
+                  to="/applications" 
+                  isActive={isActive("/applications")} 
+                  fullWidth 
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Applications
+                </NavItem>
               )}
+
               {user?.userType === "Employer" && (
-                <Link to="/employer/dashboard" onClick={() => setIsMenuOpen(false)}>
-                  <Button
-                    variant={isActive("/employer") ? "default" : "ghost"}
-                    className="w-full justify-start rounded-full"
-                  >
-                    Post Jobs
-                  </Button>
-                </Link>
+                <NavItem 
+                  to="/employer/dashboard" 
+                  isActive={isActive("/employer")} 
+                  fullWidth 
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Post Jobs
+                </NavItem>
               )}
-              <Link to="/about" onClick={() => setIsMenuOpen(false)}>
-                <Button
-                  variant={isActive("/about") ? "default" : "ghost"}
-                  className="w-full justify-start rounded-full"
-                >
-                  <Info className="h-4 w-4 mr-2" />
-                  About Us
-                </Button>
-              </Link>
-              <Link to="/our-stories" onClick={() => setIsMenuOpen(false)}>
-                <Button
-                  variant={isActive("/our-stories") ? "default" : "ghost"}
-                  className="w-full justify-start rounded-full"
-                >
-                  <BookOpen className="h-4 w-4 mr-2" />
-                  Our Stories
-                </Button>
-              </Link>
-              <Link to="/dashboards" onClick={() => setIsMenuOpen(false)}>
-                <Button
-                  variant={isActive("/dashboards") ? "default" : "ghost"}
-                  className="w-full justify-start rounded-full"
-                >
-                  <LayoutDashboard className="h-4 w-4 mr-2" />
-                  Dashboards
-                </Button>
-              </Link>
+
+              <NavItem 
+                to="/about" 
+                isActive={isActive("/about")} 
+                fullWidth 
+                onClick={() => setIsMenuOpen(false)}
+                icon={<Info className="h-4 w-4 mr-2" />}
+              >
+                About Us
+              </NavItem>
+
+              <NavItem 
+                to="/our-stories" 
+                isActive={isActive("/our-stories")} 
+                fullWidth 
+                onClick={() => setIsMenuOpen(false)}
+                icon={<BookOpen className="h-4 w-4 mr-2" />}
+              >
+                Our Stories
+              </NavItem>
+
+              <NavItem 
+                to="/dashboards" 
+                isActive={isActive("/dashboards")} 
+                fullWidth 
+                onClick={() => setIsMenuOpen(false)}
+                icon={<LayoutDashboard className="h-4 w-4 mr-2" />}
+              >
+                Dashboards
+              </NavItem>
 
               {/* Mobile Actions */}
               <div className="border-t border-white/15 pt-4 mt-2">
@@ -239,35 +220,49 @@ export default function Navbar() {
                           const normalized = normalizeUserType((user as any)?.userType);
                           const dashboardPath = normalized === "professional" ? "/employee/dashboard" : normalized === "employer" ? "/employer/dashboard" : "/";
                           return (
-                            <Link to={dashboardPath} onClick={() => setIsMenuOpen(false)}>
-                              <Button variant="outline" className="w-full justify-start rounded-full">
-                                <LayoutDashboard className="h-4 w-4 mr-2" />
-                                Dashboard
-                              </Button>
-                            </Link>
+                            <NavItem 
+                              to={dashboardPath} 
+                              isActive={isActive(dashboardPath)}
+                              fullWidth
+                              onClick={() => setIsMenuOpen(false)}
+                              icon={<LayoutDashboard className="h-4 w-4 mr-2" />}
+                              variant="secondary"
+                            >
+                              Dashboard
+                            </NavItem>
                           );
                         })()}
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start rounded-full"
+                    <NavItem 
+                      to="#" 
+                      isActive={false}
+                      fullWidth
                       onClick={handleLogout}
+                      icon={<LogOut className="h-4 w-4 mr-2" />}
+                      variant="ghost"
                     >
-                      <LogOut className="h-4 w-4 mr-2" />
                       Logout
-                    </Button>
+                    </NavItem>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    <Link to="/login" onClick={() => setIsMenuOpen(false)}>
-                      <Button variant="ghost" className="w-full justify-start rounded-full">
-                        Sign In
-                      </Button>
-                    </Link>
-                    <Link to="/signup" onClick={() => setIsMenuOpen(false)}>
-                      <Button className="w-full justify-start rounded-full bg-gradient-to-r from-purple-600 to-pink-600">
-                        Sign Up
-                      </Button>
-                    </Link>
+                    <NavItem 
+                      to="/login" 
+                      isActive={isActive("/login")} 
+                      fullWidth 
+                      onClick={() => setIsMenuOpen(false)}
+                      variant="ghost"
+                    >
+                      Sign In
+                    </NavItem>
+                    <NavItem 
+                      to="/signup" 
+                      isActive={isActive("/signup")} 
+                      fullWidth 
+                      onClick={() => setIsMenuOpen(false)}
+                      variant="default"
+                    >
+                      Sign Up
+                    </NavItem>
                   </div>
                 )}
               </div>

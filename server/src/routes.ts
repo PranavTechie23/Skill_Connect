@@ -122,6 +122,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }) as any
   );
 
+  // Check if email exists route
+  app.post("/api/auth/check-email", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ message: "Invalid email" });
+      }
+      const user = await storage.getUserByEmail(email);
+      res.json({ exists: !!user });
+    } catch (error) {
+      console.error('Error checking email:', error);
+      res.status(500).json({ message: "Failed to check email" });
+    }
+  });
+
   // Auth routes
   app.post("/api/auth/register", async (req, res) => {
     try {
