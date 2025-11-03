@@ -395,22 +395,25 @@ export class Storage {
 
   async updateProfessionalProfile(userId: string, updates: Partial<ProfessionalProfile>): Promise<ProfessionalProfile> {
     try {
-      const setFields = [];
-      const updates_values = [];
-
-      for (const [key, value] of Object.entries(updates)) {
-        if (value !== undefined) {
-          setFields.push(`${key} = ${sql.raw('$' + String(updates_values.length + 1))}`);
-          updates_values.push(String(value));
-        }
+      if (!updates || Object.keys(updates).length === 0) {
+        throw new Error('No valid fields to update');
       }
 
-      const result = await db.execute(sql`
+      const query = sql`
         UPDATE professional_profiles 
-        SET ${sql.raw(setFields.join(', '))} 
-        WHERE user_id = ${userId} 
+        SET 
+          headline = COALESCE(${updates.headline}, headline),
+          bio = COALESCE(${updates.bio}, bio),
+          skills = COALESCE(${updates.skills ? sql.raw(`'${JSON.stringify(updates.skills)}'::jsonb`) : sql`skills`}, '[]'::jsonb)
+        WHERE user_id = ${userId}
         RETURNING *
-      `);
+      `;
+
+      const result = await db.execute(query);
+
+      if (!result.rows[0]) {
+        throw new Error('Profile not found or update failed');
+      }
 
       return result.rows[0] as ProfessionalProfile;
     } catch (error) {

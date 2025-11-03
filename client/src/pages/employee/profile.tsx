@@ -8,6 +8,8 @@ import {
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api';
+import { type UpdateProfile } from '@shared/schema';
 
 interface Education {
   id: number;
@@ -17,7 +19,7 @@ interface Education {
   gpa: string;
 }
 
-interface Experience {
+interface FormattedExperience {
   id: number;
   title: string;
   company: string;
@@ -33,21 +35,20 @@ interface ProfileData {
     email: string;
     phone: string;
     location: string;
-    birthday: string;
     bio: string;
     avatar: string | null;
   };
   professional: {
-    title: string;
-    department: string;
-    company: string;
-    startDate: string;
-    employeeId: string;
+    title: string; // Changed from headline to title to match our usage
+    department?: string;
+    company?: string;
+    startDate?: string;
+    employeeId?: string;
     skills: string[];
-    level: string;
+    level?: string;
   };
   education: Education[];
-  experience: Experience[];
+  experience: FormattedExperience[];
 }
 
 const Profile = () => {
@@ -61,7 +62,7 @@ const Profile = () => {
   const [loading, setLoading] = useState(false);
   const [newSkill, setNewSkill] = useState('');
   
-  // Initialize profile with user data
+  // Initialize profile with user data and professional profile data
   const [profile, setProfile] = useState<ProfileData>({
     personal: {
       firstName: user?.firstName || '',
@@ -69,20 +70,19 @@ const Profile = () => {
       email: user?.email || '',
       phone: user?.telephoneNumber || '',
       location: user?.location || '',
-      birthday: user?.birthday || '1990-05-15',
-      bio: user?.bio || 'No bio provided.',
+      bio: user?.profile?.bio || 'No bio provided.',
       avatar: user?.profilePhoto || null
     },
     professional: {
-      title: user?.title || user?.profile_headline || 'No title provided',
-      department: user?.department || 'Engineering',
-      company: user?.company_name || 'Not specified',
-      startDate: user?.start_date || '2020-03-01',
-      employeeId: user?.employee_id || 'TC-8472',
-      skills: Array.isArray(user?.skills) ? user.skills : ['React', 'TypeScript', 'Node.js'],
-      level: user?.level || 'L5 Senior'
+      title: user?.profile?.headline || 'No title provided',
+      department: 'Engineering', // Default value as it's not in User or Profile types
+      company: user?.company?.name || 'Not specified',
+      startDate: '2020-03-01', // Default value as it's not in User type
+      employeeId: 'TC-8472', // Default value as it's not in User type
+      skills: user?.profile?.skills || ['React', 'TypeScript', 'Node.js'],
+      level: 'L5 Senior' // Default value as it's not in User type
     },
-    education: user?.education || [
+    education: [
       {
         id: 1,
         degree: 'Master of Computer Science',
@@ -98,7 +98,7 @@ const Profile = () => {
         gpa: '3.9'
       }
     ],
-    experience: user?.experience || [
+    experience: [
       {
         id: 1,
         title: 'Senior Frontend Developer',
@@ -128,24 +128,23 @@ const Profile = () => {
           email: user.email || '',
           phone: user.telephoneNumber || '',
           location: user.location || '',
-          birthday: user.birthday || '1990-05-15',
-          bio: user.bio || 'No bio provided.',
+          bio: user.profile?.bio || 'No bio provided.',
           avatar: user.profilePhoto || null
         },
         professional: {
-          title: user.title || user.profile_headline || 'No title provided',
-          department: user.department || 'Engineering',
-          company: user.company_name || 'Not specified',
-          startDate: user.start_date || '2020-03-01',
-          employeeId: user.employee_id || 'TC-8472',
-          skills: Array.isArray(user.skills) ? user.skills : ['React', 'TypeScript', 'Node.js'],
-          level: user.level || 'L5 Senior'
+          title: user.profile?.headline || 'No title provided',
+          department: 'Engineering', // Default value as it's not in User or Profile types
+          company: user.company?.name || 'Not specified',
+          startDate: '2020-03-01', // Default value as it's not in User type
+          employeeId: 'TC-8472', // Default value as it's not in User type
+          skills: user.profile?.skills || ['React', 'TypeScript', 'Node.js'],
+          level: 'L5 Senior' // Default value as it's not in User type
         },
-        education: user.education || profile.education,
-        experience: user.experience || profile.experience
+        education: profile.education, // Keep existing education data
+        experience: profile.experience // Keep existing experience data
       });
     }
-  }, [user]);
+  }, [user, profile.education, profile.experience]);
 
   // Handle input changes
   const handleInputChange = (section: keyof ProfileData, field: string, value: any) => {
@@ -186,31 +185,17 @@ const Profile = () => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      // Prepare the data for API call
-      const updateData = {
-        firstName: profile.personal.firstName,
-        lastName: profile.personal.lastName,
-        email: profile.personal.email,
-        telephoneNumber: profile.personal.phone,
-        location: profile.personal.location,
-        bio: profile.personal.bio,
-        birthday: profile.personal.birthday,
-        title: profile.professional.title,
-        department: profile.professional.department,
-        company_name: profile.professional.company,
-        employee_id: profile.professional.employeeId,
-        start_date: profile.professional.startDate,
-        level: profile.professional.level,
-        skills: profile.professional.skills,
-        profile_headline: profile.professional.title
-      };
-
-      const response = await fetch('/api/users/profile', {
+      // Update professional profile
+      const response = await apiFetch('/api/me/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updateData),
+        body: JSON.stringify({
+          headline: profile.professional.title, // Send as headline for server compatibility
+          bio: profile.personal.bio,
+          skills: profile.professional.skills
+        } as UpdateProfile)
       });
 
       if (!response.ok) {
@@ -252,21 +237,15 @@ const Profile = () => {
           email: user.email || '',
           phone: user.telephoneNumber || '',
           location: user.location || '',
-          birthday: user.birthday || '1990-05-15',
-          bio: user.bio || 'No bio provided.',
+          bio: user.profile?.bio || 'No bio provided.',
           avatar: user.profilePhoto || null
         },
         professional: {
-          title: user.title || user.profile_headline || 'No title provided',
-          department: user.department || 'Engineering',
-          company: user.company_name || 'Not specified',
-          startDate: user.start_date || '2020-03-01',
-          employeeId: user.employee_id || 'TC-8472',
-          skills: Array.isArray(user.skills) ? user.skills : ['React', 'TypeScript', 'Node.js'],
-          level: user.level || 'L5 Senior'
+          title: user.profile?.headline || 'No title provided',
+          skills: user.profile?.skills || ['React', 'TypeScript', 'Node.js']
         },
-        education: user.education || profile.education,
-        experience: user.experience || profile.experience
+        education: profile.education, // Keep existing education data
+        experience: profile.experience // Keep existing experience data
       });
     }
     setIsEditing(false);
@@ -590,8 +569,7 @@ const Profile = () => {
                     { label: 'Last Name', field: 'lastName', value: profile.personal.lastName, icon: User },
                     { label: 'Email', field: 'email', value: profile.personal.email, icon: Mail, fullWidth: true },
                     { label: 'Phone', field: 'phone', value: profile.personal.phone, icon: Phone },
-                    { label: 'Location', field: 'location', value: profile.personal.location, icon: MapPin },
-                    { label: 'Birthday', field: 'birthday', value: profile.personal.birthday, icon: Calendar },
+                    { label: 'Location', field: 'location', value: profile.personal.location, icon: MapPin }
                   ].map((field, index) => (
                     <div key={index} className={field.fullWidth ? 'col-span-2' : ''}>
                       <label className={`flex items-center gap-2 text-sm font-semibold mb-3 ${
@@ -666,12 +644,7 @@ const Profile = () => {
                 
                 <div className="grid grid-cols-2 gap-6 mb-8">
                   {[
-                    { label: 'Job Title', field: 'title', value: profile.professional.title },
-                    { label: 'Department', field: 'department', value: profile.professional.department },
-                    { label: 'Company', field: 'company', value: profile.professional.company },
-                    { label: 'Employee ID', field: 'employeeId', value: profile.professional.employeeId },
-                    { label: 'Start Date', field: 'startDate', value: profile.professional.startDate },
-                    { label: 'Level', field: 'level', value: profile.professional.level },
+                    { label: 'Professional Title', field: 'title', value: profile.professional.title }
                   ].map((field, index) => (
                     <div key={index}>
                       <label className={`block text-sm font-semibold mb-3 ${
@@ -776,7 +749,7 @@ const Profile = () => {
                 </h3>
                 
                 <div className="space-y-6">
-                  {profile.education.map((edu, index) => (
+                  {profile.education.map((edu) => (
                     <div
                       key={edu.id}
                       className={`p-6 rounded-2xl border-2 transition-all duration-300 hover:scale-105 ${

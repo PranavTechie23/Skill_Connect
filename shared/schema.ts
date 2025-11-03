@@ -196,11 +196,19 @@ export const adminCreateUserSchema = z.object({
   title: z.string().optional(),
 });
 
+// Profile update schema
+export const updateProfileSchema = z.object({
+  headline: z.string().optional(),
+  bio: z.string().optional(),
+  skills: z.array(z.string()).default([])
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type ProfessionalProfile = typeof professionalProfiles.$inferSelect;
 export type InsertProfessionalProfile = z.infer<typeof insertProfessionalProfileSchema>;
+export type UpdateProfile = z.infer<typeof updateProfileSchema>;
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
 export type Job = typeof jobs.$inferSelect;

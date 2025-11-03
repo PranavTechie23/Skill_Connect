@@ -286,7 +286,10 @@ const EmployerDashboard: React.FC = () => {
                   <Download className="w-4 h-4" />
                   Export
                 </button>
-                <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-medium text-sm flex items-center gap-2 shadow-lg">
+                <button
+                  onClick={() => navigate('/employer/jobs')}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-medium text-sm flex items-center gap-2 shadow-lg"
+                >
                   <Plus className="w-4 h-4" />
                   New Job
                 </button>
@@ -385,7 +388,10 @@ const EmployerDashboard: React.FC = () => {
                 Quick Actions
               </h3>
               <div className="space-y-3">
-                <button className="w-full px-4 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl">
+                <button
+                  onClick={() => navigate('/employer/jobs')}
+                  className="w-full px-4 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
+                >
                   <Plus className="w-5 h-5" />
                   Post New Job
                 </button>
@@ -493,7 +499,10 @@ const EmployerDashboard: React.FC = () => {
                           <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Manage and track your job listings</p>
                         </div>
                       </div>
-                      <button className="text-blue-600 hover:text-blue-700 font-semibold text-sm flex items-center gap-2 group">
+                      <button
+                        onClick={() => navigate('/employer/jobs')}
+                        className="text-blue-600 hover:text-blue-700 font-semibold text-sm flex items-center gap-2 group"
+                      >
                         View All
                         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                       </button>
@@ -593,7 +602,10 @@ const EmployerDashboard: React.FC = () => {
                             </div>
                           </div>
                           
-                          <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-medium text-sm flex items-center gap-2 shadow-lg hover:shadow-xl">
+                          <button
+                            onClick={() => navigate(`/employer/applications?jobId=${job.id}`)}
+                            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-medium text-sm flex items-center gap-2 shadow-lg hover:shadow-xl"
+                          >
                             View Applications
                             <ArrowRight className="w-4 h-4" />
                           </button>
@@ -716,7 +728,10 @@ const EmployerDashboard: React.FC = () => {
                           <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${getStatusColor(app.status)}`}>
                             {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
                           </span>
-                          <button className="text-blue-600 hover:text-blue-700 text-xs font-semibold flex items-center gap-1 group">
+                          <button
+                            onClick={() => navigate(`/employer/applications?appId=${app.id}`)}
+                            className="text-blue-600 hover:text-blue-700 text-xs font-semibold flex items-center gap-1 group"
+                          >
                             View
                             <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                           </button>
@@ -725,11 +740,14 @@ const EmployerDashboard: React.FC = () => {
                     ))}
                   </div>
 
-                  <button className={`w-full mt-6 py-3 rounded-xl font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 border ${
-                    darkMode 
-                      ? 'bg-gray-700/30 border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 text-gray-300' 
-                      : 'bg-gray-50/80 border-gray-200 hover:bg-gray-100/80 hover:border-gray-300 text-gray-700'
-                  }`}>
+                  <button
+                    onClick={() => navigate('/employer/applications')}
+                    className={`w-full mt-6 py-3 rounded-xl font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 border ${
+                      darkMode 
+                        ? 'bg-gray-700/30 border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 text-gray-300' 
+                        : 'bg-gray-50/80 border-gray-200 hover:bg-gray-100/80 hover:border-gray-300 text-gray-700'
+                    }`}
+                  >
                     View All Applications
                     <ArrowRight className="w-4 h-4" />
                   </button>

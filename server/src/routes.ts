@@ -15,11 +15,13 @@ import { db } from './db';
 import { storage } from "./storage";
 import { 
   loginSchema as sharedLoginSchema, 
-  registerSchema, 
+  registerSchema,
+  updateProfileSchema,
   type User,
   type InsertUser,
   type InsertCompany, 
   type InsertProfessionalProfile,
+  type UpdateProfile,
   professionalProfiles,
   companies
 } from "../../shared/schema";
@@ -548,8 +550,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         let updatedProfile;
         if (user.userType === 'Professional' || user.userType === 'job_seeker') {
-            // You might want to create a Zod schema for professional profile updates
-            const profileUpdates = req.body; 
+            // Validate profile updates using schema
+            const profileUpdates = updateProfileSchema.parse(req.body);
             updatedProfile = await storage.updateProfessionalProfile(user.id, profileUpdates);
         } else {
             return res.status(400).json({ message: "User does not have an updatable profile" });
