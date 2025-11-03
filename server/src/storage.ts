@@ -465,8 +465,7 @@ export class Storage {
     try {
       const result = await db.execute(sql`
         SELECT * FROM stories 
-        WHERE approved = true 
-        ORDER BY featured DESC, created_at DESC
+        ORDER BY created_at DESC
       `);
       return result.rows as Story[];
     } catch (error) {

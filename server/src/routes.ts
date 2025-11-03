@@ -153,7 +153,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     fs.mkdirSync(uploadDir, { recursive: true });
   }
 
-  const storage = multer.diskStorage({
+    const multerStorage = multer.diskStorage({
     destination: (req, file, cb) => {
       cb(null, uploadDir);
     },
@@ -164,7 +164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const upload = multer({
-    storage,
+        storage: multerStorage,
     fileFilter: (req, file, cb) => {
       const allowedMimes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
       if (allowedMimes.includes(file.mimetype)) {
@@ -462,6 +462,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/stories", async (req, res) => {
     try {
+            console.log('Inspecting storage object:', storage);
       const stories = await storage.getStories();
       res.json(stories);
     } catch (error) {

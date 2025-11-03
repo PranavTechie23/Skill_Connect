@@ -94,11 +94,11 @@ export const stories = pgTable('stories', {
   submitterName: varchar('submitter_name', { length: 255 }),
   submitterEmail: varchar('submitter_email', { length: 255 }),
   authorId: text("author_id").references(() => users.id, { onDelete: 'set null' }),
-  approved: boolean("approved").notNull().default(false),
-  featured: boolean("featured").notNull().default(false),
-  views: integer("views").notNull().default(0),
+  approved: boolean("approved").default(false),
+  featured: boolean("featured").default(false),
+  views: integer("views").default(0),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow(),
 });
 
 
