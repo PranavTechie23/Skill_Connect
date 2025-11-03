@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import AdminBackButton from "@/components/AdminBackButton";
-import { useTheme } from '@/components/theme-provider';
+import AdminBackButton from '@/components/AdminBackButton';
 import { 
   TrendingUp, 
   Users, 
@@ -8,20 +7,23 @@ import {
   DollarSign,
   MapPin,
   Calendar,
-  Filter,
   Download,
   MoreHorizontal,
   Building,
   Target,
   Award,
-  Clock4,
+  Clock,
   BarChart3,
   PieChart,
   UserCheck,
   Zap,
   ArrowUpRight,
   ArrowDownRight,
-  PlayCircle
+  TrendingDown,
+  Activity,
+  Star,
+  Moon,
+  Sun
 } from 'lucide-react';
 
 interface AnalyticsData {
@@ -58,15 +60,12 @@ interface AnalyticsData {
     locations: { location: string; applicants: number; growth: number }[];
     experience: { level: string; count: number; trend: 'up' | 'down' }[];
   };
-  timeline: {
-    date: string;
-    events: { type: string; count: number }[];
-  }[];
 }
 
 export default function Analytics() {
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
   const [activeMetric, setActiveMetric] = useState<'views' | 'applicants' | 'conversions'>('views');
+  const [isDark, setIsDark] = useState(true);
 
   const analyticsData: AnalyticsData = {
     overview: {
@@ -111,69 +110,51 @@ export default function Analytics() {
         { level: 'Senior Level (6-10 years)', count: 89, trend: 'down' },
         { level: 'Executive (10+ years)', count: 12, trend: 'up' }
       ]
-    },
-    timeline: [
-      {
-        date: 'Today',
-        events: [
-          { type: 'applications', count: 8 },
-          { type: 'views', count: 320 }
-        ]
-      },
-      {
-        date: 'Yesterday',
-        events: [
-          { type: 'applications', count: 12 },
-          { type: 'views', count: 280 }
-        ]
-      }
-    ]
+    }
   };
 
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
-
-  const StatCard = ({ title, value, change, icon: Icon, trend = 'up', subtitle }: any) => (
-    <div className={`group relative overflow-hidden rounded-2xl p-6 transition-all duration-500 hover:scale-105 hover:shadow-2xl ${
+  const StatCard = ({ title, value, change, icon: Icon, trend = 'up', subtitle, gradient }: any) => (
+    <div className={`group relative overflow-hidden rounded-3xl p-6 transition-all duration-700 hover:scale-[1.02] hover:shadow-2xl ${
       isDark 
-        ? 'bg-gradient-to-br from-gray-800/90 to-gray-900/90 border border-gray-700/50' 
-        : 'bg-gradient-to-br from-white to-gray-50/80 border border-gray-200 shadow-lg'
-    } backdrop-blur-sm`}>
-      {/* Animated background effect */}
-      <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${
-        isDark ? 'bg-gradient-to-br from-blue-500/5 to-purple-500/5' : 'bg-gradient-to-br from-blue-50 to-purple-50'
-      }`} />
+        ? 'bg-gradient-to-br from-gray-800/60 to-gray-900/60 border border-gray-700/30' 
+        : 'bg-white/80 border border-gray-200/50 shadow-xl'
+    } backdrop-blur-xl`}>
+      {/* Gradient overlay on hover */}
+      <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-gradient-to-br ${gradient}`} />
       
       <div className="relative z-10">
-        <div className="flex items-center justify-between mb-4">
-          <div className={`p-3 rounded-xl ${
-            isDark ? 'bg-blue-500/20' : 'bg-blue-100'
-          } group-hover:scale-110 transition-transform duration-300`}>
-            <Icon className={`w-6 h-6 ${
+        <div className="flex items-start justify-between mb-6">
+          <div className={`p-4 rounded-2xl ${
+            isDark ? 'bg-gradient-to-br from-gray-700/50 to-gray-800/50' : 'bg-gradient-to-br from-gray-50 to-gray-100'
+          } group-hover:scale-110 transition-transform duration-500 shadow-lg`}>
+            <Icon className={`w-7 h-7 ${
               isDark ? 'text-blue-400' : 'text-blue-600'
             }`} />
           </div>
-          <div className={`flex items-center space-x-1 text-sm px-3 py-1 rounded-full ${
+          <div className={`flex items-center space-x-1.5 text-sm font-bold px-3.5 py-1.5 rounded-full backdrop-blur-sm ${
             trend === 'up' 
-              ? isDark ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-600'
-              : isDark ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-600'
+              ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+              : 'bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30'
           }`}>
-            {trend === 'up' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+            {trend === 'up' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
             <span>{change}%</span>
           </div>
         </div>
         
         <div>
-          <p className={`text-sm font-medium mb-2 ${
+          <p className={`text-sm font-semibold mb-3 uppercase tracking-wider ${
             isDark ? 'text-gray-400' : 'text-gray-600'
           }`}>{title}</p>
-          <p className={`text-3xl font-bold mb-1 ${
+          <p className={`text-4xl font-black mb-2 ${
             isDark ? 'text-white' : 'text-gray-900'
           }`}>{typeof value === 'number' ? value.toLocaleString() : value}</p>
           {subtitle && (
-            <p className={`text-sm ${
+            <p className={`text-sm font-medium flex items-center ${
               isDark ? 'text-gray-500' : 'text-gray-600'
-            }`}>{subtitle}</p>
+            }`}>
+              <Activity className="w-3.5 h-3.5 mr-1.5" />
+              {subtitle}
+            </p>
           )}
         </div>
       </div>
@@ -181,157 +162,204 @@ export default function Analytics() {
   );
 
   const TrafficChart = () => {
-    const maxValue = Math.max(...analyticsData.traffic.views);
+    const data = analyticsData.traffic[activeMetric];
+    const maxValue = Math.max(...data);
+    const avgValue = data.reduce((a, b) => a + b, 0) / data.length;
     
     return (
-      <div className={`relative rounded-2xl p-6 transition-all duration-300 ${
+      <div className={`relative rounded-3xl p-8 transition-all duration-500 ${
         isDark 
-          ? 'bg-gradient-to-br from-gray-800/90 to-gray-900/90 border border-gray-700/50' 
-          : 'bg-gradient-to-br from-white to-gray-50/80 border border-gray-200 shadow-lg'
-      } backdrop-blur-sm`}>
-        <div className="flex justify-between items-center mb-8">
+          ? 'bg-gradient-to-br from-gray-800/60 to-gray-900/60 border border-gray-700/30' 
+          : 'bg-white/80 border border-gray-200/50 shadow-xl'
+      } backdrop-blur-xl`}>
+        <div className="flex justify-between items-start mb-8">
           <div>
-            <h3 className={`text-xl font-bold mb-2 ${
+            <h3 className={`text-2xl font-black mb-2 ${
               isDark ? 'text-white' : 'text-gray-900'
-            }`}>Traffic Overview</h3>
-            <p className={`text-sm ${
+            }`}>Traffic Trends</h3>
+            <p className={`text-sm font-medium ${
               isDark ? 'text-gray-400' : 'text-gray-600'
-            }`}>Track views, applicants, and conversions over time</p>
+            }`}>Real-time performance metrics across all channels</p>
           </div>
           <div className="flex items-center space-x-3">
-            <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-              {['views', 'applicants', 'conversions'].map((metric) => (
+            <div className={`flex rounded-2xl p-1.5 shadow-lg ${
+              isDark ? 'bg-gray-800/80' : 'bg-gray-100'
+            }`}>
+              {(['views', 'applicants', 'conversions'] as const).map((metric) => (
                 <button
                   key={metric}
-                  onClick={() => setActiveMetric(metric as any)}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-300 ${
+                  onClick={() => setActiveMetric(metric)}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
                     activeMetric === metric
-                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                      ? isDark 
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                        : 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg'
+                      : isDark
+                        ? 'text-gray-400 hover:text-white'
+                        : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
                   {metric.charAt(0).toUpperCase() + metric.slice(1)}
                 </button>
               ))}
             </div>
-            <button className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
-              isDark 
-                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
-                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-            }`}>
-              <Download className="w-4 h-4" />
-              <span>Export</span>
-            </button>
           </div>
         </div>
         
-        <div className="h-64">
-          <div className="flex items-end justify-between h-48 space-x-2 mb-6">
-            {analyticsData.traffic[activeMetric].map((value, index) => {
+        {/* Chart Stats */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className={`p-4 rounded-2xl ${
+            isDark ? 'bg-gray-800/50' : 'bg-gray-50'
+          }`}>
+            <p className={`text-xs font-semibold mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Peak Value</p>
+            <p className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              {maxValue.toLocaleString()}
+            </p>
+          </div>
+          <div className={`p-4 rounded-2xl ${
+            isDark ? 'bg-gray-800/50' : 'bg-gray-50'
+          }`}>
+            <p className={`text-xs font-semibold mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Average</p>
+            <p className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              {avgValue.toFixed(0)}
+            </p>
+          </div>
+          <div className={`p-4 rounded-2xl ${
+            isDark ? 'bg-gray-800/50' : 'bg-gray-50'
+          }`}>
+            <p className={`text-xs font-semibold mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Growth Rate</p>
+            <p className="text-2xl font-black text-emerald-500">+12.5%</p>
+          </div>
+        </div>
+        
+        <div className="h-72 mb-6">
+          <div className="flex items-end justify-between h-56 space-x-1.5">
+            {data.map((value, index) => {
               const height = (value / maxValue) * 100;
-              const isPeak = value === Math.max(...analyticsData.traffic[activeMetric]);
+              const isPeak = value === maxValue;
               
               return (
-                <div key={index} className="flex flex-col items-center flex-1 group">
+                <div key={index} className="flex flex-col items-center flex-1 group cursor-pointer">
                   <div className="relative flex-1 w-full flex items-end">
+                    {/* Bar */}
                     <div 
-                      className={`w-full rounded-t-lg transition-all duration-500 group-hover:shadow-lg ${
-                        activeMetric === 'views' 
-                          ? 'bg-gradient-to-t from-blue-500 to-blue-600' 
+                      className={`w-full rounded-t-2xl transition-all duration-700 group-hover:shadow-2xl relative overflow-hidden ${
+                        isPeak ? 'animate-pulse' : ''
+                      }`}
+                      style={{ 
+                        height: `${height}%`,
+                        background: activeMetric === 'views' 
+                          ? 'linear-gradient(to top, #3b82f6, #8b5cf6)' 
                           : activeMetric === 'applicants'
-                          ? 'bg-gradient-to-t from-green-500 to-green-600'
-                          : 'bg-gradient-to-t from-purple-500 to-purple-600'
-                      } ${isPeak ? 'animate-pulse' : ''}`}
-                      style={{ height: `${height}%` }}
-                    />
-                    <div className={`absolute -top-8 opacity-0 group-hover:opacity-100 transition-all duration-300 ${
-                      isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-                    } px-2 py-1 rounded-lg text-xs font-medium shadow-lg`}>
-                      {value.toLocaleString()}
+                          ? 'linear-gradient(to top, #10b981, #06b6d4)'
+                          : 'linear-gradient(to top, #f59e0b, #ef4444)'
+                      }}
+                    >
+                      {/* Shine effect */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    </div>
+                    
+                    {/* Tooltip */}
+                    <div className={`absolute -top-16 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none ${
+                      isDark ? 'bg-gray-800' : 'bg-white'
+                    } px-3 py-2 rounded-xl shadow-2xl border ${
+                      isDark ? 'border-gray-700' : 'border-gray-200'
+                    }`}>
+                      <p className={`text-xs font-semibold mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {analyticsData.traffic.dates[index]}
+                      </p>
+                      <p className={`text-lg font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                        {value.toLocaleString()}
+                      </p>
                     </div>
                   </div>
-                  <span className={`text-xs mt-3 ${
-                    isDark ? 'text-gray-400' : 'text-gray-500'
+                  <span className={`text-xs mt-3 font-medium ${
+                    isDark ? 'text-gray-500' : 'text-gray-600'
                   }`}>
-                    {analyticsData.traffic.dates[index]}
+                    {analyticsData.traffic.dates[index].split(' ')[1]}
                   </span>
                 </div>
               );
             })}
           </div>
-          
-          <div className="flex justify-center space-x-8 text-sm">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-blue-500 rounded"></div>
-              <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>Page Views</span>
+        </div>
+        
+        {/* Legend */}
+        <div className="flex justify-center space-x-8">
+          {[
+            { label: 'Page Views', color: 'from-blue-500 to-purple-600' },
+            { label: 'Applicants', color: 'from-emerald-500 to-cyan-600' },
+            { label: 'Conversions', color: 'from-amber-500 to-red-500' }
+          ].map((item, i) => (
+            <div key={i} className="flex items-center space-x-2">
+              <div className={`w-4 h-4 rounded-full bg-gradient-to-r ${item.color}`} />
+              <span className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                {item.label}
+              </span>
             </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-green-500 rounded"></div>
-              <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>Applicants</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-purple-500 rounded"></div>
-              <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>Conversions</span>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     );
   };
 
   const SourcesChart = () => (
-    <div className={`relative rounded-2xl p-6 transition-all duration-300 ${
+    <div className={`relative rounded-3xl p-8 transition-all duration-500 ${
       isDark 
-        ? 'bg-gradient-to-br from-gray-800/90 to-gray-900/90 border border-gray-700/50' 
-        : 'bg-gradient-to-br from-white to-gray-50/80 border border-gray-200 shadow-lg'
-    } backdrop-blur-sm`}>
-      <div className="flex items-center justify-between mb-6">
+        ? 'bg-gradient-to-br from-gray-800/60 to-gray-900/60 border border-gray-700/30' 
+        : 'bg-white/80 border border-gray-200/50 shadow-xl'
+    } backdrop-blur-xl`}>
+      <div className="flex items-start justify-between mb-8">
         <div>
-          <h3 className={`text-xl font-bold mb-2 ${
+          <h3 className={`text-2xl font-black mb-2 ${
             isDark ? 'text-white' : 'text-gray-900'
           }`}>Applicant Sources</h3>
-          <p className={`text-sm ${
+          <p className={`text-sm font-medium ${
             isDark ? 'text-gray-400' : 'text-gray-600'
-          }`}>Where your applicants are coming from</p>
+          }`}>Channel distribution breakdown</p>
         </div>
-        <PieChart className={`w-5 h-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`} />
+        <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20">
+          <PieChart className={`w-6 h-6 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+        </div>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-        <div className="space-y-4">
+        <div className="space-y-3">
           {analyticsData.applicantSources.map((source, index) => (
             <div 
               key={source.source} 
-              className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-all duration-300 group cursor-pointer"
+              className={`group flex items-center justify-between p-4 rounded-2xl transition-all duration-300 hover:scale-[1.02] cursor-pointer ${
+                isDark ? 'hover:bg-gray-800/50' : 'hover:bg-gray-50'
+              }`}
             >
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-4 flex-1">
                 <div 
-                  className="w-4 h-4 rounded-full transition-transform duration-300 group-hover:scale-125"
+                  className="w-5 h-5 rounded-full transition-transform duration-300 group-hover:scale-125 shadow-lg"
                   style={{ backgroundColor: source.color }}
                 />
-                <div>
-                  <span className={`font-medium ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
+                <div className="flex-1">
+                  <span className={`font-bold text-sm ${
+                    isDark ? 'text-gray-200' : 'text-gray-800'
                   }`}>{source.source}</span>
-                  <div className={`w-24 h-1.5 mt-1 rounded-full ${
-                    isDark ? 'bg-gray-700' : 'bg-gray-200'
+                  <div className={`w-full h-2 mt-2 rounded-full overflow-hidden ${
+                    isDark ? 'bg-gray-800' : 'bg-gray-200'
                   }`}>
                     <div 
-                      className="h-full rounded-full transition-all duration-500"
+                      className="h-full rounded-full transition-all duration-700 shadow-lg"
                       style={{ 
                         width: `${source.percentage}%`,
-                        backgroundColor: source.color
+                        background: `linear-gradient(90deg, ${source.color}, ${source.color}dd)`
                       }}
                     />
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <span className={`font-bold ${
+              <div className="text-right ml-4">
+                <span className={`font-black text-lg ${
                   isDark ? 'text-white' : 'text-gray-900'
                 }`}>{source.count}</span>
-                <span className={`text-sm ml-2 ${
-                  isDark ? 'text-gray-400' : 'text-gray-600'
+                <span className={`text-sm ml-2 font-semibold ${
+                  isDark ? 'text-gray-500' : 'text-gray-600'
                 }`}>({source.percentage}%)</span>
               </div>
             </div>
@@ -339,37 +367,47 @@ export default function Analytics() {
         </div>
         
         <div className="flex justify-center">
-          <div className="relative w-48 h-48">
-            <div className="absolute inset-0">
+          <div className="relative w-56 h-56">
+            {/* Donut Chart */}
+            <svg viewBox="0 0 200 200" className="transform -rotate-90">
               {analyticsData.applicantSources.map((source, index) => {
-                const total = analyticsData.applicantSources.reduce((sum, s) => sum + s.percentage, 0);
-                const startAngle = analyticsData.applicantSources.slice(0, index).reduce((sum, s) => sum + (s.percentage / total) * 360, 0);
-                const endAngle = startAngle + (source.percentage / total) * 360;
+                const total = 100;
+                const offset = analyticsData.applicantSources
+                  .slice(0, index)
+                  .reduce((sum, s) => sum + s.percentage, 0);
+                const circumference = 2 * Math.PI * 70;
+                const strokeDasharray = `${(source.percentage / total) * circumference} ${circumference}`;
+                const strokeDashoffset = -((offset / total) * circumference);
                 
                 return (
-                  <div
+                  <circle
                     key={source.source}
-                    className="absolute inset-0 rounded-full transition-all duration-500 hover:scale-105"
-                    style={{
-                      background: `conic-gradient(from ${startAngle}deg, ${source.color} 0deg ${endAngle}deg, transparent ${endAngle}deg)`
-                    }}
+                    cx="100"
+                    cy="100"
+                    r="70"
+                    fill="none"
+                    stroke={source.color}
+                    strokeWidth="24"
+                    strokeDasharray={strokeDasharray}
+                    strokeDashoffset={strokeDashoffset}
+                    className="transition-all duration-500 hover:stroke-opacity-80"
                   />
                 );
               })}
-            </div>
-            <div className={`absolute inset-8 rounded-full ${
-              isDark ? 'bg-gray-800' : 'bg-white'
-            } shadow-lg flex items-center justify-center`}>
+            </svg>
+            
+            {/* Center content */}
+            <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
-                <div className={`text-2xl font-bold ${
+                <div className={`text-3xl font-black mb-1 ${
                   isDark ? 'text-white' : 'text-gray-900'
                 }`}>
-                  {analyticsData.applicantSources.length}
+                  {analyticsData.applicantSources.reduce((sum, s) => sum + s.count, 0)}
                 </div>
-                <div className={`text-xs ${
+                <div className={`text-xs font-semibold uppercase tracking-wider ${
                   isDark ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  Sources
+                  Total
                 </div>
               </div>
             </div>
@@ -380,95 +418,80 @@ export default function Analytics() {
   );
 
   const TopJobsList = () => (
-    <div className={`relative rounded-2xl p-6 transition-all duration-300 ${
+    <div className={`relative rounded-3xl p-8 transition-all duration-500 h-full ${
       isDark 
-        ? 'bg-gradient-to-br from-gray-800/90 to-gray-900/90 border border-gray-700/50' 
-        : 'bg-gradient-to-br from-white to-gray-50/80 border border-gray-200 shadow-lg'
-    } backdrop-blur-sm`}>
-      <div className="flex items-center justify-between mb-6">
+        ? 'bg-gradient-to-br from-gray-800/60 to-gray-900/60 border border-gray-700/30' 
+        : 'bg-white/80 border border-gray-200/50 shadow-xl'
+    } backdrop-blur-xl`}>
+      <div className="flex items-start justify-between mb-8">
         <div>
-          <h3 className={`text-xl font-bold mb-2 ${
+          <h3 className={`text-2xl font-black mb-2 ${
             isDark ? 'text-white' : 'text-gray-900'
-          }`}>Top Performing Jobs</h3>
-          <p className={`text-sm ${
+          }`}>Top Jobs</h3>
+          <p className={`text-sm font-medium ${
             isDark ? 'text-gray-400' : 'text-gray-600'
-          }`}>Jobs with highest engagement and conversion rates</p>
+          }`}>Highest performing listings</p>
         </div>
-        <BarChart3 className={`w-5 h-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`} />
+        <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20">
+          <Star className={`w-6 h-6 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
+        </div>
       </div>
       
-      <div className="space-y-4">
-        {analyticsData.topJobs.map((job, index) => (
+      <div className="space-y-3">
+        {analyticsData.topJobs.slice(0, 4).map((job, index) => (
           <div 
             key={job.id} 
-            className={`group flex items-center justify-between p-4 rounded-xl transition-all duration-300 hover:scale-105 ${
+            className={`group relative overflow-hidden flex items-center justify-between p-4 rounded-2xl transition-all duration-300 hover:scale-[1.02] cursor-pointer ${
               isDark 
-                ? 'bg-gray-800/50 hover:bg-gray-700/50' 
-                : 'bg-gray-50 hover:bg-gray-100'
-            } backdrop-blur-sm border ${
-              isDark ? 'border-gray-700/50' : 'border-gray-200'
+                ? 'bg-gray-800/40 hover:bg-gray-800/60 border border-gray-700/30' 
+                : 'bg-gray-50 hover:bg-gray-100 border border-gray-200/50'
             }`}
           >
-            <div className="flex items-center space-x-4">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg ${
-                index === 0 ? 'bg-gradient-to-br from-yellow-500 to-orange-500' :
-                index === 1 ? 'bg-gradient-to-br from-gray-500 to-gray-600' :
-                index === 2 ? 'bg-gradient-to-br from-orange-500 to-red-500' :
-                'bg-gradient-to-br from-blue-500 to-purple-500'
+            <div className="flex items-center space-x-4 flex-1">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-base shadow-xl ${
+                index === 0 ? 'bg-gradient-to-br from-yellow-400 to-orange-500' :
+                index === 1 ? 'bg-gradient-to-br from-gray-400 to-gray-500' :
+                index === 2 ? 'bg-gradient-to-br from-orange-400 to-red-500' :
+                'bg-gradient-to-br from-blue-500 to-purple-600'
               }`}>
-                {index + 1}
+                #{index + 1}
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-2 mb-1">
-                  <h4 className={`font-semibold ${
+                  <h4 className={`font-bold text-sm truncate ${
                     isDark ? 'text-white' : 'text-gray-900'
                   }`}>{job.title}</h4>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
+                  <span className={`px-2.5 py-0.5 text-xs rounded-full font-bold ${
                     job.status === 'active' 
-                      ? 'bg-green-500/20 text-green-600 dark:text-green-400' :
+                      ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' :
                     job.status === 'paused'
-                      ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400'
-                      : 'bg-red-500/20 text-red-600 dark:text-red-400'
+                      ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                      : 'bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30'
                   }`}>
                     {job.status}
                   </span>
                 </div>
-                <p className={`text-sm ${
-                  isDark ? 'text-gray-400' : 'text-gray-600'
+                <p className={`text-xs font-semibold ${
+                  isDark ? 'text-gray-500' : 'text-gray-600'
                 }`}>{job.department}</p>
               </div>
             </div>
             
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-4">
               <div className="text-center">
-                <p className={`font-bold ${
-                  isDark ? 'text-white' : 'text-gray-900'
-                }`}>{job.views.toLocaleString()}</p>
-                <p className={`text-xs ${
-                  isDark ? 'text-gray-400' : 'text-gray-600'
-                }`}>Views</p>
-              </div>
-              <div className="text-center">
-                <p className={`font-bold ${
+                <p className={`font-black text-sm ${
                   isDark ? 'text-white' : 'text-gray-900'
                 }`}>{job.applicants}</p>
-                <p className={`text-xs ${
-                  isDark ? 'text-gray-400' : 'text-gray-600'
-                }`}>Applicants</p>
+                <p className={`text-xs font-semibold ${
+                  isDark ? 'text-gray-500' : 'text-gray-600'
+                }`}>Apps</p>
               </div>
               <div className="text-center">
-                <p className="text-green-500 font-bold">{job.conversionRate}%</p>
-                <p className={`text-xs ${
-                  isDark ? 'text-gray-400' : 'text-gray-600'
-                }`}>Conversion</p>
+                <p className="text-emerald-500 font-black text-sm">{job.conversionRate}%</p>
+                <p className={`text-xs font-semibold ${
+                  isDark ? 'text-gray-500' : 'text-gray-600'
+                }`}>CVR</p>
               </div>
-              <button className={`opacity-0 group-hover:opacity-100 transition-all duration-300 p-2 rounded-lg ${
-                isDark 
-                  ? 'hover:bg-gray-700 text-gray-400' 
-                  : 'hover:bg-gray-200 text-gray-500'
-              }`}>
-                <MoreHorizontal className="w-4 h-4" />
-              </button>
             </div>
           </div>
         ))}
@@ -476,146 +499,55 @@ export default function Analytics() {
     </div>
   );
 
-  const DemographicChart = () => (
-    <div className={`relative rounded-2xl p-6 transition-all duration-300 ${
-      isDark 
-        ? 'bg-gradient-to-br from-gray-800/90 to-gray-900/90 border border-gray-700/50' 
-        : 'bg-gradient-to-br from-white to-gray-50/80 border border-gray-200 shadow-lg'
-    } backdrop-blur-sm`}>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className={`text-xl font-bold mb-2 ${
-            isDark ? 'text-white' : 'text-gray-900'
-          }`}>Applicant Demographics</h3>
-          <p className={`text-sm ${
-            isDark ? 'text-gray-400' : 'text-gray-600'
-          }`}>Geographic and experience level distribution</p>
-        </div>
-        <UserCheck className={`w-5 h-5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`} />
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div>
-          <h4 className={`font-semibold mb-4 flex items-center ${
-            isDark ? 'text-gray-300' : 'text-gray-700'
-          }`}>
-            <MapPin className="w-4 h-4 mr-2" />
-            Top Locations
-          </h4>
-          <div className="space-y-4">
-            {analyticsData.demographic.locations.map((location, index) => (
-              <div key={location.location} className="group flex items-center justify-between p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-all duration-300">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
-                    isDark ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-600'
-                  }`}>
-                    {index + 1}
-                  </div>
-                  <span className={`font-medium ${
-                    isDark ? 'text-gray-300' : 'text-gray-700'
-                  }`}>{location.location}</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className={`flex items-center space-x-1 text-sm ${
-                    location.growth > 0 ? 'text-green-500' : 'text-red-500'
-                  }`}>
-                    {location.growth > 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                    <span>{location.growth}%</span>
-                  </div>
-                  <span className={`font-bold w-12 text-right ${
-                    isDark ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    {location.applicants}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        
-        <div>
-          <h4 className={`font-semibold mb-4 flex items-center ${
-            isDark ? 'text-gray-300' : 'text-gray-700'
-          }`}>
-            <Award className="w-4 h-4 mr-2" />
-            Experience Levels
-          </h4>
-          <div className="space-y-4">
-            {analyticsData.demographic.experience.map((exp) => (
-              <div key={exp.level} className="group flex items-center justify-between p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-all duration-300">
-                <span className={`font-medium ${
-                  isDark ? 'text-gray-300' : 'text-gray-700'
-                }`}>{exp.level}</span>
-                <div className="flex items-center space-x-3">
-                  <div className={`flex items-center space-x-1 text-sm ${
-                    exp.trend === 'up' ? 'text-green-500' : 'text-red-500'
-                  }`}>
-                    {exp.trend === 'up' ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                  </div>
-                  <div className={`w-20 h-2 rounded-full ${
-                    isDark ? 'bg-gray-700' : 'bg-gray-200'
-                  }`}>
-                    <div 
-                      className="h-full rounded-full bg-gradient-to-r from-green-500 to-blue-500 transition-all duration-500"
-                      style={{ width: `${(exp.count / 128) * 100}%` }}
-                    />
-                  </div>
-                  <span className={`font-bold w-8 text-right ${
-                    isDark ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    {exp.count}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
-    <div className={`min-h-screen transition-colors duration-500 ${
+    <div className={`min-h-screen transition-colors duration-700 ${
       isDark 
-        ? 'bg-gradient-to-br from-slate-950 via-gray-900 to-slate-950' 
-        : 'bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/30'
+        ? 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-900 via-gray-950 to-black' 
+        : 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-50 via-white to-purple-50'
     }`}>
-      {/* Enhanced Animated Background */}
+      {/* Animated particles */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '4s' }}></div>
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-pink-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute top-20 left-20 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute top-40 right-20 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+        <div className="absolute bottom-20 left-1/3 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '4s' }} />
       </div>
 
-      <div className="container mx-auto p-6 max-w-7xl relative">
-        {/* Back Button */}
-        <div className="mb-6">
+      <div className="container mx-auto p-8 max-w-7xl relative">
+        <div className="mb-6 p-6">
           <AdminBackButton />
         </div>
-
-        {/* Enhanced Header */}
-        <div className="flex justify-between items-center mb-8">
+        {/* Header */}
+        <div className="flex justify-between items-start mb-10">
           <div>
-            <h1 className={`text-4xl font-bold mb-3 bg-gradient-to-r ${
+            <h1 className={`text-5xl font-black mb-3 bg-gradient-to-r ${
               isDark 
-                ? 'from-blue-400 to-purple-400' 
-                : 'from-blue-600 to-purple-600'
+                ? 'from-blue-400 via-purple-400 to-pink-400' 
+                : 'from-blue-600 via-purple-600 to-pink-600'
             } bg-clip-text text-transparent`}>
-              Analytics Dashboard
+              Analytics Hub
             </h1>
-            <p className={`text-lg ${
+            <p className={`text-lg font-medium ${
               isDark ? 'text-gray-400' : 'text-gray-600'
-            }`}>Track your hiring performance and insights in real-time</p>
+            }`}>Real-time insights and performance metrics</p>
           </div>
           <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setIsDark(!isDark)}
+              className={`p-3 rounded-2xl transition-all duration-300 hover:scale-110 ${
+                isDark 
+                  ? 'bg-gray-800/60 border border-gray-700/50 text-yellow-400 hover:bg-gray-700/60' 
+                  : 'bg-white/80 border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-lg'
+              }`}
+            >
+              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
             <select
               value={timeRange}
               onChange={(e) => setTimeRange(e.target.value as any)}
-              className={`border rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 ${
+              className={`border-2 rounded-2xl px-5 py-3 font-bold focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 ${
                 isDark 
-                  ? 'bg-gray-800/80 border-gray-700 text-white backdrop-blur-sm' 
-                  : 'bg-white/80 border-gray-300 text-gray-900 backdrop-blur-sm'
+                  ? 'bg-gray-800/60 border-gray-700/50 text-white backdrop-blur-xl' 
+                  : 'bg-white/80 border-gray-200 text-gray-900 backdrop-blur-xl shadow-lg'
               }`}
             >
               <option value="7d">Last 7 days</option>
@@ -623,19 +555,19 @@ export default function Analytics() {
               <option value="90d">Last 90 days</option>
               <option value="1y">Last year</option>
             </select>
-            <button className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl font-medium transition-all duration-300 hover:scale-105 ${
+            <button className={`flex items-center space-x-2 px-6 py-3 rounded-2xl font-bold transition-all duration-300 hover:scale-105 ${
               isDark 
-                ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg' 
-                : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg'
+                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-2xl hover:shadow-blue-500/25' 
+                : 'bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:shadow-2xl hover:shadow-blue-500/50'
             }`}>
               <Download className="w-4 h-4" />
-              <span>Export Report</span>
+              <span>Export</span>
             </button>
           </div>
         </div>
 
-        {/* Enhanced Overview Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Overview Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <StatCard
             title="Total Page Views"
             value={analyticsData.overview.totalViews}
@@ -643,6 +575,7 @@ export default function Analytics() {
             icon={Eye}
             trend="up"
             subtitle="Across all job postings"
+            gradient="from-blue-500/10 to-purple-500/10"
           />
           <StatCard
             title="Total Applicants"
@@ -650,72 +583,166 @@ export default function Analytics() {
             change={8.3}
             icon={Users}
             trend="up"
-            subtitle="Active candidates"
+            subtitle="From all sources"
+            gradient="from-emerald-500/10 to-cyan-500/10"
           />
           <StatCard
             title="Conversion Rate"
             value={`${analyticsData.overview.conversionRate}%`}
-            change={2.1}
-            icon={Target}
+            change={4.2}
+            icon={TrendingUp}
             trend="up"
             subtitle="View to application"
+            gradient="from-amber-500/10 to-orange-500/10"
           />
           <StatCard
-            title="Avg. Time to Hire"
+            title="Avg Time to Hire"
             value={`${analyticsData.overview.averageTimeToHire}d`}
-            change={-5.2}
-            icon={Clock4}
+            change={-5.7}
+            icon={Clock}
             trend="down"
             subtitle="Days to fill position"
+            gradient="from-violet-500/10 to-fuchsia-500/10"
+          />
+          <StatCard
+            title="Total Jobs Posted"
+            value={analyticsData.overview.totalJobs}
+            change={15.0}
+            icon={Building}
+            trend="up"
+            subtitle="All time"
+            gradient="from-rose-500/10 to-pink-500/10"
+          />
+          <StatCard
+            title="Active Jobs"
+            value={analyticsData.overview.activeJobs}
+            change={23.1}
+            icon={Target}
+            trend="up"
+            subtitle="Currently recruiting"
+            gradient="from-sky-500/10 to-blue-500/10"
           />
         </div>
 
-        {/* Enhanced Charts Section */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
-          <div className="xl:col-span-2">
-            <TrafficChart />
-          </div>
-          <div>
-            <TopJobsList />
-          </div>
-        </div>
-
-        {/* Enhanced Bottom Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Main Charts Grid */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+          <TrafficChart />
           <SourcesChart />
-          <DemographicChart />
         </div>
 
-        {/* Enhanced Quick Stats Footer */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-8">
-          {[
-            { icon: Building, label: 'Active Jobs', value: analyticsData.overview.activeJobs, color: 'blue' },
-            { icon: DollarSign, label: 'Cost per Hire', value: '$2,450', color: 'green' },
-            { icon: Calendar, label: 'Avg. Response Time', value: '2.3 days', color: 'purple' },
-            { icon: Award, label: 'Quality Score', value: '8.7/10', color: 'yellow' }
-          ].map((stat, index) => (
-            <div 
-              key={index}
-              className={`group relative rounded-2xl p-6 text-center transition-all duration-500 hover:scale-105 ${
-                isDark 
-                  ? 'bg-gradient-to-br from-gray-800/80 to-gray-900/80 border border-gray-700/50' 
-                  : 'bg-white border border-gray-200 shadow-lg'
-              } backdrop-blur-sm`}
-            >
-              <stat.icon className={`w-8 h-8 mx-auto mb-3 transition-transform duration-300 group-hover:scale-110 ${
-                stat.color === 'blue' ? (isDark ? 'text-blue-400' : 'text-blue-600') :
-                stat.color === 'green' ? (isDark ? 'text-green-400' : 'text-green-600') :
-                stat.color === 'purple' ? (isDark ? 'text-purple-400' : 'text-purple-600') :
-                isDark ? 'text-yellow-400' : 'text-yellow-600'
-              }`} />
-              <p className={`text-sm mb-2 ${
-                isDark ? 'text-gray-400' : 'text-gray-600'
-              }`}>{stat.label}</p>
-              <p className={`text-2xl font-bold ${
-                isDark ? 'text-white' : 'text-gray-900'
-              }`}>{stat.value}</p>
+        {/* Bottom Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <TopJobsList />
+          
+          {/* Demographic Data */}
+          <div className={`relative rounded-3xl p-8 transition-all duration-500 ${
+            isDark 
+              ? 'bg-gradient-to-br from-gray-800/60 to-gray-900/60 border border-gray-700/30' 
+              : 'bg-white/80 border border-gray-200/50 shadow-xl'
+          } backdrop-blur-xl`}>
+            <div className="flex items-start justify-between mb-8">
+              <div>
+                <h3 className={`text-2xl font-black mb-2 ${
+                  isDark ? 'text-white' : 'text-gray-900'
+                }`}>Demographics</h3>
+                <p className={`text-sm font-medium ${
+                  isDark ? 'text-gray-400' : 'text-gray-600'
+                }`}>Applicant locations & experience</p>
+              </div>
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/20">
+                <MapPin className={`w-6 h-6 ${isDark ? 'text-amber-400' : 'text-amber-600'}`} />
+              </div>
             </div>
-          ))}
+            
+            <div className="space-y-6">
+              {/* Locations */}
+              <div>
+                <h4 className={`text-lg font-black mb-4 flex items-center ${
+                  isDark ? 'text-gray-200' : 'text-gray-800'
+                }`}>
+                  <MapPin className="w-5 h-5 mr-2" />
+                  Top Locations
+                </h4>
+                <div className="space-y-3">
+                  {analyticsData.demographic.locations.map((location, index) => (
+                    <div key={location.location} className="flex items-center justify-between group cursor-pointer">
+                      <div className="flex items-center space-x-3 flex-1">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm ${
+                          isDark ? 'bg-gray-800' : 'bg-gray-100'
+                        } group-hover:scale-110 transition-transform duration-300`}>
+                          {index + 1}
+                        </div>
+                        <span className={`font-semibold text-sm ${
+                          isDark ? 'text-gray-300' : 'text-gray-700'
+                        }`}>{location.location}</span>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <span className={`font-black text-sm ${
+                          isDark ? 'text-white' : 'text-gray-900'
+                        }`}>{location.applicants}</span>
+                        <div className={`flex items-center space-x-1 text-sm font-bold px-2.5 py-1 rounded-full ${
+                          location.growth > 0
+                            ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                            : 'bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30'
+                        }`}>
+                          {location.growth > 0 ? 
+                            <ArrowUpRight className="w-3.5 h-3.5" /> : 
+                            <ArrowDownRight className="w-3.5 h-3.5" />
+                          }
+                          <span>{location.growth}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Experience Levels */}
+              <div>
+                <h4 className={`text-lg font-black mb-4 flex items-center ${
+                  isDark ? 'text-gray-200' : 'text-gray-800'
+                }`}>
+                  <Award className="w-5 h-5 mr-2" />
+                  Experience Levels
+                </h4>
+                <div className="space-y-3">
+                  {analyticsData.demographic.experience.map((exp) => (
+                    <div key={exp.level} className="flex items-center justify-between group cursor-pointer">
+                      <span className={`font-semibold text-sm ${
+                        isDark ? 'text-gray-400' : 'text-gray-600'
+                      }`}>{exp.level}</span>
+                      <div className="flex items-center space-x-3">
+                        <span className={`font-black text-sm ${
+                          isDark ? 'text-white' : 'text-gray-900'
+                        }`}>{exp.count}</span>
+                        <div className={`p-1.5 rounded-lg ${
+                          exp.trend === 'up' 
+                            ? 'bg-emerald-500/20 text-emerald-600' 
+                            : 'bg-red-500/20 text-red-600'
+                        }`}>
+                          {exp.trend === 'up' ? 
+                            <TrendingUp className="w-3.5 h-3.5" /> : 
+                            <TrendingDown className="w-3.5 h-3.5" />
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className={`text-center mt-12 pt-8 border-t ${
+          isDark ? 'border-gray-800' : 'border-gray-200'
+        }`}>
+          <p className={`text-sm font-medium ${
+            isDark ? 'text-gray-500' : 'text-gray-600'
+          }`}>
+            Last updated: {new Date().toLocaleDateString()} • Data refreshes every 15 minutes
+          </p>
         </div>
       </div>
     </div>

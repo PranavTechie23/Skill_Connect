@@ -276,24 +276,7 @@ const EmployerDashboard: React.FC = () => {
                 </button>
               </div>
 
-              {/* Action Buttons */}
-              <div className="hidden sm:flex items-center gap-2">
-                <button className={`px-4 py-2 rounded-xl font-medium text-sm transition-all duration-200 flex items-center gap-2 ${
-                  darkMode 
-                    ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' 
-                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                }`}>
-                  <Download className="w-4 h-4" />
-                  Export
-                </button>
-                <button
-                  onClick={() => navigate('/employer/jobs')}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-medium text-sm flex items-center gap-2 shadow-lg"
-                >
-                  <Plus className="w-4 h-4" />
-                  New Job
-                </button>
-              </div>
+              {/* Action Buttons removed to save space in navbar */}
 
               {/* User Menu */}
               <div className="ml-2 relative group">
@@ -389,7 +372,7 @@ const EmployerDashboard: React.FC = () => {
               </h3>
               <div className="space-y-3">
                 <button
-                  onClick={() => navigate('/employer/jobs')}
+                  onClick={() => navigate('/employer/jobs', { state: { openCreate: true } })}
                   className="w-full px-4 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
                 >
                   <Plus className="w-5 h-5" />

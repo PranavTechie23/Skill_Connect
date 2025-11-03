@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Send, Paperclip, Smile, MoreVertical, Phone, Video, Star, Archive, Trash2, Check, CheckCheck, Clock, Circle } from 'lucide-react';
+import { Search, Send, Paperclip, Smile, MoreVertical, Phone, Video, Star, Check, CheckCheck, Circle } from 'lucide-react';
 import { useTheme } from "@/components/theme-provider";
 import AdminBackButton from "@/components/AdminBackButton";
 
@@ -83,59 +83,40 @@ export default function Messages() {
     }
   ];
 
-  const messages = [
-    {
-      id: 1,
-      sender: 'them',
-      text: 'Hello! I\'m very excited about the Senior Full Stack Developer position at your company.',
-      time: '10:30 AM',
-      status: 'delivered' as 'read' | 'delivered' | 'sent'
-    },
-    {
-      id: 1,
-      sender: 'me',
-      text: 'Hi Sarah! Thank you for your application. We were impressed by your experience with React and Node.js.',
-      time: '10:35 AM',
-      status: 'read' as 'read' | 'delivered' | 'sent'
-    },
-    {
-      id: 3,
-      sender: 'them',
-      text: 'Thank you! I have over 7 years of experience building scalable web applications. I\'d love to learn more about your tech stack.',
-      time: '10:37 AM',
-      status: 'delivered'
-    },
-    {
-      id: 4,
-      sender: 'me',
-      text: 'We primarily use React, TypeScript, Node.js, and AWS. We\'re also moving towards a microservices architecture.',
-      time: '10:40 AM',
-      status: 'read'
-    },
-    {
-      id: 5,
-      sender: 'them',
-      text: 'That sounds perfect! I have extensive experience with all of those technologies. When would be a good time for an interview?',
-      time: '10:42 AM',
-      status: 'delivered'
-    },
-    {
-      id: 6,
-      sender: 'me',
-      text: 'Great! How about next Tuesday at 2 PM? We can do a video call to discuss the role in more detail.',
-      time: '10:45 AM',
-      status: 'read'
-    },
-    {
-      id: 7,
-      sender: 'them',
-      text: 'Thank you for considering my application. I\'d love to discuss the role further.',
-      time: '10:48 AM',
-      status: 'delivered'
-    }
-  ];
+  // Messages per conversation id so each chat shows distinct content
+  const messagesByConversation: Record<number, any[]> = {
+    1: [
+      { id: '1-1', sender: 'them', text: 'Hello! I\'m very excited about the Senior Full Stack Developer position at your company.', time: '10:30 AM', status: 'delivered' },
+      { id: '1-2', sender: 'me', text: 'Hi Sarah! Thank you for your application. We were impressed by your experience with React and Node.js.', time: '10:35 AM', status: 'read' },
+      { id: '1-3', sender: 'them', text: 'Thank you! I have over 7 years of experience building scalable web applications. I\'d love to learn more about your tech stack.', time: '10:37 AM', status: 'delivered' },
+      { id: '1-4', sender: 'me', text: 'We primarily use React, TypeScript, Node.js, and AWS. We\'re also moving towards a microservices architecture.', time: '10:40 AM', status: 'read' },
+      { id: '1-5', sender: 'them', text: 'That sounds perfect! I have extensive experience with all of those technologies. When would be a good time for an interview?', time: '10:42 AM', status: 'delivered' }
+    ],
+    2: [
+      { id: '2-1', sender: 'them', text: 'Hi, I\'m available for an interview next week. What times work best for you?', time: '9:12 AM', status: 'delivered' },
+      { id: '2-2', sender: 'me', text: 'Thanks Marcus — could you do Wednesday or Friday afternoon?', time: '9:20 AM', status: 'read' },
+      { id: '2-3', sender: 'them', text: 'Friday afternoon works great. I can do 3 PM.', time: '9:22 AM', status: 'delivered' }
+    ],
+    3: [
+      { id: '3-1', sender: 'them', text: 'Hi — here\'s my portfolio: https://portfolio.example.com. Would love feedback.', time: '11:05 AM', status: 'delivered' },
+      { id: '3-2', sender: 'me', text: 'Thanks Emily — your case studies look great. Can you share the design files for the last project?', time: '11:12 AM', status: 'read' }
+    ],
+    4: [
+      { id: '4-1', sender: 'them', text: 'I ran the data analysis for the recent task and have some questions about the feature requirements.', time: '8:30 AM', status: 'delivered' },
+      { id: '4-2', sender: 'me', text: 'Sure David — let\'s schedule 30 minutes to walk through the scope.', time: '8:45 AM', status: 'read' }
+    ],
+    5: [
+      { id: '5-1', sender: 'them', text: 'Could we schedule a call to discuss the product roadmap?', time: '2:10 PM', status: 'delivered' },
+      { id: '5-2', sender: 'me', text: 'Yes — how does Thursday 10 AM look for you?', time: '2:15 PM', status: 'read' }
+    ],
+    6: [
+      { id: '6-1', sender: 'them', text: 'Thank you for the opportunity — excited to potentially join the backend team.', time: '4:00 PM', status: 'delivered' },
+      { id: '6-2', sender: 'me', text: 'We\'ll review your profile and follow up next week.', time: '4:10 PM', status: 'read' }
+    ]
+  };
 
   const currentChat = conversations.find(c => c.id === selectedChat);
+  const currentMessages = messagesByConversation[selectedChat] || [];
   const filteredConversations = conversations.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.position.toLowerCase().includes(searchTerm.toLowerCase())
@@ -278,7 +259,7 @@ export default function Messages() {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {messages.map((msg) => (
+              {currentMessages.map((msg: any) => (
                 <div
                   key={msg.id}
                   className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}

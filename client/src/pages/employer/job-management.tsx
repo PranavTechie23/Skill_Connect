@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTheme } from "@/components/theme-provider";
 import AdminBackButton from "@/components/AdminBackButton";
 import { 
@@ -24,7 +25,13 @@ import {
   BarChart3,
   Zap,
   Target,
-  TrendingUp
+  TrendingUp,
+  Code,
+  Palette,
+  Database,
+  Smartphone,
+  Cloud,
+  Briefcase
 } from 'lucide-react';
 
 interface Job {
@@ -257,6 +264,101 @@ export default function JobManagement() {
     avgConversion: jobs.filter(job => job.applicants > 0).reduce((sum, job) => sum + job.conversionRate, 0) / jobs.filter(job => job.applicants > 0).length || 0
   };
 
+  // Create Job modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const location = useLocation();
+
+  // If navigated here with state.openCreate, open the modal automatically
+  useEffect(() => {
+    try {
+      const state = (location as any).state;
+      if (state && state.openCreate) {
+        setShowCreateModal(true);
+        // Optionally clear the flag so it doesn't reopen on remount
+        // history.replaceState can be used but we keep it simple here
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [location]);
+
+  const [newJobForm, setNewJobForm] = useState({
+    title: "",
+    department: "",
+    location: "",
+    type: 'full-time' as Job['type'],
+    salary: '',
+    experience: '',
+    description: '',
+    requirements: '' , // comma separated
+    skills: '' , // comma separated
+    status: 'draft' as Job['status']
+  });
+
+  // Simple icon chooser based on job title keywords
+  const iconMap: Record<string, any> = {
+    frontend: Code,
+    backend: Database,
+    devops: Zap,
+    design: Palette,
+    mobile: Smartphone,
+    cloud: Cloud,
+    data: Database,
+    default: Briefcase,
+  };
+
+  const pickIconForTitle = (title: string) => {
+    const t = title.toLowerCase();
+    for (const k of Object.keys(iconMap)) {
+      if (k !== 'default' && t.includes(k)) return iconMap[k];
+    }
+    return iconMap.default;
+  };
+
+  const handleCreateJobOpen = () => setShowCreateModal(true);
+  const handleCreateJobClose = () => setShowCreateModal(false);
+
+  // Icon for preview in create modal
+  const CreateIcon = pickIconForTitle(newJobForm.title);
+
+  const createJob = () => {
+    // basic validation: required fields
+    if (!newJobForm.title.trim() || !newJobForm.department.trim() || !newJobForm.description.trim()) {
+      alert('Please fill required fields: Title, Department and Description');
+      return;
+    }
+
+    // parse comma separated requirements/skills into arrays
+    const requirementsArr = newJobForm.requirements
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const newJob: Job = {
+      id: Date.now().toString(),
+      title: newJobForm.title,
+      department: newJobForm.department,
+      location: newJobForm.location,
+      type: newJobForm.type,
+      salary: newJobForm.salary,
+      experience: newJobForm.experience,
+      description: newJobForm.description,
+      requirements: requirementsArr,
+      status: newJobForm.status,
+      applicants: 0,
+      newApplicants: 0,
+      postedDate: new Date().toISOString().split('T')[0],
+      expiryDate: '',
+      views: 0,
+      conversionRate: 0,
+    } as Job;
+
+    setJobs(prev => [newJob, ...prev]);
+    setNewJobForm({ title: '', department: '', location: '', type: 'full-time', salary: '', experience: '', description: '', requirements: '', skills: '', status: 'draft' });
+    setShowCreateModal(false);
+  };
+
   const StatCard = ({ title, value, change, icon: Icon, trend = 'up', color }: any) => (
     <div className={`${darkMode ? 'bg-gray-800/80 border-gray-700/50' : 'bg-white border-gray-200'} border rounded-xl p-6 backdrop-blur-sm hover:shadow-lg transition-all duration-300`}>
       <div className="flex items-center justify-between">
@@ -317,7 +419,7 @@ export default function JobManagement() {
               <Download className="w-5 h-5" />
               <span>Export</span>
             </button>
-            <button className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl transition-colors duration-300 shadow-lg shadow-blue-600/25">
+            <button onClick={handleCreateJobOpen} className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl transition-colors duration-300 shadow-lg shadow-blue-600/25">
               <Plus className="w-5 h-5" />
               <span>Create Job</span>
             </button>
@@ -676,6 +778,106 @@ export default function JobManagement() {
           </div>
         )}
       </div>
+
+      {/* Create Job Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-2xl shadow-2xl max-w-2xl w-full p-6`}>
+            <div className="flex items-start space-x-4 mb-4">
+              <div className="p-3 rounded-lg bg-blue-500/10">
+                <CreateIcon className="w-7 h-7 text-blue-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Create New Job</h3>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>Fill the details below to publish a new job posting.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <input
+                value={newJobForm.title}
+                onChange={(e) => setNewJobForm(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Job title (required)"
+                className={`px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+              />
+              <input
+                value={newJobForm.department}
+                onChange={(e) => setNewJobForm(prev => ({ ...prev, department: e.target.value }))}
+                placeholder="Department (required)"
+                className={`px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+              />
+              <input
+                value={newJobForm.location}
+                onChange={(e) => setNewJobForm(prev => ({ ...prev, location: e.target.value }))}
+                placeholder="Location"
+                className={`px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+              />
+              <select
+                value={newJobForm.type}
+                onChange={(e) => setNewJobForm(prev => ({ ...prev, type: e.target.value as Job['type'] }))}
+                className={`px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+              >
+                <option value="full-time">Full-time</option>
+                <option value="part-time">Part-time</option>
+                <option value="contract">Contract</option>
+                <option value="internship">Internship</option>
+              </select>
+              <input
+                value={newJobForm.salary}
+                onChange={(e) => setNewJobForm(prev => ({ ...prev, salary: e.target.value }))}
+                placeholder="Salary range"
+                className={`px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+              />
+              <input
+                value={newJobForm.experience}
+                onChange={(e) => setNewJobForm(prev => ({ ...prev, experience: e.target.value }))}
+                placeholder="Experience required"
+                className={`px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+              />
+            </div>
+
+            <div className="mb-4">
+              <textarea
+                value={newJobForm.description}
+                onChange={(e) => setNewJobForm(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Detailed description (required)"
+                rows={4}
+                className={`w-full px-4 py-3 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <input
+                value={newJobForm.requirements}
+                onChange={(e) => setNewJobForm(prev => ({ ...prev, requirements: e.target.value }))}
+                placeholder="Key requirements (comma separated)"
+                className={`px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+              />
+              <input
+                value={newJobForm.skills}
+                onChange={(e) => setNewJobForm(prev => ({ ...prev, skills: e.target.value }))}
+                placeholder="Skills (comma separated)"
+                className={`px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={handleCreateJobClose}
+                className={`px-4 py-2 rounded-xl transition-colors duration-300 ${darkMode ? 'text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600' : 'text-gray-600 hover:text-gray-900 bg-gray-200 hover:bg-gray-300'}`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createJob}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors duration-300 shadow-lg shadow-blue-600/25"
+              >
+                Create Job
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Enhanced Delete Confirmation Modal */}
       {showDeleteModal && (
