@@ -81,7 +81,7 @@ const EmployerSettings: React.FC = () => {
   const { theme } = useTheme();
   const { user } = useAuth();
   const isDarkMode = theme === 'dark';
-  const [activeSection, setActiveSection] = useState<string>('profile');
+  const [activeSection, setActiveSection] = useState<string>('notifications');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [showSaveSuccess, setShowSaveSuccess] = useState<boolean>(false);
 
@@ -204,7 +204,6 @@ const EmployerSettings: React.FC = () => {
 
   // Enhanced Navigation items with better icons
   const navItems = [
-    { id: 'profile', label: 'Profile', icon: User, color: 'from-blue-500 to-cyan-500', description: 'Personal & company info' },
     { id: 'notifications', label: 'Notifications', icon: Bell, color: 'from-purple-500 to-pink-500', description: 'Alerts & preferences' },
     { id: 'security', label: 'Security', icon: ShieldCheck, color: 'from-green-500 to-emerald-500', description: 'Privacy & protection' },
     { id: 'billing', label: 'Billing', icon: Crown, color: 'from-yellow-500 to-amber-500', description: 'Plans & payments' },
@@ -385,109 +384,6 @@ const EmployerSettings: React.FC = () => {
               ? 'bg-gray-800/50 border-gray-700/50 shadow-2xl shadow-cyan-500/10' 
               : 'bg-white/80 border-gray-200/50 shadow-xl'
           }`}>
-            {/* Enhanced Profile Section */}
-            {activeSection === 'profile' && (
-              <div className="space-y-8">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className={`p-3 rounded-2xl ${
-                      isDarkMode ? 'bg-blue-500/20' : 'bg-blue-100'
-                    }`}>
-                      <User className={`w-7 h-7 ${
-                        isDarkMode ? 'text-blue-400' : 'text-blue-600'
-                      }`} />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-bold">Profile Information</h2>
-                      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        Manage your personal and company details
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <button className={`p-3 rounded-xl transition-all duration-300 ${
-                      isDarkMode 
-                        ? 'bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600' 
-                        : 'bg-white hover:bg-gray-50 border border-gray-200'
-                    }`}>
-                      <Upload className="w-5 h-5" />
-                    </button>
-                    <button className={`p-3 rounded-xl transition-all duration-300 ${
-                      isDarkMode 
-                        ? 'bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600' 
-                        : 'bg-white hover:bg-gray-50 border border-gray-200'
-                    }`}>
-                      <Download className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Avatar Section */}
-                <div className={`p-6 rounded-xl border-2 ${
-                  isDarkMode ? 'border-gray-600 bg-gray-700/30' : 'border-gray-200 bg-blue-50'
-                }`}>
-                  <div className="flex items-center space-x-6">
-                    <div className="relative">
-                      <img
-                        src={profile.avatar}
-                        alt="Profile"
-                        className="w-20 h-20 rounded-2xl object-cover border-4 border-blue-500/30"
-                      />
-                      <div className="absolute -bottom-2 -right-2 bg-blue-500 text-white p-1 rounded-full">
-                        <Star className="w-4 h-4" />
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold">{profile.firstName} {profile.lastName}</h3>
-                      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        {profile.position} at {profile.company}
-                      </p>
-                      <div className="flex items-center space-x-4 mt-2">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          isDarkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-700'
-                        }`}>
-                          <BadgeCheck className="w-3 h-3 inline mr-1" />
-                          Verified
-                        </span>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700'
-                        }`}>
-                          <Crown className="w-3 h-3 inline mr-1" />
-                          Pro Plan
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {[
-                    { label: 'First Name', field: 'firstName', icon: User },
-                    { label: 'Last Name', field: 'lastName', icon: User },
-                    { label: 'Email Address', field: 'email', icon: Mail },
-                    { label: 'Phone Number', field: 'phone', icon: Phone },
-                    { label: 'Company', field: 'company', icon: Building },
-                    { label: 'Position', field: 'position', icon: Briefcase },
-                  ].map(({ label, field, icon: Icon }) => (
-                    <div key={field} className="group">
-                      <label className={`flex items-center text-sm font-medium mb-3 transition-colors ${
-                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
-                        <Icon className="w-4 h-4 mr-2" />
-                        {label}
-                      </label>
-                      <input
-                        type="text"
-                        value={profile[field as keyof EmployerProfile]}
-                        onChange={(e) => handleProfileChange(field as keyof EmployerProfile, e.target.value)}
-                        className={inputClasses}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Enhanced Notifications Section */}
             {activeSection === 'notifications' && (
               <div className="space-y-8">
@@ -1450,7 +1346,7 @@ const EmployerSettings: React.FC = () => {
             )}
 
             {/* Enhanced Action Buttons */}
-            {(activeSection === 'profile' || activeSection === 'notifications' || activeSection === 'security') && (
+            {(activeSection === 'notifications' || activeSection === 'security') && (
               <div className="flex flex-col sm:flex-row gap-4 mt-12 pt-8 border-t border-gray-200 dark:border-gray-600">
                 <button
                   onClick={handleSave}

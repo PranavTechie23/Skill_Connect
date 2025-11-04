@@ -496,6 +496,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Job routes (assuming they might need auth features later)
   authRouter.use("/jobs", jobsRouter);
 
+  // Employer: Get jobs by employer
+  authRouter.get("/employer/jobs", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user || (user.userType !== 'Employer' && user.userType !== 'admin')) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const jobs = await storage.getJobsByEmployer(userId);
+      
+      // Enrich jobs with company and application data
+      const enrichedJobs = await Promise.all(
+        jobs.map(async (job) => {
+          const [company, jobApplications] = await Promise.all([
+            job.companyId ? storage.getCompany(String(job.companyId)).catch(() => null) : null,
+            storage.getApplicationsByJob(job.id).catch(() => [])
+          ]);
+
+          // Calculate stats
+          const applications = jobApplications.length;
+          const newApplications = jobApplications.filter(app => {
+            const appliedDate = new Date(app.appliedAt);
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            return appliedDate >= weekAgo;
+          }).length;
+
+          return {
+            ...job,
+            company,
+            applications,
+            newApplications,
+            views: 0 // TODO: Add views tracking
+          };
+        })
+      );
+
+      res.json(enrichedJobs);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch employer jobs");
+    }
+  });
+
   // Logout
   authRouter.post("/auth/logout", (req, res) => {
     req.session.destroy((err) => {
@@ -642,6 +690,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(company);
     } catch (error) {
       handleError(res, error, "Failed to fetch company");
+    }
+  });
+
+  authRouter.put("/companies/:id", requireAuth, async (req, res) => {
+    try {
+      const company = await storage.getCompany(req.params.id);
+      if (!company) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+
+      // Check if user owns the company
+      if (company.ownerId?.toString() !== req.session.userId) {
+        return res.status(403).json({ message: "Not authorized to update this company" });
+      }
+
+      const updatedCompany = await storage.updateCompany(req.params.id, req.body);
+      res.json(updatedCompany);
+    } catch (error) {
+      handleError(res, error, "Failed to update company");
     }
   });
 

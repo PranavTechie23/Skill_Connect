@@ -475,6 +475,77 @@ export class Storage {
     }
   }
 
+  async updateCompany(id: string, updates: Partial<Company & { profileScore?: number }>): Promise<Company> {
+    try {
+      const setFields: string[] = [];
+      const updates_values: any[] = [];
+
+      for (const [key, value] of Object.entries(updates)) {
+        if (value !== undefined && key !== 'id' && key !== 'createdAt' && key !== 'ownerId') {
+          // Handle profileScore separately if needed (it's not in Company schema)
+          if (key === 'profileScore') {
+            // Store profileScore in a JSONB field or we can add it as metadata
+            // For now, we'll calculate it on-the-fly, but we can store it if needed
+            continue;
+          }
+          setFields.push(`${key} = ${sql.raw('?')}`);
+          updates_values.push(value instanceof Date ? value.toISOString() : value);
+        }
+      }
+
+      if (setFields.length === 0) {
+        throw new Error('No valid fields to update');
+      }
+
+      const result = await db.execute(
+        sql`UPDATE companies SET ${sql.raw(setFields.join(', '))} WHERE id = ${id} RETURNING *`
+      );
+
+      return result.rows[0] as Company;
+    } catch (error) {
+      console.error('Error in updateCompany:', error);
+      throw error;
+    }
+  }
+
+  // Calculate profile completion score for a company
+  async calculateCompanyProfileScore(company: Company | null, user: any): Promise<number> {
+    if (!company) return 0;
+
+    let totalFields = 0;
+    let completedFields = 0;
+
+    // Core company fields
+    const fields = [
+      { key: 'name', value: company.name },
+      { key: 'industry', value: company.industry },
+      { key: 'location', value: company.location },
+      { key: 'size', value: company.size },
+      { key: 'description', value: company.description },
+      { key: 'website', value: company.website },
+      { key: 'logo', value: company.logo }
+    ];
+
+    fields.forEach(field => {
+      totalFields++;
+      if (field.value && String(field.value).trim() !== '') {
+        completedFields++;
+      }
+    });
+
+    // Contact info from user
+    if (user?.email) {
+      totalFields++;
+      completedFields++;
+    }
+    if (user?.telephoneNumber) {
+      totalFields++;
+      if (user.telephoneNumber.trim() !== '') completedFields++;
+    }
+
+    return totalFields > 0 ? Math.round((completedFields / totalFields) * 100) : 0;
+  }
+
   // Stories methods
   async getPaginatedStories(limit: number, offset: number): Promise<Story[]> {
     try {
@@ -721,9 +792,23 @@ export class Storage {
   async getJobsByEmployer(employerId: string): Promise<Job[]> {
     try {
       const result = await db.execute(
-        sql`SELECT * FROM jobs WHERE employer_id = ${employerId}`
+        sql`SELECT * FROM jobs WHERE employer_id = ${employerId} ORDER BY created_at DESC`
       );
-      return result.rows as Job[];
+      return result.rows.map((row: any) => ({
+        id: String(row.id),
+        title: String(row.title),
+        description: String(row.description || ''),
+        requirements: String(row.requirements || ''),
+        location: String(row.location),
+        jobType: String(row.job_type),
+        salaryMin: row.salary_min ? Number(row.salary_min) : null,
+        salaryMax: row.salary_max ? Number(row.salary_max) : null,
+        skills: Array.isArray(row.skills) ? row.skills : [],
+        companyId: row.company_id ? String(row.company_id) : null,
+        employerId: String(row.employer_id),
+        isActive: Boolean(row.is_active ?? true),
+        createdAt: row.created_at ? new Date(row.created_at) : new Date()
+      })) as Job[];
     } catch (error) {
       console.error('Error in getJobsByEmployer:', error);
       throw error;

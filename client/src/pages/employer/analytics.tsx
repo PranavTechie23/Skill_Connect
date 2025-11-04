@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import AdminBackButton from '@/components/AdminBackButton';
+import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, 
   Users, 
@@ -23,8 +23,10 @@ import {
   Activity,
   Star,
   Moon,
-  Sun
+  Sun,
+  ArrowLeft
 } from 'lucide-react';
+import { useTheme } from "@/components/theme-provider";
 
 interface AnalyticsData {
   overview: {
@@ -65,7 +67,9 @@ interface AnalyticsData {
 export default function Analytics() {
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
   const [activeMetric, setActiveMetric] = useState<'views' | 'applicants' | 'conversions'>('views');
-  const [isDark, setIsDark] = useState(true);
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const navigate = useNavigate();
 
   const analyticsData: AnalyticsData = {
     overview: {
@@ -513,9 +517,6 @@ export default function Analytics() {
       </div>
 
       <div className="container mx-auto p-8 max-w-7xl relative">
-        <div className="mb-6 p-6">
-          <AdminBackButton />
-        </div>
         {/* Header */}
         <div className="flex justify-between items-start mb-10">
           <div>
@@ -532,14 +533,14 @@ export default function Analytics() {
           </div>
           <div className="flex items-center space-x-4">
             <button
-              onClick={() => setIsDark(!isDark)}
+              onClick={() => navigate(-1)}
               className={`p-3 rounded-2xl transition-all duration-300 hover:scale-110 ${
                 isDark 
-                  ? 'bg-gray-800/60 border border-gray-700/50 text-yellow-400 hover:bg-gray-700/60' 
+                  ? 'bg-gray-800/60 border border-gray-700/50 text-gray-300 hover:bg-gray-700/60' 
                   : 'bg-white/80 border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-lg'
               }`}
             >
-              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              <ArrowLeft className="w-5 h-5" />
             </button>
             <select
               value={timeRange}

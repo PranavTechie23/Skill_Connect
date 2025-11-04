@@ -176,7 +176,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw new Error(msg);
       }
 
-      const returnedUser: User = data?.user ?? data;
+      let returnedUser: User = data?.user ?? data;
+      
+      // For employers, fetch full user data with company info from /api/auth/me
+      if (returnedUser.userType === 'Employer' && !returnedUser.company) {
+        try {
+          const meRes = await apiFetch("/api/auth/me", {
+            credentials: "include",
+          });
+          if (meRes.ok) {
+            const meData = await meRes.json();
+            if (meData?.user) {
+              returnedUser = meData.user;
+            }
+          }
+        } catch (e) {
+          console.warn("Failed to fetch full user data after login:", e);
+        }
+      }
+      
       setUserState(returnedUser);
       // After successful login, the user object is now set in the state.
       // This will trigger effects in components like login.tsx to redirect.

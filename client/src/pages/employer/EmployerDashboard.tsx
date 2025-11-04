@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from "@/components/theme-provider";
+import { apiFetch } from '@/lib/api';
+
 import { ModeToggle } from "@/components/ui/dark-mode-toggle";
+
 import {
   Briefcase, Users, TrendingUp, Clock, Plus, MoreVertical, 
   MapPin, DollarSign, Calendar, Eye, Settings, LogOut, Menu, X, 
   Home, BarChart3, User, Star, ChevronDown, Edit, Pause, Play, 
   Trash2, Copy, CheckCircle, ArrowRight, Target, Award, Zap, Mail,
-  Bell, Search, Filter, Download, Share2
+  Bell, Search, Filter, Download, Share2, UserCircle
 } from 'lucide-react';
 
 interface Job {
@@ -110,24 +113,26 @@ const mockApplications: Application[] = [
 
 const EmployerDashboard: React.FC = () => {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const darkMode = theme === 'dark';
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
-  const [jobs] = useState<Job[]>(mockJobs);
-  const [applications] = useState<Application[]>(mockApplications);
-
-  const company = {
-    name: 'TechCorp Inc.',
-    logo: 'TC',
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [stats, setStats] = useState({
+    activeJobs: 0,
+    totalApplications: 0,
+    shortlisted: 0,
+    interviewed: 0
+  });
+  const [profileScore, setProfileScore] = useState(0);
+  const [company, setCompany] = useState({
+    name: 'Your Company',
+    logo: 'YC',
     plan: 'Professional'
-  };
-
-  const stats = {
-    activeJobs: 8,
-    totalApplications: 234,
-    shortlisted: 45,
-    interviewed: 12
-  };
+  });
+  const [loading, setLoading] = useState(true);
+  const [showLogoutConfirmation, setShowLogoutConfirmation] = useState(false);
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -152,6 +157,7 @@ const EmployerDashboard: React.FC = () => {
       messages: '/employer/messages',
       analytics: '/employer/analytics',
       stories: '/employer/stories',
+      profile: '/employer/profile',
       settings: '/employer/settings'
     };
     
@@ -195,6 +201,7 @@ const EmployerDashboard: React.FC = () => {
   };
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout } = useAuth();
 
   const handleLogout = async () => {
@@ -205,6 +212,272 @@ const EmployerDashboard: React.FC = () => {
     }
     navigate('/', { replace: true });
   };
+
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      e.preventDefault();
+      setShowLogoutConfirmation(true);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  // Sync activeTab with current route
+  useEffect(() => {
+    const pathname = location.pathname;
+    if (pathname === '/employer/dashboard') {
+      setActiveTab('overview');
+    } else if (pathname === '/employer/jobs') {
+      setActiveTab('jobs');
+    } else if (pathname === '/employer/applications') {
+      setActiveTab('applications');
+    } else if (pathname === '/employer/candidates') {
+      setActiveTab('candidates');
+    } else if (pathname === '/employer/messages') {
+      setActiveTab('messages');
+    } else if (pathname === '/employer/analytics') {
+      setActiveTab('analytics');
+    } else if (pathname === '/employer/stories') {
+      setActiveTab('stories');
+    } else if (pathname === '/employer/profile') {
+      setActiveTab('profile');
+    } else if (pathname === '/employer/settings') {
+      setActiveTab('settings');
+    }
+  }, [location.pathname]);
+
+  // Calculate profile completion score
+  const calculateProfileScore = (companyData: any, userData: any): number => {
+    if (!companyData) return 0;
+
+    let totalFields = 0;
+    let completedFields = 0;
+
+    // Core company fields
+    const fields = [
+      { value: companyData.name },
+      { value: companyData.industry },
+      { value: companyData.location },
+      { value: companyData.size },
+      { value: companyData.description },
+      { value: companyData.website },
+      { value: companyData.logo }
+    ];
+
+    fields.forEach(field => {
+      totalFields++;
+      if (field.value && String(field.value).trim() !== '') {
+        completedFields++;
+      }
+    });
+
+    // Contact info from user
+    if (userData?.email) {
+      totalFields++;
+      completedFields++;
+    }
+    if (userData?.telephoneNumber) {
+      totalFields++;
+      if (String(userData.telephoneNumber).trim() !== '') completedFields++;
+    }
+
+    return totalFields > 0 ? Math.round((completedFields / totalFields) * 100) : 0;
+  };
+
+  // Update company name when user data changes - fetch from backend
+  useEffect(() => {
+    const fetchCompanyName = async () => {
+      if (!user?.id) {
+        return;
+      }
+
+      let companyData = null;
+
+      // First check if company is in user object (from /api/auth/me)
+      if (user?.company?.id) {
+        try {
+          const companyResponse = await apiFetch(`/api/companies/${user.company.id}`, {
+            credentials: 'include'
+          });
+          
+          if (companyResponse.ok) {
+            companyData = await companyResponse.json();
+            console.log('Company name from user object:', companyData.name);
+            setCompany({
+              name: companyData.name,
+              logo: companyData.name.substring(0, 2).toUpperCase(),
+              plan: 'Professional'
+            });
+            // Calculate profile score
+            const score = calculateProfileScore(companyData, user);
+            setProfileScore(score);
+            return;
+          }
+        } catch (error) {
+          console.error('Error fetching company details:', error);
+        }
+      }
+
+      // If not in user object, fetch from companies endpoint
+      try {
+        console.log('Fetching company for ownerId:', user.id);
+        const companiesResponse = await apiFetch(`/api/companies?ownerId=${user.id}`, {
+          credentials: 'include'
+        });
+        
+        if (companiesResponse.ok) {
+          const companies = await companiesResponse.json();
+          console.log('Companies response:', companies);
+          
+          if (companies && Array.isArray(companies) && companies.length > 0 && companies[0]?.name) {
+            companyData = companies[0];
+            const companyName = companyData.name;
+            console.log('Setting company name to:', companyName);
+            setCompany({
+              name: companyName,
+              logo: companyName.substring(0, 2).toUpperCase(),
+              plan: 'Professional'
+            });
+            // Calculate profile score
+            const score = calculateProfileScore(companyData, user);
+            setProfileScore(score);
+            return;
+          }
+        } else {
+          console.warn('Failed to fetch companies, status:', companiesResponse.status);
+        }
+      } catch (error) {
+        console.error('Error fetching company:', error);
+      }
+
+      // Fallback to user name if no company found
+      const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+      console.log('Using fallback name:', name || 'Your Company');
+      setCompany({
+        name: name || 'Your Company',
+        logo: name ? name.substring(0, 2).toUpperCase() : 'YC',
+        plan: 'Professional'
+      });
+      setProfileScore(0);
+    };
+
+    fetchCompanyName();
+  }, [user?.id, user?.company?.id, user?.company?.name, user?.firstName, user?.lastName]);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        // Fetch jobs for this employer
+        const jobsResponse = await apiFetch('/api/employer/jobs', {
+          credentials: 'include'
+        });
+
+        if (!jobsResponse.ok) {
+          throw new Error('Failed to fetch jobs');
+        }
+
+        const jobsData = await jobsResponse.json();
+        
+        // Transform jobs data to match the Job interface
+        const transformedJobs: Job[] = jobsData.map((job: any) => ({
+          id: String(job.id),
+          title: job.title,
+          department: job.company?.industry || 'General',
+          location: job.location,
+          type: job.jobType || 'Full-time',
+          salary: job.salaryMin && job.salaryMax 
+            ? `$${Math.round(job.salaryMin/1000)}k - $${Math.round(job.salaryMax/1000)}k`
+            : 'Not specified',
+          postedDate: job.createdAt 
+            ? new Date(job.createdAt).toLocaleDateString()
+            : new Date().toLocaleDateString(),
+          applications: job.applications || 0,
+          newApplications: job.newApplications || 0,
+          status: job.isActive ? 'active' : 'paused',
+          views: job.views || 0
+        }));
+
+        setJobs(transformedJobs);
+
+        // Fetch applications for this employer
+        const applicationsResponse = await apiFetch(`/api/applications?employerId=${user.id}`, {
+          credentials: 'include'
+        });
+
+        if (applicationsResponse.ok) {
+          const applicationsData = await applicationsResponse.json();
+          
+          // Transform applications data
+          const transformedApplications: Application[] = applicationsData.slice(0, 3).map((app: any) => {
+            const applicant = app.applicant || {};
+            const applicantName = applicant.firstName && applicant.lastName
+              ? `${applicant.firstName} ${applicant.lastName}`
+              : applicant.email || 'Unknown Candidate';
+            
+            // Get skills from applicant profile or job
+            const skills = applicant.skills || app.job?.skills || [];
+            
+            return {
+              id: String(app.id),
+              candidateName: applicantName,
+              candidatePhoto: applicant.profilePhoto,
+              jobTitle: app.job?.title || 'Unknown Position',
+              appliedDate: app.appliedAt 
+                ? new Date(app.appliedAt).toLocaleDateString()
+                : new Date().toLocaleDateString(),
+              matchScore: Math.floor(Math.random() * (95 - 80 + 1) + 80), // TODO: Calculate real match score
+              status: app.status || 'new',
+              skills: Array.isArray(skills) ? skills : []
+            };
+          });
+
+          setApplications(transformedApplications);
+
+          // Calculate stats
+          const activeJobs = transformedJobs.filter(j => j.status === 'active').length;
+          const totalApplications = applicationsData.length;
+          const shortlisted = applicationsData.filter((app: any) => app.status === 'shortlisted').length;
+          const interviewed = applicationsData.filter((app: any) => app.status === 'interview').length;
+
+          setStats({
+            activeJobs,
+            totalApplications,
+            shortlisted,
+            interviewed
+          });
+        }
+
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+        // Keep empty state on error
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [user?.id]);
+
+  if (loading) {
+    return (
+      <div className={`min-h-screen w-screen flex items-center justify-center ${darkMode ? 'bg-gradient-to-br from-gray-900 via-gray-900 to-gray-950' : 'bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30'}`}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen w-screen transition-colors duration-300 fixed inset-0 ${darkMode ? 'bg-gradient-to-br from-gray-900 via-gray-900 to-gray-950' : 'bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30'} overflow-x-hidden`}>
@@ -276,8 +549,6 @@ const EmployerDashboard: React.FC = () => {
                 </button>
               </div>
 
-              {/* Action Buttons removed to save space in navbar */}
-
               {/* User Menu */}
               <div className="ml-2 relative group">
                 <button className={`flex items-center max-w-xs rounded-xl text-sm p-2 gap-3 transition-all duration-200 ${
@@ -300,11 +571,23 @@ const EmployerDashboard: React.FC = () => {
                     <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{company.name}</p>
                     <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{company.plan} Plan</p>
                   </div>
-                  <button className={`w-full px-4 py-2.5 text-sm ${darkMode ? 'text-gray-300 hover:bg-gray-700/50 hover:text-white' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'} flex items-center gap-3 transition-colors`}>
+                  <button 
+                    onClick={() => {
+                      setActiveTab('profile');
+                      navigate('/employer/profile');
+                    }}
+                    className={`w-full px-4 py-2.5 text-sm ${darkMode ? 'text-gray-300 hover:bg-gray-700/50 hover:text-white' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'} flex items-center gap-3 transition-colors`}
+                  >
                     <User className="w-4 h-4" />
                     Company Profile
                   </button>
-                  <button className={`w-full px-4 py-2.5 text-sm ${darkMode ? 'text-gray-300 hover:bg-gray-700/50 hover:text-white' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'} flex items-center gap-3 transition-colors`}>
+                  <button 
+                    onClick={() => {
+                      setActiveTab('settings');
+                      navigate('/employer/settings');
+                    }}
+                    className={`w-full px-4 py-2.5 text-sm ${darkMode ? 'text-gray-300 hover:bg-gray-700/50 hover:text-white' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'} flex items-center gap-3 transition-colors`}
+                  >
                     <Settings className="w-4 h-4" />
                     Settings
                   </button>
@@ -318,10 +601,9 @@ const EmployerDashboard: React.FC = () => {
                   </button>
                 </div>
               </div>
-
               <ModeToggle />
             </div>
-          </div>
+          </div> {/* Added missing closing div */}
         </div>
       </div>
 
@@ -346,6 +628,32 @@ const EmployerDashboard: React.FC = () => {
                   <p className="text-xs text-gray-400">Applications</p>
                 </div>
               </div>
+              
+              {/* Profile Completion Score */}
+              <div className="mt-4 p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-emerald-600/10 border border-green-500/20 backdrop-blur-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Star className="w-5 h-5 text-green-400" />
+                    <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Profile Score</p>
+                  </div>
+                  <p className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{profileScore}%</p>
+                </div>
+                <div className="w-full bg-gray-700/30 rounded-full h-2 mb-2">
+                  <div 
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${profileScore}%` }}
+                  ></div>
+                </div>
+                <button
+                  onClick={() => {
+                    setActiveTab('profile');
+                    navigate('/employer/profile');
+                  }}
+                  className="w-full mt-2 py-1.5 text-xs bg-green-500/20 hover:bg-green-500/30 rounded-lg transition-all font-medium text-green-400"
+                >
+                  Complete Profile
+                </button>
+              </div>
             </div>
 
             {/* Navigation */}
@@ -361,6 +669,7 @@ const EmployerDashboard: React.FC = () => {
                 <NavItem icon={Mail} label="Messages" id="messages" badge="3" />
                 <NavItem icon={BarChart3} label="Analytics" id="analytics" />
                 <NavItem icon={TrendingUp} label="Stories" id="stories" />
+                <NavItem icon={UserCircle} label="Profile" id="profile" />
                 <NavItem icon={Settings} label="Settings" id="settings" />
               </div>
             </div>
@@ -493,7 +802,20 @@ const EmployerDashboard: React.FC = () => {
                   </div>
 
                   <div className="p-6 space-y-4">
-                    {jobs.map(job => (
+                    {jobs.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Briefcase className={`w-12 h-12 mx-auto mb-4 ${darkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+                        <p className={`text-lg font-medium ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No job postings yet</p>
+                        <p className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'} mt-2`}>Get started by posting your first job</p>
+                        <button
+                          onClick={() => navigate('/employer/jobs', { state: { openCreate: true } })}
+                          className="mt-4 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-medium"
+                        >
+                          Post Your First Job
+                        </button>
+                      </div>
+                    ) : (
+                      jobs.map(job => (
                       <div
                         key={job.id}
                         className={`rounded-xl p-5 transition-all duration-300 border backdrop-blur-sm group hover:shadow-lg ${
@@ -594,7 +916,8 @@ const EmployerDashboard: React.FC = () => {
                           </button>
                         </div>
                       </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -661,7 +984,13 @@ const EmployerDashboard: React.FC = () => {
                   </div>
 
                   <div className="space-y-4">
-                    {applications.map(app => (
+                    {applications.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Users className={`w-10 h-10 mx-auto mb-3 ${darkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No applications yet</p>
+                      </div>
+                    ) : (
+                      applications.map(app => (
                       <div
                         key={app.id}
                         className={`rounded-xl p-4 transition-all duration-300 cursor-pointer group border backdrop-blur-sm ${
@@ -720,7 +1049,8 @@ const EmployerDashboard: React.FC = () => {
                           </button>
                         </div>
                       </div>
-                    ))}
+                      ))
+                    )}
                   </div>
 
                   <button
@@ -796,6 +1126,29 @@ const EmployerDashboard: React.FC = () => {
           </div>
         </main>
       </div>
+
+      {showLogoutConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl text-center">
+            <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Are you sure?</h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-8">You will be logged out of your account.</p>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => setShowLogoutConfirmation(false)}
+                className="px-6 py-2 rounded-md text-white bg-green-500 hover:bg-green-600 transition-colors"
+              >
+                Stay
+              </button>
+              <button
+                onClick={handleLogout}
+                className="px-6 py-2 rounded-md text-white bg-red-500 hover:bg-red-600 transition-colors"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
