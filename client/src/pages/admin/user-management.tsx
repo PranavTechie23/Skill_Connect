@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Users, Search, MoreVertical, Eye, Edit, Trash2, Ban,
   CheckCircle, XCircle, Mail, Phone, MapPin, Calendar, Plus, RefreshCw, AlertTriangle,
-  Shield, Activity, Clock, Zap, Crown, TrendingUp, Download
+  Shield, Activity, Clock, Zap, Crown, TrendingUp, Download, X, Save
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { adminService } from '@/lib/admin-service';
@@ -13,12 +13,22 @@ import { useTheme } from '@/components/theme-provider';
 // Types
 interface User {
   id: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
+  first_name?: string;
+  last_name?: string;
   email: string;
-  userType: 'Professional' | 'Employer' | 'Admin';
-  createdAt: string;
+  userType?: string;
+  user_type?: string;
+  title?: string;
+  designation?: string;
+  createdAt?: string;
+  created_at?: string;
   location?: string;
+  profile?: {
+    headline?: string;
+    title?: string;
+  };
 }
 
 interface DisplayUser extends User {
@@ -32,12 +42,19 @@ interface DisplayUser extends User {
 }
 
 // Helper Functions
-const formatDate = (date: string) => {
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
+const formatDate = (date: string | undefined | null) => {
+  if (!date) return 'N/A';
+  try {
+    const dateObj = new Date(date);
+    if (isNaN(dateObj.getTime())) return 'N/A';
+    return dateObj.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  } catch (error) {
+    return 'N/A';
+  }
 };
 
 const getStatusBadge = (status: string, darkMode: boolean) => {
@@ -69,7 +86,41 @@ const UserCard = ({
   onEdit: () => void;
   onDelete: () => void;
 }) => {
-  const initials = `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`;
+  // Get firstName and lastName from both camelCase and snake_case
+  const firstName = user.firstName || (user as any).first_name || '';
+  const lastName = user.lastName || (user as any).last_name || '';
+  
+  // Get initials - use first letter of firstName and lastName, or fallback to email
+  const getInitials = () => {
+    if (firstName && lastName) {
+      return `${firstName[0].toUpperCase()}${lastName[0].toUpperCase()}`;
+    } else if (firstName) {
+      return `${firstName[0].toUpperCase()}${firstName[1]?.toUpperCase() || ''}`;
+    } else if (lastName) {
+      return `${lastName[0].toUpperCase()}${lastName[1]?.toUpperCase() || ''}`;
+    } else if (user.email) {
+      return user.email[0].toUpperCase();
+    }
+    return 'U';
+  };
+  
+  const initials = getInitials();
+  
+  // Get full name
+  const fullName = firstName && lastName 
+    ? `${firstName} ${lastName}`.trim()
+    : firstName || lastName || user.email || 'Unknown User';
+  
+  // Get designation/title - prefer title, then profile.headline, then profile.title
+  const designation = (user as any).title || 
+                      (user as any).designation || 
+                      (user as any).profile?.headline || 
+                      (user as any).profile?.title || 
+                      user.userType || 
+                      'N/A';
+  
+  // Get createdAt from both formats
+  const createdAt = user.createdAt || (user as any).created_at;
   
   return (
     <div
@@ -80,37 +131,34 @@ const UserCard = ({
       <div className="flex items-start gap-4">
         {/* Avatar */}
         <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold text-white shadow-lg ${
-          user.userType === 'Professional' 
+          (user.userType === 'Professional' || (user as any).user_type === 'Professional') 
             ? 'bg-gradient-to-br from-blue-500 to-indigo-600'
             : 'bg-gradient-to-br from-purple-500 to-pink-600'
         }`}>
-          {initials}
+          {initials || 'U'}
         </div>
 
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-4">
-            <div>
+            <div className="flex-1 min-w-0">
               <h3 className={`text-lg font-bold truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                {user.firstName} {user.lastName}
+                {fullName}
               </h3>
-              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'} truncate`}>
                 {user.email}
               </p>
             </div>
-            <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusBadge(user.status, darkMode)}`}>
-              {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
-            </span>
           </div>
 
           {/* Stats and Info */}
           <div className="mt-4 grid grid-cols-2 gap-4">
             <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
               <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                User Type
+                Designation
               </p>
-              <p className={`text-sm font-semibold mt-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                {user.userType}
+              <p className={`text-sm font-semibold mt-1 ${darkMode ? 'text-white' : 'text-gray-900'} truncate`} title={designation}>
+                {designation}
               </p>
             </div>
             <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
@@ -118,7 +166,7 @@ const UserCard = ({
                 Joined
               </p>
               <p className={`text-sm font-semibold mt-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                {formatDate(user.createdAt)}
+                {formatDate(createdAt)}
               </p>
             </div>
           </div>
@@ -155,44 +203,372 @@ const UserCard = ({
               )}
             </div>
           )}
+
+          {/* Status Badge and Action Buttons - Moved to bottom */}
+          <div className="mt-4 flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+            <span className={`px-3 py-1.5 text-xs font-medium rounded-full border ${getStatusBadge(user.status, darkMode)}`}>
+              {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onView}
+                className={`p-2 rounded-lg transition-all ${
+                  darkMode 
+                    ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-200' 
+                    : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
+                }`}
+                title="View Details"
+              >
+                <Eye className="w-5 h-5" />
+              </button>
+              <button
+                onClick={onEdit}
+                className={`p-2 rounded-lg transition-all ${
+                  darkMode 
+                    ? 'hover:bg-blue-500/10 text-blue-400 hover:text-blue-300' 
+                    : 'hover:bg-blue-50 text-blue-600 hover:text-blue-700'
+                }`}
+                title="Edit User"
+              >
+                <Edit className="w-5 h-5" />
+              </button>
+              <button
+                onClick={onDelete}
+                className={`p-2 rounded-lg transition-all ${
+                  darkMode 
+                    ? 'hover:bg-red-500/10 text-red-400 hover:text-red-300' 
+                    : 'hover:bg-red-50 text-red-600 hover:text-red-700'
+                }`}
+                title="Delete User"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
+    </div>
+  );
+};
 
-      {/* Action Buttons */}
-      <div className="absolute top-6 right-6 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={onView}
-          className={`p-2 rounded-lg transition-all ${
-            darkMode 
-              ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-200' 
-              : 'hover:bg-gray-100 text-gray-600 hover:text-gray-900'
-          }`}
-          title="View Details"
-        >
-          <Eye className="w-5 h-5" />
-        </button>
-        <button
-          onClick={onEdit}
-          className={`p-2 rounded-lg transition-all ${
-            darkMode 
-              ? 'hover:bg-blue-500/10 text-blue-400 hover:text-blue-300' 
-              : 'hover:bg-blue-50 text-blue-600 hover:text-blue-700'
-          }`}
-          title="Edit User"
-        >
-          <Edit className="w-5 h-5" />
-        </button>
-        <button
-          onClick={onDelete}
-          className={`p-2 rounded-lg transition-all ${
-            darkMode 
-              ? 'hover:bg-red-500/10 text-red-400 hover:text-red-300' 
-              : 'hover:bg-red-50 text-red-600 hover:text-red-700'
-          }`}
-          title="Delete User"
-        >
-          <Trash2 className="w-5 h-5" />
-        </button>
+// View User Modal
+const ViewUserModal = ({ 
+  user, 
+  onClose, 
+  darkMode 
+}: { 
+  user: DisplayUser; 
+  onClose: () => void; 
+  darkMode: boolean; 
+}) => {
+  const firstName = user.firstName || (user as any).first_name || '';
+  const lastName = user.lastName || (user as any).last_name || '';
+  const fullName = firstName && lastName ? `${firstName} ${lastName}`.trim() : firstName || lastName || user.email || 'Unknown User';
+  const designation = (user as any).title || (user as any).designation || (user as any).profile?.headline || user.userType || 'N/A';
+  const createdAt = user.createdAt || (user as any).created_at;
+  const location = user.location || 'N/A';
+  const userType = user.userType || (user as any).user_type || 'N/A';
+  
+  const getInitials = () => {
+    if (firstName && lastName) return `${firstName[0].toUpperCase()}${lastName[0].toUpperCase()}`;
+    if (firstName) return `${firstName[0].toUpperCase()}${firstName[1]?.toUpperCase() || ''}`;
+    if (lastName) return `${lastName[0].toUpperCase()}${lastName[1]?.toUpperCase() || ''}`;
+    if (user.email) return user.email[0].toUpperCase();
+    return 'U';
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div 
+        className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'} rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-2`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-8">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <h2 className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>User Details</h2>
+            <button
+              onClick={onClose}
+              className={`p-2 rounded-lg transition-all ${
+                darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+              }`}
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* User Info */}
+          <div className="space-y-6">
+            {/* Avatar and Name */}
+            <div className="flex items-center gap-6">
+              <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white shadow-lg ${
+                userType === 'Professional' ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : 'bg-gradient-to-br from-purple-500 to-pink-600'
+              }`}>
+                {getInitials()}
+              </div>
+              <div>
+                <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{fullName}</h3>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{user.email}</p>
+              </div>
+            </div>
+
+            {/* Details Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Designation</p>
+                <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{designation}</p>
+              </div>
+              <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>User Type</p>
+                <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{userType}</p>
+              </div>
+              <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Status</p>
+                <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusBadge(user.status, darkMode)}`}>
+                  {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+                </span>
+              </div>
+              <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Location</p>
+                <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{location}</p>
+              </div>
+              <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Joined</p>
+                <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{formatDate(createdAt)}</p>
+              </div>
+            </div>
+
+            {/* Stats */}
+            {user.stats && (
+              <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-3`}>Statistics</p>
+                <div className="flex flex-wrap gap-3">
+                  {user.userType === 'Professional' ? (
+                    <>
+                      <div className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
+                        darkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'
+                      }`}>
+                        {user.stats?.applications || 0} Applications
+                      </div>
+                      <div className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
+                        darkMode ? 'bg-green-500/10 text-green-400' : 'bg-green-50 text-green-600'
+                      }`}>
+                        {user.stats?.interviews || 0} Interviews
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
+                        darkMode ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-50 text-purple-600'
+                      }`}>
+                        {user.stats?.jobs || 0} Jobs Posted
+                      </div>
+                      <div className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
+                        darkMode ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'
+                      }`}>
+                        {user.stats?.hires || 0} Hires
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Close Button */}
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={onClose}
+              className={`px-6 py-3 rounded-xl font-bold transition-all ${
+                darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              }`}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Edit User Modal
+const EditUserModal = ({ 
+  user, 
+  onSave, 
+  onCancel, 
+  darkMode 
+}: { 
+  user: DisplayUser; 
+  onSave: (data: any) => Promise<void>; 
+  onCancel: () => void; 
+  darkMode: boolean; 
+}) => {
+  const [formData, setFormData] = useState({
+    firstName: user.firstName || (user as any).first_name || '',
+    lastName: user.lastName || (user as any).last_name || '',
+    email: user.email || '',
+    title: (user as any).title || (user as any).designation || '',
+    location: user.location || '',
+    userType: user.userType || (user as any).user_type || 'Professional'
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await onSave(formData);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onCancel}>
+      <div 
+        className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'} rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-2`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-8">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <h2 className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>Edit User</h2>
+            <button
+              onClick={onCancel}
+              className={`p-2 rounded-lg transition-all ${
+                darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+              }`}
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  className={`w-full px-4 py-3 rounded-xl border-2 ${
+                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
+                  } focus:border-blue-500 outline-none`}
+                  required
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  className={`w-full px-4 py-3 rounded-xl border-2 ${
+                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
+                  } focus:border-blue-500 outline-none`}
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Email
+              </label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className={`w-full px-4 py-3 rounded-xl border-2 ${
+                  darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
+                } focus:border-blue-500 outline-none`}
+                required
+              />
+            </div>
+
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Designation/Title
+              </label>
+              <input
+                type="text"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                className={`w-full px-4 py-3 rounded-xl border-2 ${
+                  darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
+                } focus:border-blue-500 outline-none`}
+                placeholder="e.g., Software Engineer, HR Manager"
+              />
+            </div>
+
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Location
+              </label>
+              <input
+                type="text"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                className={`w-full px-4 py-3 rounded-xl border-2 ${
+                  darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
+                } focus:border-blue-500 outline-none`}
+              />
+            </div>
+
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                User Type
+              </label>
+              <select
+                value={formData.userType}
+                onChange={(e) => setFormData({ ...formData, userType: e.target.value })}
+                className={`w-full px-4 py-3 rounded-xl border-2 ${
+                  darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
+                } focus:border-blue-500 outline-none`}
+              >
+                <option value="Professional">Professional</option>
+                <option value="Employer">Employer</option>
+                <option value="Admin">Admin</option>
+              </select>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-4 pt-4">
+              <button
+                type="button"
+                onClick={onCancel}
+                className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all ${
+                  darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5" />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -220,7 +596,11 @@ const ConfirmationModal = ({
         </div>
         <h2 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>Delete User?</h2>
         <p className={`mt-2 mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-          Are you sure you want to delete <strong>{user.firstName} {user.lastName}</strong>? This action cannot be undone.
+          Are you sure you want to delete <strong>{
+            (user.firstName || (user as any).first_name) && (user.lastName || (user as any).last_name)
+              ? `${user.firstName || (user as any).first_name} ${user.lastName || (user as any).last_name}`
+              : user.email || 'this user'
+          }</strong>? This action cannot be undone.
         </p>
         <div className="flex gap-4">
           <button
@@ -252,11 +632,12 @@ const UserManagement = () => {
   const [users, setUsers] = useState<DisplayUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<DisplayUser | null>(null);
+  const [userToEdit, setUserToEdit] = useState<DisplayUser | null>(null);
+  const [userToDelete, setUserToDelete] = useState<DisplayUser | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'Professional' | 'Employer'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'pending' | 'suspended'>('all');
   const { toast } = useToast();
-  const [userToDelete, setUserToDelete] = useState<DisplayUser | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -266,14 +647,40 @@ const UserManagement = () => {
     try {
       setLoading(true);
       const fetchedUsers = await adminService.getUsers();
+      console.log('📊 Fetched users:', fetchedUsers.length);
+      if (fetchedUsers.length > 0) {
+        console.log('🔍 Sample user:', {
+          id: fetchedUsers[0].id,
+          email: fetchedUsers[0].email,
+          firstName: fetchedUsers[0].firstName,
+          lastName: fetchedUsers[0].lastName,
+          first_name: (fetchedUsers[0] as any).first_name,
+          last_name: (fetchedUsers[0] as any).last_name,
+          title: (fetchedUsers[0] as any).title,
+          designation: (fetchedUsers[0] as any).designation,
+          createdAt: fetchedUsers[0].createdAt,
+          created_at: (fetchedUsers[0] as any).created_at,
+          profile: (fetchedUsers[0] as any).profile
+        });
+      }
+      
       const displayUsers: DisplayUser[] = fetchedUsers.map(user => {
-        const validUserType = ['Professional', 'Employer', 'Admin'].includes(user.userType) 
-          ? user.userType as 'Professional' | 'Employer' | 'Admin'
+        // Map both camelCase and snake_case fields
+        const firstName = user.firstName || (user as any).first_name || '';
+        const lastName = user.lastName || (user as any).last_name || '';
+        const userType = user.userType || (user as any).user_type || 'Professional';
+        const createdAt = user.createdAt || (user as any).created_at;
+        
+        const validUserType = ['Professional', 'Employer', 'Admin', 'job_seeker', 'professional'].includes(userType) 
+          ? (userType === 'job_seeker' || userType === 'professional' ? 'Professional' : userType) as 'Professional' | 'Employer' | 'Admin'
           : 'Professional';
         
         return {
           ...user,
+          firstName: firstName,
+          lastName: lastName,
           userType: validUserType,
+          createdAt: createdAt,
           status: 'active',
           stats: validUserType === 'Professional' 
             ? { applications: 0, interviews: 0 }
@@ -293,13 +700,25 @@ const UserManagement = () => {
     }
   };
 
-  const handleUpdateUser = async (id: string, data: any): Promise<void> => {
+  const handleUpdateUser = async (data: any): Promise<void> => {
+    if (!userToEdit) return;
+    
     try {
-      await adminService.updateUser(id, data);
+      const updateData: any = {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        title: data.title,
+        location: data.location,
+        userType: data.userType
+      };
+      
+      await adminService.updateUser(userToEdit.id, updateData);
       toast({
         title: 'Success',
         description: 'User updated successfully'
       });
+      setUserToEdit(null);
       loadUsers();
     } catch (error) {
       console.error('Failed to update user:', error);
@@ -331,7 +750,9 @@ const UserManagement = () => {
   };
 
   const filteredUsers = users.filter(user => {
-    const fullName = `${user.firstName} ${user.lastName}`;
+    const firstName = user.firstName || (user as any).first_name || '';
+    const lastName = user.lastName || (user as any).last_name || '';
+    const fullName = `${firstName} ${lastName}`.trim() || user.email;
     const matchesSearch = fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = filterType === 'all' || user.userType === filterType;
@@ -354,6 +775,26 @@ const UserManagement = () => {
 
   return (
     <>
+      {/* View User Modal */}
+      {selectedUser && (
+        <ViewUserModal 
+          user={selectedUser} 
+          onClose={() => setSelectedUser(null)} 
+          darkMode={darkMode} 
+        />
+      )}
+
+      {/* Edit User Modal */}
+      {userToEdit && (
+        <EditUserModal 
+          user={userToEdit} 
+          onSave={handleUpdateUser}
+          onCancel={() => setUserToEdit(null)} 
+          darkMode={darkMode} 
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
       {userToDelete && (
         <ConfirmationModal 
           user={userToDelete} 
@@ -520,7 +961,7 @@ const UserManagement = () => {
                 user={user}
                 darkMode={darkMode}
                 onView={() => setSelectedUser(user)}
-                onEdit={() => handleUpdateUser(user.id, {})}
+                onEdit={() => setUserToEdit(user)}
                 onDelete={() => setUserToDelete(user)}
               />
             ))}

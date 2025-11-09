@@ -549,28 +549,50 @@ export class Storage {
 
   async updateCompany(id: string, updates: Partial<Company & { profileScore?: number }>): Promise<Company> {
     try {
-      const setFields: string[] = [];
-      const updates_values: any[] = [];
+      const setParts: any[] = [];
 
-      for (const [key, value] of Object.entries(updates)) {
-        if (value !== undefined && key !== 'id' && key !== 'createdAt' && key !== 'ownerId') {
-          // Handle profileScore separately if needed (it's not in Company schema)
-          if (key === 'profileScore') {
-            // Store profileScore in a JSONB field or we can add it as metadata
-            // For now, we'll calculate it on-the-fly, but we can store it if needed
-            continue;
-          }
-          setFields.push(`${key} = ${sql.raw('?')}`);
-          updates_values.push(value instanceof Date ? value.toISOString() : value);
-        }
+      // Map camelCase to snake_case and build SQL parts
+      if (updates.name !== undefined) {
+        setParts.push(sql`name = ${updates.name}`);
+      }
+      if (updates.description !== undefined) {
+        setParts.push(sql`description = ${updates.description}`);
+      }
+      if (updates.website !== undefined) {
+        setParts.push(sql`website = ${updates.website}`);
+      }
+      if (updates.location !== undefined) {
+        setParts.push(sql`location = ${updates.location}`);
+      }
+      if (updates.industry !== undefined) {
+        setParts.push(sql`industry = ${updates.industry}`);
+      }
+      if (updates.size !== undefined) {
+        setParts.push(sql`size = ${updates.size}`);
+      }
+      if (updates.logo !== undefined) {
+        setParts.push(sql`logo = ${updates.logo}`);
+      }
+      // Allow ownerId to be updated (for claiming companies without owners)
+      if ((updates as any).ownerId !== undefined) {
+        setParts.push(sql`owner_id = ${(updates as any).ownerId}`);
+      }
+      // Handle profileScore separately if needed (it's not in Company schema)
+      if ((updates as any).profileScore !== undefined) {
+        // Skip - profileScore is calculated on-the-fly
       }
 
-      if (setFields.length === 0) {
+      if (setParts.length === 0) {
         throw new Error('No valid fields to update');
       }
 
+      // Build the SET clause by joining all parts
+      const setClause = setParts.reduce((acc, curr, index) => {
+        return index === 0 ? curr : sql`${acc}, ${curr}`;
+      });
+
       const result = await db.execute(
-        sql`UPDATE companies SET ${sql.raw(setFields.join(', '))} WHERE id = ${id} RETURNING *`
+        sql`UPDATE companies SET ${setClause} WHERE id = ${id} RETURNING *`
       );
 
       return result.rows[0] as Company;

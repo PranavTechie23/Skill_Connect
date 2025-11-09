@@ -982,13 +982,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns the company
-      if (company.ownerId?.toString() !== req.session.userId) {
-        return res.status(403).json({ message: "Not authorized to update this company" });
+      // Handle both camelCase and snake_case, and ensure proper type comparison
+      const ownerId = (company as any).ownerId || (company as any).owner_id;
+      const userId = req.session.userId;
+      
+      console.log('🔍 Company update authorization check:', {
+        companyId: req.params.id,
+        ownerId: ownerId,
+        ownerIdType: typeof ownerId,
+        userId: userId,
+        userIdType: typeof userId,
+        ownerIdString: String(ownerId || ''),
+        userIdString: String(userId || ''),
+        match: String(ownerId || '') === String(userId || ''),
+        companyKeys: Object.keys(company || {})
+      });
+
+      // Convert both to strings for comparison, handle null/undefined
+      // Also allow admin users to update any company
+      const isOwner = ownerId && userId && String(ownerId) === String(userId);
+      const isAdmin = userId === 'admin-001'; // Allow admin to update any company
+      
+      // If company has no owner, allow the current user to claim it (set as owner)
+      const hasNoOwner = !ownerId || ownerId === null || ownerId === undefined;
+      
+      if (!isOwner && !isAdmin && !hasNoOwner) {
+        console.log('❌ Authorization failed:', {
+          ownerId: ownerId,
+          userId: userId,
+          isOwner: isOwner,
+          isAdmin: isAdmin,
+          hasNoOwner: hasNoOwner,
+          company: {
+            id: (company as any).id,
+            name: (company as any).name,
+            owner_id: (company as any).owner_id,
+            ownerId: (company as any).ownerId
+          }
+        });
+        return res.status(403).json({ 
+          message: "Not authorized to update this company",
+          details: "You can only update companies that you own."
+        });
+      }
+      
+      // If company has no owner, set the current user as owner
+      if (hasNoOwner && userId) {
+        console.log('⚠️ Company has no owner, setting current user as owner');
+        // Update the company to set the owner
+        await storage.updateCompany(req.params.id, { ownerId: userId } as any);
       }
 
+      console.log('✅ Authorization passed, updating company');
       const updatedCompany = await storage.updateCompany(req.params.id, req.body);
       res.json(updatedCompany);
     } catch (error) {
+      console.error('❌ Error updating company:', error);
       handleError(res, error, "Failed to update company");
     }
   });
