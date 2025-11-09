@@ -37,7 +37,12 @@ const signupSchema = z.object({
   bio: z.string().optional(),
   skills: z.string().optional(),
   companyName: z.string().optional(),
-  companyWebsite: z.string().url("Please enter a valid URL.").optional().or(z.literal('')),
+  companyWebsite: z.string().optional().refine((val) => {
+    if (!val || val.trim() === '') return true;
+    // Allow URLs with or without protocol
+    const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
+    return urlPattern.test(val);
+  }, { message: "Please enter a valid URL (e.g., example.com or https://example.com)" }),
   companyBio: z.string().optional(),
   telephoneNumber: z.string().length(10, "Telephone number must be 10 digits.").optional(),
 }).refine(data => data.password === data.confirmPassword, {
@@ -546,6 +551,17 @@ export default function Signup() {
   const Step3 = (
     <div className="space-y-3">
       <h3 className="text-lg font-semibold">Review your information</h3>
+      {/* Debug: Show form errors if any */}
+      {Object.keys(form.formState.errors).length > 0 && (
+        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-sm font-semibold text-red-600 dark:text-red-400 mb-1">Please fix the following errors:</p>
+          <ul className="text-xs text-red-600 dark:text-red-400 list-disc list-inside">
+            {Object.entries(form.formState.errors).map(([key, error]: [string, any]) => (
+              <li key={key}>{key}: {error?.message || 'Invalid'}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <Label>Email</Label>
@@ -663,7 +679,20 @@ export default function Signup() {
                     </Button>
                   )}
                   {step === 3 && (
-                    <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={loading || !form.formState.isValid}>
+                    <Button 
+                      type="button" 
+                      onClick={async () => {
+                        // Trigger validation for all fields
+                        const isValid = await form.trigger();
+                        if (isValid && !emailError) {
+                          form.handleSubmit(onSubmit)();
+                        } else {
+                          // Show errors to user - they're already displayed in Step3
+                          console.log('Form validation errors:', form.formState.errors);
+                        }
+                      }} 
+                      disabled={loading || emailError !== null}
+                    >
                       {loading ? "Creating..." : "Create account"}
                     </Button>
                   )}
