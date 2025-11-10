@@ -1,6 +1,6 @@
 // useApplicationSubmit.ts
 import { useState } from 'react';
-import { useToast } from './useToast';
+import { useToast } from './use-toast';
 import { useAuth } from '../contexts/AuthContext';
 
 interface ApplicationData {

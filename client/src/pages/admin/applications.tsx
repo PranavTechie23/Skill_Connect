@@ -11,6 +11,9 @@ import {
 
 import { adminService } from '@/lib/admin-service';
 import { useToast } from '@/hooks/use-toast';
+import { logger } from '@/lib/logger';
+import { useDebounce } from '@/hooks/use-debounce';
+
 interface Application {
   id: string;
   candidateName: string;
@@ -32,6 +35,7 @@ const AdminApplications: React.FC = () => {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const { toast } = useToast();
@@ -114,7 +118,6 @@ const AdminApplications: React.FC = () => {
     setLoading(true);
     try {
       const data = await adminService.getApplications();
-      console.log('Raw API data:', data);
       
       if (data && Array.isArray(data) && data.length > 0) {
         // Transform enriched API data to display format
@@ -126,8 +129,6 @@ const AdminApplications: React.FC = () => {
           
           // Generate fallback data for this application
           const fallback = generateFallbackData(index);
-          
-          console.log('Processing application:', { app, applicant, job, company, profile });
           
           // Get candidate name - handle both camelCase and snake_case, use fallback if missing
           const firstName = applicant.firstName || applicant.first_name || fallback.firstName;
@@ -225,13 +226,12 @@ const AdminApplications: React.FC = () => {
           };
         });
         
-        console.log('Transformed applications:', transformed);
         setApplications(transformed);
       } else {
         setApplications([]);
       }
     } catch (error) {
-      console.error("Failed to fetch applications:", error);
+      logger.error("Failed to fetch applications:", error);
       toast({ title: "Error", description: "Could not fetch applications.", variant: "destructive" });
       setApplications([]);
     } finally {
@@ -249,15 +249,15 @@ const AdminApplications: React.FC = () => {
       toast({ title: "Success", description: `Application has been ${status}.` });
       fetchApplications(); // Refresh the list
     } catch (error) {
-      console.error(`Failed to ${status} application:`, error);
+      logger.error(`Failed to ${status} application:`, error);
       toast({ title: "Error", description: `Could not update application status.`, variant: "destructive" });
     }
   };
 
   const filteredApplications = applications.filter(app => {
-    const matchesSearch = (app.candidateName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         (app.jobTitle || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         (app.company || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (app.candidateName || '').toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+                         (app.jobTitle || '').toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+                         (app.company || '').toLowerCase().includes(debouncedSearchQuery.toLowerCase());
     const matchesStatus = filterStatus === 'all' || app.status === filterStatus;
     return matchesSearch && matchesStatus;
   });

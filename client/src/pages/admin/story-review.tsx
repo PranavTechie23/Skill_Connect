@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth } from '@/contexts/AuthContext';
 import { storiesApi, type Story } from '@/lib/api';
-import { useToast } from '@/lib/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { Loader2, Check, X, Eye } from 'lucide-react';
 
 export function AdminStoryReview() {
