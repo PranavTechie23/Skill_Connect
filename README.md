@@ -14,6 +14,7 @@
 
 - [Overview](#-overview)
 - [Features](#-features)
+- [Video Demo](#-video-demo)
 - [Getting Started](#-getting-started)
 - [Project Structure](#-project-structure)
 - [Security Features](#-security-features)
@@ -360,8 +361,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## � Video Demo
 
 Check out the Skills Connect Job Board in action!
+🎥 [Watch SkillConnect Demo](https://drive.google.com/file/d/1yQk2p9alTo18dxsHKmT85fsCKa4R9p6W/view?usp=drive_link)
 
-https://github.com/PranavTechie21/CEP_Project/assets/videos/SkillConnect.mp4
 
 ---
 
