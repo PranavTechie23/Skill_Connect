@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSavedJobs } from '../../contexts/SavedJobsContext';
 import { useTheme } from "@/components/theme-provider";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Search, MapPin, Briefcase, Heart, TrendingUp, Filter, 
   ChevronDown, Star, ArrowRight, Zap, Target, Award, 
@@ -44,6 +45,7 @@ import { QuickApplyModal } from '../../components/quick-apply-modal';
 const BrowseJobs: React.FC = () => {
   const { theme } = useTheme();
   const darkMode = theme === 'dark';
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('all');
   const [showFilters, setShowFilters] = useState(true); // Set to true to show filters by default
@@ -178,10 +180,10 @@ const filteredJobs = jobs.filter(job => {
                 <h1 className={`text-3xl font-black ${
                   darkMode ? 'text-white' : 'bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent'
                 }`}>
-                  Browse Jobs
+                  {t("employee.browseJobs.title")}
                 </h1>
                 <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-                  Discover opportunities that match your skills
+                  {t("employee.browseJobs.subhead")}
                 </p>
               </div>
             </div>

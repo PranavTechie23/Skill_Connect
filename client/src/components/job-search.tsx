@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import type { ElementType, KeyboardEvent as ReactKeyboardEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -22,36 +23,36 @@ interface JobSearchProps {
 }
 
 const LOCATIONS = [
-  "All Locations","Pune","New Delhi","Nashik","Kolkata","Mumbai",
-  "Chennai","Bangalore","Amritsar","Nagpur","Hyderabad","Jaipur","Ahmedabad",
+  "All Locations", "Pune", "New Delhi", "Nashik", "Kolkata", "Mumbai",
+  "Chennai", "Bangalore", "Amritsar", "Nagpur", "Hyderabad", "Jaipur", "Ahmedabad",
 ];
 
-const JOB_TYPES = ["All Jobs","Full-time","Part-time","Contract","Internship","Remote"];
+const JOB_TYPES = ["All Jobs", "Full-time", "Part-time", "Contract", "Internship", "Remote"];
 
 const SALARY_RANGES = [
-  "All Salaries","₹0 – ₹3 LPA","₹3 – ₹6 LPA","₹6 – ₹10 LPA",
-  "₹10 – ₹20 LPA","₹20 LPA+",
+  "All Salaries", "₹0 – ₹3 LPA", "₹3 – ₹6 LPA", "₹6 – ₹10 LPA",
+  "₹10 – ₹20 LPA", "₹20 LPA+",
 ];
 
 const JOB_TITLES = [
-  "All Job Titles","Software Engineer","Web Developer","Data Scientist",
-  "UX Designer","Product Manager","Senior Full Stack Developer",
-  "Machine Learning Engineer","DevOps Cloud Architect","Mobile App Developer",
-  "Cloud Solutions Architect","Cybersecurity Analyst","Blockchain Developer",
-  "Data Engineer","QA Automation Engineer","Systems Administrator",
-  "React Native Developer","Vue.js Frontend Lead","Node.js Backend Expert",
-  "Python Django Developer","Java Spring Boot Developer","Go Language Engineer",
-  "Flutter Mobile Developer","AWS Solutions Architect","Kubernetes Administrator",
-  "Database Architect","Computer Vision Engineer","Technical Product Manager",
-  "Carpenter","Plumber","Electrician","House Maid","Cleaner","Architect",
-  "Delivery Man","Driver","Cook","Gardener","Security Guard","Receptionist",
-  "Sales Executive","Accountant","Teacher","Nurse","Doctor","Mechanic",
-  "Painter","Mason","Welder","Tailor","Beautician","Barber","Chef",
-  "Housekeeper","Babysitter","Office Assistant","Supervisor","Manager",
-  "Cashier","Waiter","Peon","Office Boy",
+  "All Job Titles", "Software Engineer", "Web Developer", "Data Scientist",
+  "UX Designer", "Product Manager", "Senior Full Stack Developer",
+  "Machine Learning Engineer", "DevOps Cloud Architect", "Mobile App Developer",
+  "Cloud Solutions Architect", "Cybersecurity Analyst", "Blockchain Developer",
+  "Data Engineer", "QA Automation Engineer", "Systems Administrator",
+  "React Native Developer", "Vue.js Frontend Lead", "Node.js Backend Expert",
+  "Python Django Developer", "Java Spring Boot Developer", "Go Language Engineer",
+  "Flutter Mobile Developer", "AWS Solutions Architect", "Kubernetes Administrator",
+  "Database Architect", "Computer Vision Engineer", "Technical Product Manager",
+  "Carpenter", "Plumber", "Electrician", "House Maid", "Cleaner", "Architect",
+  "Delivery Man", "Driver", "Cook", "Gardener", "Security Guard", "Receptionist",
+  "Sales Executive", "Accountant", "Teacher", "Nurse", "Doctor", "Mechanic",
+  "Painter", "Mason", "Welder", "Tailor", "Beautician", "Barber", "Chef",
+  "Housekeeper", "Babysitter", "Office Assistant", "Supervisor", "Manager",
+  "Cashier", "Waiter", "Peon", "Office Boy",
 ];
 
-const TRENDING = ["Software Engineer","UI/UX Designer","Data Scientist","DevOps","Driver"];
+const TRENDING = ["Software Engineer", "UI/UX Designer", "Data Scientist", "DevOps", "Driver"];
 
 // ─── Searchable Dropdown ────────────────────────────────────────────────────
 
@@ -59,7 +60,7 @@ interface DropdownProps {
   value: string;
   setValue: (v: string) => void;
   options: string[];
-  icon: React.ElementType;
+  icon: ElementType;
   label: string;
   placeholder: string;
   defaultLabel: string;
@@ -70,6 +71,7 @@ function SearchableDropdown({
 }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [placement, setPlacement] = useState<"bottom" | "top">("bottom");
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isActive = value !== defaultLabel;
@@ -88,11 +90,43 @@ function SearchableDropdown({
     if (open) setTimeout(() => inputRef.current?.focus(), 50);
   }, [open]);
 
-  const filtered = options.filter(o => o.toLowerCase().includes(query.toLowerCase()));
+  useEffect(() => {
+    if (!open) return;
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const panelMaxH = 320;
+    const gap = 10;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const shouldOpenTop = spaceBelow < panelMaxH + gap && spaceAbove > spaceBelow;
+    setPlacement(shouldOpenTop ? "top" : "bottom");
+  }, [open]);
 
-  const handleKey = useCallback((e: React.KeyboardEvent) => {
+  const q = query.trim();
+  const filtered = options.filter(o => o.toLowerCase().includes(q.toLowerCase()));
+  const exact = q.length > 0
+    ? options.find(o => o.toLowerCase() === q.toLowerCase())
+    : undefined;
+
+  const selectValue = useCallback((next: string) => {
+    setValue(next);
+    setOpen(false);
+    setQuery("");
+  }, [setValue]);
+
+  const selectBestMatch = useCallback(() => {
+    if (!open) return;
+    if (q.length === 0) { setOpen(false); return; }
+    if (exact) return selectValue(exact);
+    if (filtered.length > 0) return selectValue(filtered[0]);
+    return selectValue(q);
+  }, [exact, filtered, open, q, selectValue]);
+
+  const handleKey = useCallback((e: ReactKeyboardEvent) => {
     if (e.key === "Escape") { setOpen(false); setQuery(""); }
-  }, []);
+    if (e.key === "Enter") { e.preventDefault(); selectBestMatch(); }
+  }, [selectBestMatch]);
 
   return (
     <div className="relative" ref={ref} onKeyDown={handleKey}>
@@ -106,22 +140,11 @@ function SearchableDropdown({
       </p>
 
       <button
+        type="button"
         onClick={() => setOpen(o => !o)}
-        style={{
-          width: "100%", display: "flex", alignItems: "center", gap: "10px",
-          padding: "0 14px", height: "48px", borderRadius: "12px", cursor: "pointer",
-          border: `1px solid ${isActive ? "var(--sc-accent)" : "var(--sc-border)"}`,
-          background: isActive ? "rgba(139,92,246,0.08)" : "var(--sc-surface)",
-          color: isActive ? "var(--sc-accent-light)" : "var(--sc-fg)",
-          transition: "all 0.2s", outline: "none", textAlign: "left",
-          boxShadow: open ? "0 0 0 3px rgba(139,92,246,0.15)" : "none",
-        }}
-        onMouseEnter={e => {
-          if (!isActive) (e.currentTarget as HTMLElement).style.borderColor = "var(--sc-border-hover)";
-        }}
-        onMouseLeave={e => {
-          if (!isActive) (e.currentTarget as HTMLElement).style.borderColor = "var(--sc-border)";
-        }}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={`sc-dd-btn${isActive ? " sc-dd-active" : ""}${open ? " sc-dd-open" : ""}`}
       >
         <Icon size={16} style={{ flexShrink: 0, opacity: isActive ? 1 : 0.5 }} />
         <span style={{
@@ -132,12 +155,14 @@ function SearchableDropdown({
           {value}
         </span>
         {isActive && (
-          <span
+          <button
+            type="button"
+            aria-label={`Clear ${label}`}
             onClick={e => { e.stopPropagation(); setValue(defaultLabel); }}
-            style={{ cursor: "pointer", opacity: 0.7, display: "flex", alignItems: "center" }}
+            className="sc-dd-clear"
           >
             <X size={14} />
-          </span>
+          </button>
         )}
         {!isActive && (
           <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.18 }}
@@ -154,14 +179,7 @@ function SearchableDropdown({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.97 }}
             transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            style={{
-              position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0,
-              zIndex: 100, borderRadius: "14px",
-              border: "1px solid var(--sc-border)", background: "var(--sc-panel)",
-              boxShadow: "0 24px 48px rgba(0,0,0,0.5)",
-              overflow: "hidden", display: "flex", flexDirection: "column",
-              maxHeight: "300px",
-            }}
+            className={`sc-dd-panel${placement === "top" ? " sc-dd-panel-top" : ""}`}
           >
             <div style={{ padding: "10px 10px 8px", borderBottom: "1px solid var(--sc-border)" }}>
               <div style={{ position: "relative" }}>
@@ -174,6 +192,9 @@ function SearchableDropdown({
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                   placeholder={placeholder}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") e.preventDefault();
+                  }}
                   style={{
                     width: "100%", padding: "7px 10px 7px 30px",
                     background: "var(--sc-surface)", border: "1px solid var(--sc-border)",
@@ -185,31 +206,22 @@ function SearchableDropdown({
             </div>
 
             <div style={{ overflowY: "auto", padding: "6px" }}>
+              {q.length > 0 && !exact && (
+                <button
+                  type="button"
+                  onClick={() => selectValue(q)}
+                  className="sc-dd-opt sc-dd-custom"
+                >
+                  Use “{q}”
+                </button>
+              )}
+
               {filtered.length > 0 ? filtered.map(opt => (
                 <button
+                  type="button"
                   key={opt}
-                  onClick={() => { setValue(opt); setOpen(false); setQuery(""); }}
-                  style={{
-                    width: "100%", textAlign: "left", padding: "9px 12px",
-                    borderRadius: "8px", fontSize: "0.84rem", cursor: "pointer",
-                    fontFamily: "'DM Sans', sans-serif", border: "none",
-                    background: opt === value ? "rgba(139,92,246,0.2)" : "transparent",
-                    color: opt === value ? "var(--sc-accent-light)" : "var(--sc-fg-muted)",
-                    fontWeight: opt === value ? 600 : 400,
-                    transition: "background 0.12s, color 0.12s",
-                  }}
-                  onMouseEnter={e => {
-                    if (opt !== value) {
-                      (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
-                      (e.currentTarget as HTMLElement).style.color = "var(--sc-fg)";
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (opt !== value) {
-                      (e.currentTarget as HTMLElement).style.background = "transparent";
-                      (e.currentTarget as HTMLElement).style.color = "var(--sc-fg-muted)";
-                    }
-                  }}
+                  onClick={() => selectValue(opt)}
+                  className={`sc-dd-opt${opt === value ? " sc-dd-opt-selected" : ""}`}
                 >
                   {opt}
                 </button>
@@ -231,11 +243,11 @@ function SearchableDropdown({
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export default function JobSearch({ onSearch, className = "" }: JobSearchProps) {
-  const [jobTitle, setJobTitle]     = useState("All Job Titles");
+  const [jobTitle, setJobTitle] = useState("All Job Titles");
   const [jobLocation, setJobLocation] = useState("All Locations");
-  const [jobType, setJobType]       = useState("All Jobs");
-  const [salary, setSalary]         = useState("All Salaries");
-  const [pulse, setPulse]           = useState(false);
+  const [jobType, setJobType] = useState("All Jobs");
+  const [salary, setSalary] = useState("All Salaries");
+  const [pulse, setPulse] = useState(false);
 
   const activeCount = [
     jobTitle !== "All Job Titles",
@@ -255,10 +267,10 @@ export default function JobSearch({ onSearch, className = "" }: JobSearchProps) 
     setPulse(true);
     setTimeout(() => setPulse(false), 400);
     onSearch({
-      search:   jobTitle   === "All Job Titles"  ? "" : jobTitle,
-      location: jobLocation === "All Locations"  ? "" : jobLocation,
-      jobType:  jobType    === "All Jobs"        ? "" : jobType,
-      salary:   salary     === "All Salaries"    ? "" : salary,
+      search: jobTitle === "All Job Titles" ? "" : jobTitle,
+      location: jobLocation === "All Locations" ? "" : jobLocation,
+      jobType: jobType === "All Jobs" ? "" : jobType,
+      salary: salary === "All Salaries" ? "" : salary,
     });
   };
 
@@ -266,45 +278,61 @@ export default function JobSearch({ onSearch, className = "" }: JobSearchProps) 
     @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 
     .sc-root {
+      --sc-bg:           #f6f7ff;
+      --sc-panel:        rgba(255,255,255,0.92);
+      --sc-surface:      #ffffff;
+      --sc-surface2:     rgba(255,255,255,0.72);
+      --sc-border:       rgba(15, 23, 42, 0.14);
+      --sc-border-hover: rgba(15, 23, 42, 0.24);
+      --sc-fg:           #0b1020;
+      --sc-fg-muted:     rgba(11, 16, 32, 0.74);
+      --sc-muted:        rgba(11, 16, 32, 0.50);
+      --sc-hover:        rgba(15, 23, 42, 0.06);
+      --sc-shadow-lg:    0 26px 60px rgba(2, 6, 23, 0.16);
+      --sc-shadow-md:    0 14px 34px rgba(2, 6, 23, 0.12);
+      --sc-shadow-sm:    0 6px 16px rgba(2, 6, 23, 0.10);
+      --sc-accent:       #7c3aed;
+      --sc-accent-light: #6d28d9;
+      --sc-accent2:      #0891b2;
+      font-family: 'DM Sans', sans-serif;
+      color: var(--sc-fg);
+    }
+
+    /* App theme integration: this project toggles root ".dark" class via ThemeProvider. */
+    .dark .sc-root {
       --sc-bg:           #0d0d0f;
+      --sc-panel:        rgba(24,24,28,0.98);
       --sc-surface:      rgba(255,255,255,0.04);
-      --sc-panel:        #18181c;
+      --sc-surface2:     rgba(255,255,255,0.03);
       --sc-border:       rgba(255,255,255,0.09);
       --sc-border-hover: rgba(255,255,255,0.2);
       --sc-fg:           #f0eff4;
       --sc-fg-muted:     rgba(240,239,244,0.65);
       --sc-muted:        rgba(240,239,244,0.35);
+      --sc-hover:        rgba(255,255,255,0.06);
+      --sc-shadow-lg:    0 24px 48px rgba(0,0,0,0.55);
+      --sc-shadow-md:    0 14px 34px rgba(0,0,0,0.45);
+      --sc-shadow-sm:    0 10px 22px rgba(0,0,0,0.35);
       --sc-accent:       #8b5cf6;
       --sc-accent-light: #c4b5fd;
       --sc-accent2:      #06b6d4;
-      font-family: 'DM Sans', sans-serif;
     }
 
     .sc-card {
-      background: linear-gradient(135deg, #141418 0%, #0f0f14 60%, #11101a 100%);
-      border: 1px solid rgba(255,255,255,0.07);
+      background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.85));
+      border: 1px solid rgba(15, 23, 42, 0.10);
       border-radius: 24px;
       padding: 32px;
       position: relative;
-      overflow: hidden;
+      overflow: visible;
+      box-shadow: var(--sc-shadow-md);
     }
 
-    .sc-card::before {
-      content: '';
-      position: absolute;
-      top: -80px; right: -80px;
-      width: 300px; height: 300px;
-      background: radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%);
-      pointer-events: none;
-    }
-
-    .sc-card::after {
-      content: '';
-      position: absolute;
-      bottom: -60px; left: -40px;
-      width: 240px; height: 240px;
-      background: radial-gradient(circle, rgba(6,182,212,0.07) 0%, transparent 70%);
-      pointer-events: none;
+    .dark .sc-card {
+      background: linear-gradient(135deg, #141418 0%, #0f0f14 60%, #11101a 100%);
+      border: 1px solid rgba(255,255,255,0.07);
+      box-shadow: var(--sc-shadow-md);
+      backdrop-filter: none;
     }
 
     .sc-search-btn {
@@ -316,12 +344,12 @@ export default function JobSearch({ onSearch, className = "" }: JobSearchProps) 
       color: #fff;
       position: relative; overflow: hidden;
       transition: transform 0.15s, box-shadow 0.15s;
-      box-shadow: 0 4px 24px rgba(139,92,246,0.35), 0 1px 3px rgba(0,0,0,0.4);
+      box-shadow: 0 4px 24px rgba(124,58,237,0.30), 0 1px 3px rgba(2, 6, 23, 0.25);
     }
 
     .sc-search-btn:hover {
       transform: translateY(-1px);
-      box-shadow: 0 8px 32px rgba(139,92,246,0.45), 0 2px 6px rgba(0,0,0,0.4);
+      box-shadow: 0 10px 36px rgba(124,58,237,0.36), 0 3px 10px rgba(2,6,23,0.22);
     }
 
     .sc-search-btn:active { transform: translateY(0); }
@@ -336,30 +364,34 @@ export default function JobSearch({ onSearch, className = "" }: JobSearchProps) 
     .sc-pill {
       display: inline-flex; align-items: center; gap: 5px;
       padding: 3px 10px; border-radius: 20px; font-size: 0.73rem; font-weight: 600;
-      background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.3);
+      background: rgba(124,58,237,0.10);
+      border: 1px solid rgba(124,58,237,0.22);
       color: var(--sc-accent-light); cursor: pointer; font-family: 'DM Sans', sans-serif;
       transition: background 0.15s;
     }
 
-    .sc-pill:hover { background: rgba(139,92,246,0.25); }
+    .sc-pill:hover { background: rgba(124,58,237,0.16); }
+    .dark .sc-pill { background: rgba(139,92,246,0.15); border-color: rgba(139,92,246,0.3); color: var(--sc-accent-light); }
+    .dark .sc-pill:hover { background: rgba(139,92,246,0.25); }
 
     .sc-trend-pill {
       display: inline-flex; align-items: center; gap: 4px;
       padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 500;
-      background: rgba(255,255,255,0.04); border: 1px solid var(--sc-border);
+      background: var(--sc-surface2);
+      border: 1px solid var(--sc-border);
       color: var(--sc-muted); cursor: pointer; font-family: 'DM Sans', sans-serif;
       transition: all 0.15s;
     }
 
     .sc-trend-pill:hover {
-      background: rgba(255,255,255,0.08);
+      background: var(--sc-hover);
       color: var(--sc-fg-muted);
-      border-color: rgba(255,255,255,0.15);
+      border-color: var(--sc-border-hover);
     }
 
     .sc-divider {
       height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+      background: linear-gradient(90deg, transparent, var(--sc-border), transparent);
       margin: 24px 0;
     }
 
@@ -374,12 +406,131 @@ export default function JobSearch({ onSearch, className = "" }: JobSearchProps) 
       0%   { opacity: 1; transform: scale(0.96); }
       100% { opacity: 0; transform: scale(1.04); }
     }
+
+    .sc-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .sc-grid {
+        grid-template-columns: 1fr;
+      }
+      .sc-card {
+        padding: 22px;
+      }
+    }
+
+    .sc-dd-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      height: 48px;
+      border-radius: 12px;
+      cursor: pointer;
+      border: 1px solid var(--sc-border);
+      background: var(--sc-surface);
+      color: var(--sc-fg);
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s, color 0.2s;
+      outline: none;
+      text-align: left;
+      box-shadow: var(--sc-shadow-sm);
+    }
+
+    .sc-dd-btn:hover { border-color: var(--sc-border-hover); }
+    .sc-dd-active {
+      border-color: var(--sc-accent);
+      background: rgba(124,58,237,0.08);
+      color: var(--sc-fg);
+    }
+    .dark .sc-dd-btn { box-shadow: none; background: var(--sc-surface); }
+    .dark .sc-dd-active { background: rgba(139,92,246,0.08); color: var(--sc-accent-light); }
+
+    .sc-dd-open { box-shadow: 0 0 0 3px rgba(124,58,237,0.18); }
+    .dark .sc-dd-open { box-shadow: 0 0 0 3px rgba(139,92,246,0.15); }
+
+    .sc-dd-clear {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+      opacity: 0.7;
+      color: inherit;
+    }
+    .sc-dd-clear:hover { opacity: 1; }
+
+    .sc-dd-panel {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      z-index: 250;
+      border-radius: 14px;
+      border: 1px solid var(--sc-border);
+      background: var(--sc-panel);
+      box-shadow: var(--sc-shadow-lg);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      max-height: 320px;
+    }
+
+    .sc-dd-panel-top {
+      top: auto;
+      bottom: calc(100% + 6px);
+    }
+
+    .sc-dd-opt {
+      width: 100%;
+      text-align: left;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 0.84rem;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      border: none;
+      background: transparent;
+      color: var(--sc-fg-muted);
+      font-weight: 400;
+      transition: background 0.12s, color 0.12s;
+    }
+    .sc-dd-opt:hover {
+      background: var(--sc-hover);
+      color: var(--sc-fg);
+    }
+    .sc-dd-opt-selected {
+      background: rgba(124,58,237,0.16);
+      color: var(--sc-fg);
+      font-weight: 600;
+    }
+    .dark .sc-dd-opt-selected { background: rgba(139,92,246,0.2); color: var(--sc-accent-light); }
+
+    .sc-dd-custom {
+      color: var(--sc-fg);
+      font-weight: 600;
+      background: rgba(8,145,178,0.08);
+      border: 1px solid rgba(8,145,178,0.20);
+      margin: 4px;
+      width: calc(100% - 8px);
+    }
   `;
 
   return (
     <>
       <style>{css}</style>
-      <div className={`sc-root ${className}`}>
+      <div
+        className={`sc-root ${className}`}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.target as HTMLElement)?.tagName !== "BUTTON") handleSearch();
+        }}
+      >
         <motion.div
           className="sc-card"
           initial={{ opacity: 0, y: 16 }}
@@ -436,7 +587,7 @@ export default function JobSearch({ onSearch, className = "" }: JobSearchProps) 
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.4 }}
-            style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "14px", marginBottom: "24px" }}
+            className="sc-grid"
           >
             <SearchableDropdown
               value={jobLocation}
@@ -512,6 +663,7 @@ export default function JobSearch({ onSearch, className = "" }: JobSearchProps) 
                   )}
 
                   <button
+                    type="button"
                     onClick={clearAll}
                     style={{
                       marginLeft: "4px", background: "none", border: "none", cursor: "pointer",
@@ -536,6 +688,7 @@ export default function JobSearch({ onSearch, className = "" }: JobSearchProps) 
             transition={{ delay: 0.25, duration: 0.4 }}
           >
             <button
+              type="button"
               onClick={handleSearch}
               className={`sc-search-btn${pulse ? " sc-pulse" : ""}`}
             >
@@ -570,6 +723,7 @@ export default function JobSearch({ onSearch, className = "" }: JobSearchProps) 
             </span>
             {TRENDING.map(t => (
               <button
+                type="button"
                 key={t}
                 className="sc-trend-pill"
                 onClick={() => { setJobTitle(t); }}

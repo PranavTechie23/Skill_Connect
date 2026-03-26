@@ -27,7 +27,7 @@ export function Toaster() {
           </Toast>
         )
       })}
-      <ToastViewport className="backdrop-blur-xl" />
+      <ToastViewport />
     </ToastProvider>
   )
 }
