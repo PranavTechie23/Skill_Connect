@@ -87,6 +87,7 @@
 /* Small UX polish */
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
 }
 
 /* Hide Google Translate Banner artifacts */

@@ -1,6 +1,6 @@
-# 🎯 Skills Connect Job Board
+# SkillConnect — Job Board + Hiring Workflows
 
-> A community-focused web platform bridging the gap between local job seekers and employers through skill-based and location-based hiring.
+SkillConnect is a role-based hiring platform that connects **Professionals (job seekers)**, **Employers**, and **Admins** with a modern workflow: discover jobs, apply quickly, manage listings/applications, and keep the ecosystem trustworthy.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -14,11 +14,10 @@
 
 - [Overview](#-overview)
 - [Features](#-features)
-- [Video Demo](#-video-demo)
 - [Getting Started](#-getting-started)
 - [Project Structure](#-project-structure)
-- [Security Features](#-security-features)
-- [API Documentation](#-api-documentation)
+- [Environment Variables](#-environment-variables)
+- [API Notes](#-api-notes)
 - [Contributing](#-contributing)
 - [License](#-license)
 
@@ -26,7 +25,10 @@
 
 ## 🌟 Overview
 
-**Skills Connect Job Board** is a digital employment platform designed to address local hiring challenges by connecting job seekers with nearby employers based on specific skills and geographic proximity. The platform emphasizes simplicity, speed, and accessibility while supporting real-world community needs.
+SkillConnect is a digital employment platform designed to reduce hiring friction:
+- **Professionals** discover and apply to jobs faster (including quick apply).
+- **Employers** post and manage jobs and review candidates.
+- **Admins** help maintain trust and quality of the platform through governance workflows.
 
 ### 🎯 Key Objectives
 
@@ -44,7 +46,7 @@ This project aligns with **UN SDG 8 — Decent Work and Economic Growth**, promo
 
 ### Core Functionality
 
-- 🔐 **Secure Authentication** - Role-based access control (RBAC) with password hashing
+- 🔐 **Authentication** - Session-based auth + role-based access patterns
 - 💼 **Job Management** - Post, edit, and manage job listings
 - 🔍 **Smart Search** - Filter jobs by location, skills, and job type
 - 📝 **Application Tracking** - Real-time application status updates
@@ -52,12 +54,13 @@ This project aligns with **UN SDG 8 — Decent Work and Economic Growth**, promo
 - 📊 **Admin Dashboard** - Comprehensive platform management and analytics
 - 🏢 **Company Profiles** - Detailed employer information and branding
 - 📈 **Success Stories** - Showcase platform impact and user testimonials
+- 🤖 **In-app Support Chatbot** - `/api/assistant/chat` endpoint (Gemini API key required)
+- 🌐 **Multilingual UI** - Locale files under `client/src/locales/`
 
 ### Advanced Features
 
 - ⚡ **Real-time Updates** - Live application status changes
 - 📱 **Responsive Design** - Mobile-first, accessible on all devices
-- 🔒 **Row-Level Security** - PostgreSQL RLS for data protection
 - 🎨 **Modern UI/UX** - Clean, intuitive interface with TailwindCSS
 - 📧 **Email Notifications** - Automated alerts for applications and updates
 
@@ -117,43 +120,33 @@ This project aligns with **UN SDG 8 — Decent Work and Economic Growth**, promo
 
 ### Installation
 
-1. **Clone the repository**
+1. **Install all dependencies**
+
 ```bash
-git clone https://github.com/yourusername/___________.git
-cd ______________
+npm run install:all
 ```
 
-# Install server dependencies
-cd server
-npm install
+2. **Configure environment variables** (see [Environment Variables](#-environment-variables))
 
-# Install client dependencies
-cd ../client
-npm install
-
- **Start Development Servers**
+3. **Run in development**
 
 ```bash
-# Terminal 1 - Start backend
-cd server
-npm run dev
-
-# Terminal 2 - Start frontend
-cd client
+# from repo root
 npm run dev
 ```
 
-6. **Access the application**
-```
-Frontend: http://localhost:5173
-Backend:  http://localhost:5002
+4. **Access**
+
+```text
+Client: http://localhost:5173
+Server: http://localhost:5002
 ```
 
 
 ## 📁 Project Structure
 
 ```
-skillsconnect-job-board/
+CEP_Project/
 ├── client/                 # Frontend application
 │   ├── src/
 │   │   ├── components/    # Reusable UI components
@@ -167,56 +160,53 @@ skillsconnect-job-board/
 │
 ├── server/                # Backend application
 │   ├── src/
-│   │   ├── routes/       # API route handlers
-│   │   ├── middleware/   # Express middleware
-│   │   ├── db/           # Database connection & queries
-│   │   ├── types/        # TypeScript interfaces
-│   │   ├── utils/        # Helper functions
+│   │   ├── routes.ts     # API route handlers (incl. assistant endpoint)
+│   │   ├── db.ts         # PostgreSQL + Drizzle connection
 │   │   └── index.ts      # Server entry point
 │   └── package.json
 │
-├── docs/                  # Documentation
-│   ├── API.md            # API documentation
-│   ├── DEPLOYMENT.md     # Deployment guide
-│   └── SECURITY.md       # Security guidelines
-│
+├── shared/                # Shared types/schema (Drizzle)
 └── README.md
 ```
 
 ---
 
-## 🔒 Security Features
+## 🔐 Environment Variables
 
-### Authentication & Authorization
-- ✅ Password hashing using bcrypt
-- ✅ Session-based authentication with PostgreSQL store
-- ✅ Role-based access control (Admin, Employer, Job Seeker)
-- ✅ HTTP-only cookies for session management
+Create `server/.env` (server reads it from `server/.env`).
 
-### Database Security
-- ✅ Row-Level Security (RLS) policies
-- ✅ pgcrypto encryption for sensitive data
-- ✅ Prepared statements to prevent SQL injection
-- ✅ SSL/TLS connections in production
+```env
+# Server
+PORT=5002
+NODE_ENV=development
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DB_NAME
+SESSION_SECRET=replace-me-with-a-long-random-string
 
-### Application Security
-- ✅ CORS configuration
-- ✅ Rate limiting on API endpoints
-- ✅ Input validation and sanitization
-- ✅ Secure headers (helmet.js)
-- ✅ Environment variable protection
+# Google OAuth (optional)
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_CALLBACK_URL=http://localhost:5002/api/auth/google/callback
+
+# AI Assistant (required for chatbot)
+GEMINI_API_KEY=...
+```
+
+Notes:
+- The AI assistant endpoint (`POST /api/assistant/chat`) returns an error if `GEMINI_API_KEY` is not set.
+- In development, the client proxies `/api` to the server (see `client/vite.config.ts`).
 
 ---
 
-## 📚 API Documentation
+## 📚 API Notes
 
-### Authentication Endpoints
+### Common endpoints (non-exhaustive)
 
 ```http
 POST /api/auth/register
 POST /api/auth/login
 POST /api/auth/logout
 GET  /api/auth/me
+POST /api/assistant/chat
 ```
 
 ### Job Endpoints
@@ -255,7 +245,7 @@ POST   /api/messages          # Send message
 GET    /api/messages/:userId  # Get conversation with user
 ```
 
-For detailed API documentation, see [API.md](docs/API.md)
+Tip: during development, call API endpoints via the client origin (`http://localhost:5173/api/...`) so cookies/sessions behave consistently.
 
 ---
 
@@ -263,16 +253,15 @@ For detailed API documentation, see [API.md](docs/API.md)
 
 ### Frontend (Vercel)
 
-```bash
-cd client
-vercel --prod
-```
+Deploy the `client/` project on Vercel:
+- **Build command**: `npm run build`
+- **Output directory**: `dist`
+- **Install command**: `npm install`
 
 ### Backend (Your preferred platform)
 
 ```bash
 cd server
-npm run build
 npm start
 ```
 
@@ -281,9 +270,11 @@ npm start
 1. Create a NeonDB account
 2. Create a new database
 3. Update `DATABASE_URL` in environment variables
-4. Run migrations
+4. Run migrations (if your workflow uses Drizzle migrations)
 
-For detailed deployment instructions, see [DEPLOYMENT.md](docs/DEPLOYMENT.md)
+For Vercel, remember:
+- Vercel hosts the frontend; your server must be deployed separately (Render/Railway/Fly/VM/etc.) unless you convert it to serverless.
+- Set the production API base URL in the client if required by your deployment strategy.
 
 ---
 
@@ -315,7 +306,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- PICT administration for providing resources and opportunities
 - Local business community for insights and feedback
 - All participants and volunteers who contributed to the project
 
@@ -358,7 +348,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## � Video Demo
+## 🎥 Video Demo
 
 Check out the Skills Connect Job Board in action!
 🎥 [Watch SkillConnect Demo](https://drive.google.com/file/d/1yQk2p9alTo18dxsHKmT85fsCKa4R9p6W/view?usp=drive_link)
@@ -366,17 +356,15 @@ Check out the Skills Connect Job Board in action!
 
 ---
 
-## �🌐 Live Demo
+## 🌐 Live Demo
 
-**Coming Soon!** 
 
 Stay tuned for the live deployment link.
-
 ---
 
 <div align="center">
 
-**Made with ❤️ by me**
+**Made by the SkillConnect team**
 
 *Empowering Local Employment Through Technology*
 

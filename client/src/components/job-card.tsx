@@ -29,16 +29,17 @@ interface JobCardProps {
   };
   setSelectedJob?: (job: any) => void;
   setShowQuickApply?: (show: boolean) => void;
+  onCardClick?: () => void;
 }
 
-export default function JobCard({ job, setSelectedJob, setShowQuickApply }: JobCardProps) {
+export default function JobCard({ job, setSelectedJob, setShowQuickApply, onCardClick }: JobCardProps) {
   const { user } = useAuth();
   const { toast } = useToast();
 
   const navigate = useNavigate();
 
   const getJobIcon = (skills: string[]) => {
-    const iconColorClass = "text-gray-700 dark:text-white";
+    const iconColorClass = "text-foreground/90";
 
     if (skills.some(skill => ['React', 'JavaScript', 'TypeScript', 'Node.js', 'Web', 'Frontend', 'Backend'].includes(skill))) {
       return <Code className={`${iconColorClass} text-xl`} />;
@@ -69,17 +70,20 @@ export default function JobCard({ job, setSelectedJob, setShowQuickApply }: JobC
   };
 
   return (
-    <Card className="hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer">
+    <Card 
+      className="hover:shadow-xl hover:-translate-y-0.5 transition-all cursor-pointer"
+      onClick={onCardClick}
+    >
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center mb-3">
-              <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-xl flex items-center justify-center mr-4 shadow-sm">
+              <div className="w-12 h-12 bg-secondary/50 border border-border/50 rounded-xl flex items-center justify-center mr-4 shadow-sm">
                 {getJobIcon(job.skills)}
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white tracking-tight">{job.title}</h3>
-                <p className="text-gray-600 dark:text-gray-300 flex items-center">
+                <h3 className="text-xl font-semibold text-foreground tracking-tight">{job.title}</h3>
+                <p className="text-muted-foreground flex items-center">
                   {job.company ? (
                     <>
                       <Building className="h-4 w-4 mr-1" />
@@ -91,7 +95,7 @@ export default function JobCard({ job, setSelectedJob, setShowQuickApply }: JobC
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-4">
+            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-4">
               <div className="flex items-center">
                 <MapPin className="mr-1 h-4 w-4" />
                 <span>{job.location}</span>
@@ -121,14 +125,15 @@ export default function JobCard({ job, setSelectedJob, setShowQuickApply }: JobC
                 </Badge>
               )}
             </div>
-            <p className="text-gray-700 text-sm line-clamp-2">
+            <p className="text-muted-foreground text-sm line-clamp-2">
               {job.description}
             </p>
           </div>
           <div className="flex flex-col items-end ml-6">
             <Button 
               className="mb-2 shadow-sm"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (!user) {
                   navigate('/signup', { state: { message: 'Register yourself on the portal to apply for this job.' } });
                   return;
@@ -142,6 +147,7 @@ export default function JobCard({ job, setSelectedJob, setShowQuickApply }: JobC
                   return;
                 }
                 setSelectedJob?.(job);
+                setShowQuickApply?.(true);
               }}
             >
               Quick Apply

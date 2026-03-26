@@ -47,15 +47,15 @@ export default function Navbar() {
           <div className="flex items-center gap-2 shrink-0">
             <Button
               variant="ghost"
-              size="lg"
+              size="icon"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="mr-2 rounded-full md:hidden"
+              className="mr-1 rounded-full md:hidden"
             >
-              {isMenuOpen ? <X className="h-12 w-12" /> : <Menu className="h-12 w-12" />}
+              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </Button>
-            <Link to="/" className="flex items-center gap-2 -ml-4">
-              <img src="/images/logo.png" alt="SkillConnect" className="h-14 w-auto object-contain" />
-              <span className="text-2xl sm:text-3xl font-extrabold tracking-tight leading-none whitespace-nowrap">
+            <Link to="/" className="flex items-center gap-1.5 -ml-2 sm:-ml-4">
+              <img src="/images/logo.png" alt="SkillConnect" className="h-9 sm:h-14 w-auto object-contain" />
+              <span className="text-xl sm:text-3xl font-extrabold tracking-tight leading-none whitespace-nowrap">
                 <span className="text-purple-600">Skill</span>
                 <span className="text-pink-600">Connect</span>
               </span>
