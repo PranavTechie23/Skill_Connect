@@ -1,13 +1,13 @@
-﻿﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { MessageSquareQuote } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Story {
   id: string;
@@ -71,35 +71,49 @@ const StoryCard = ({ story, index }: { story: Story, index: number }) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1 + index * 0.2 }}
+        className="h-full group"
     >
-        <Card className="h-full overflow-hidden transition-transform duration-300 ease-in-out hover:-translate-y-2 hover:shadow-xl">
-            <CardHeader className="pb-4">
-                <CardTitle className="text-lg font-semibold">{story.title}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col justify-between h-full">
-                <p className="text-muted-foreground mb-4 line-clamp-4">
-                    {story.content}
+        <div className="relative h-full flex flex-col rounded-2xl border border-blue-500/20 dark:border-blue-500/30 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-sm overflow-hidden transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_8px_30px_rgba(59,130,246,0.15)] dark:hover:shadow-[0_8px_30px_rgba(59,130,246,0.25)] hover:border-blue-400/50 dark:hover:border-blue-400/60 flex-1">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-transparent dark:from-blue-900/10 pointer-events-none" />
+            
+            <div className="p-6 pb-4 relative z-10">
+                <h3 className="text-xl font-bold bg-gradient-to-r from-blue-700 to-indigo-700 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
+                  {story.title}
+                </h3>
+            </div>
+            
+            <div className="flex flex-col flex-grow justify-between p-6 pt-0 relative z-10">
+                <p className="text-slate-600 dark:text-zinc-400 mb-6 line-clamp-4 leading-relaxed">
+                    "{story.content}"
                 </p>
-                <p className="text-sm font-medium text-primary mt-auto pt-2">
-                    - {authorName}
-                </p>
-            </CardContent>
-        </Card>
+                
+                <div className="flex items-center gap-3 mt-auto pt-4 border-t border-slate-200 dark:border-zinc-800">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs shadow-md">
+                        {authorName.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-zinc-200">
+                          {authorName}
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400/80">SkillConnect User</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </motion.div>
   );
 };
 
 export default function OurStories() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { toast } = useToast();
-  const title = "Our Success Stories";
+  const { t } = useLanguage();
+  const title = t("stories.title");
   
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [totalStories, setTotalStories] = useState(0);
   const storiesPerPage = 12;
 
   useEffect(() => {
@@ -121,7 +135,6 @@ export default function OurStories() {
         
         setStories(allStories);
         setTotalPages(data.meta.totalPages);
-        setTotalStories(data.meta.total);
       } catch (error) {
         toast({
           title: "Error",
@@ -162,13 +175,20 @@ export default function OurStories() {
           initial="hidden"
           animate="visible"
           variants={sentenceVariants}
-          className="text-center mb-16"
+          className="text-center mb-16 relative"
         >
-          <div className="space-y-4">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-blue-800 dark:text-blue-400 mb-4">
-              {title.split("").map((char, index) => (
-                <motion.span key={char + "-" + index} variants={letterVariants}>
-                  {char}
+          {/* Decorative background glow */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 max-w-2xl h-32 bg-blue-500/20 dark:bg-blue-500/10 blur-[100px] pointer-events-none rounded-full" />
+          
+          <div className="space-y-4 relative z-10">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4 flex flex-wrap justify-center gap-[0.3em]">
+              {title.split(" ").map((word, index) => (
+                <motion.span 
+                  key={word + "-" + index} 
+                  variants={letterVariants}
+                  className="bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-700 dark:from-blue-400 dark:via-indigo-400 dark:to-blue-400 bg-clip-text text-transparent"
+                >
+                  {word}
                 </motion.span>
               ))}
             </h1>
@@ -178,7 +198,7 @@ export default function OurStories() {
               transition={{ delay: 1.5 }}
               className="text-xl text-foreground/80 max-w-3xl mx-auto"
             >
-              Real experiences from people who found success through our platform.
+              {t("stories.heroLine")}
             </motion.p>
           </div>
         </motion.section>
@@ -241,30 +261,37 @@ export default function OurStories() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.8 }}
         >
-            <Card className="bg-card/80 border-border shadow-lg">
-                <div className="flex flex-col md:flex-row items-center justify-between p-8 sm:p-12 gap-8">
-                    <div className="flex items-center space-x-6">
-                        <MessageSquareQuote className="h-16 w-16 text-primary hidden sm:block" />
-                        <div className="max-w-2xl">
-                            <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
-                                Share Your Success Story
-                            </h2>
-                            <p className="text-lg text-muted-foreground mt-2">
-                                Has our platform helped you find success? We'd love to hear your story!
-                            </p>
+            <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-700 dark:from-blue-900 border-0 dark:bg-zinc-950 p-1">
+                {/* Dark mode inner glow border */}
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-indigo-500/20 to-blue-500/20 dark:from-blue-500/50 dark:via-purple-500/50 dark:to-blue-500/50" />
+                
+                <div className="relative rounded-[1.4rem] bg-white/10 dark:bg-zinc-950/90 backdrop-blur-xl">
+                    <div className="flex flex-col md:flex-row items-center justify-between p-8 sm:p-12 gap-8 relative z-10">
+                        <div className="flex items-center space-x-6">
+                            <div className="w-16 h-16 rounded-2xl bg-white/20 dark:bg-blue-500/20 flex items-center justify-center flex-shrink-0 backdrop-blur-sm hidden sm:flex border border-white/30 dark:border-blue-500/30">
+                              <MessageSquareQuote className="h-8 w-8 text-white dark:text-blue-400" />
+                            </div>
+                            <div className="max-w-2xl">
+                                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+                                    Share Your Success Story
+                                </h2>
+                                <p className="text-lg text-blue-100 dark:text-zinc-400">
+                                    Has our platform helped you find success? We'd love to hear your story!
+                                </p>
+                            </div>
+                        </div>
+                        <div className="pt-4 md:pt-0 flex-shrink-0">
+                            <Button
+                                size="lg"
+                                onClick={handleShareClick}
+                                className="bg-white text-blue-700 hover:bg-blue-50 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-500 shadow-xl hover:shadow-2xl font-bold rounded-xl px-8 py-6 h-auto text-base transition-all duration-300 transform hover:-translate-y-1"
+                            >
+                                Submit Your Story
+                            </Button>
                         </div>
                     </div>
-                    <div className="pt-4 md:pt-0 flex-shrink-0">
-                        <Button
-                            size="lg"
-                            onClick={handleShareClick}
-                            className="shadow-lg hover:shadow-xl transition-shadow duration-300"
-                        >
-                            Submit Your Story
-                        </Button>
-                    </div>
                 </div>
-            </Card>
+            </div>
         </motion.section>
       </div>
     </div>

@@ -2,9 +2,12 @@ import JobCard from "@/components/job-card";
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { QuickApplyModal } from "@/components/quick-apply-modal";
-import { Button } from "@/components/ui/button";
 import JobSearch from "@/components/job-search";
-import { Card, CardContent } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "@/components/theme-provider";
+import { api } from "@/lib/api";
+import { Sparkles } from "lucide-react";
 import {
   motion,
   useInView,
@@ -25,7 +28,14 @@ import {
   Smartphone,
   Cloud,
   LucideIcon,
+  Crown,
+  ArrowRight,
+  UserPlus,
+  Building,
+  BarChart3,
+  Layers,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetch } from "@/lib/api";
 import {
@@ -36,7 +46,14 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
+/* ─── Types ─────────────────────────────────────────────────────── */
 interface Job {
   id: string;
   title: string;
@@ -51,13 +68,10 @@ interface Job {
   employerId: string;
   isActive: boolean;
   createdAt: string;
-  company?: {
-    name: string;
-  };
-  employer?: {
-    firstName: string;
-    lastName: string;
-  };
+  company?: { name: string };
+  employer?: { firstName: string; lastName: string };
+  matchScore?: number;
+  matchReasons?: string[];
 }
 
 interface JobsApiResponse {
@@ -65,760 +79,1177 @@ interface JobsApiResponse {
   totalCount: number;
 }
 
-// Job icons mapping
-const jobIcons = {
-  software: Code,
-  developer: Code,
-  engineer: Code,
-  frontend: Palette,
-  backend: Database,
-  fullstack: Code,
-  mobile: Smartphone,
-  cloud: Cloud,
-  devops: Zap,
-  design: Palette,
-  data: Database,
-  ai: Zap,
-  machine: Zap,
-  web: Code,
-  application: Code,
-  senior: TrendingUp,
-  junior: Code,
-  lead: TrendingUp,
-  principal: TrendingUp,
-};
+/* ─── CSS injected at runtime ────────────────────────────────────── */
+const OBSIDIAN_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
-const getJobIcon = (jobTitle: string) => {
-  const title = jobTitle.toLowerCase();
-  for (const [keyword, Icon] of Object.entries(jobIcons)) {
-    if (title.includes(keyword)) {
-      return Icon;
-    }
+  .obs-root {
+    font-family: 'Outfit', sans-serif;
+    transition: background .45s ease, color .45s ease;
+    -webkit-overflow-scrolling: touch;
   }
+
+  .obs-root-light {
+    background:
+      radial-gradient(circle at top, rgba(129,140,248,.10) 0%, transparent 55%),
+      radial-gradient(circle at bottom right, rgba(244,114,182,.08) 0%, transparent 60%);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  .obs-root-dark {
+    background: linear-gradient(160deg, #07070f 0%, #0c0b1a 50%, #080714 100%);
+    color: #e2e8f0;
+  }
+
+  .obs-display { font-family: 'Sora', sans-serif; }
+
+  /* ── Keyframes ── */
+  @keyframes orb-a {
+    0%,100%  { transform: translate(0,0)   scale(1);    }
+    30%      { transform: translate(50px,-35px) scale(1.08); }
+    70%      { transform: translate(-25px,45px) scale(0.93); }
+  }
+  @keyframes orb-b {
+    0%,100%  { transform: translate(0,0)    scale(1);   }
+    40%      { transform: translate(-55px,30px) scale(1.1); }
+    80%      { transform: translate(35px,-45px) scale(0.9); }
+  }
+  @keyframes orb-c {
+    0%,100%  { transform: translate(0,0)   scale(1);    }
+    50%      { transform: translate(30px,-20px) scale(1.06); }
+  }
+  @keyframes grain-shift {
+    0%,100% { transform: translate(0,0); }
+    10%  { transform: translate(-2%,-2%); }
+    20%  { transform: translate(-4%, 0%); }
+    30%  { transform: translate(4%,  2%); }
+    40%  { transform: translate(-2%, 6%); }
+    50%  { transform: translate(-4%, 4%); }
+    60%  { transform: translate(2%,  2%); }
+    70%  { transform: translate(2%, -4%); }
+    80%  { transform: translate(-4%, 6%); }
+    90%  { transform: translate(4%,  4%); }
+  }
+  @keyframes shimmer-slide {
+    0%   { background-position: -200% center; }
+    100% { background-position:  200% center; }
+  }
+  @keyframes pulse-ring {
+    0%   { transform: scale(1);   opacity: .7; }
+    100% { transform: scale(1.8); opacity: 0;  }
+  }
+  @keyframes float-y {
+    0%,100% { transform: translateY(0px);  }
+    50%     { transform: translateY(-10px); }
+  }
+  @keyframes spin-slow {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  @keyframes fade-up {
+    from { opacity:0; transform:translateY(16px); }
+    to   { opacity:1; transform:translateY(0);    }
+  }
+  @keyframes ticker-scroll {
+    from { transform: translateX(0);     }
+    to   { transform: translateX(-50%);  }
+  }
+
+  /* ── Noise grain overlay ── */
+  .obs-grain {
+    position: fixed; inset: -50%;
+    width: 200%; height: 200%;
+    opacity: .03; pointer-events: none; z-index: 1;
+    animation: grain-shift 8s steps(10) infinite;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 256px 256px;
+    will-change: transform;
+    transform: translateZ(0);
+  }
+
+  /* ── Glass surface ── */
+  .obs-glass {
+    background: rgba(255,255,255,.04);
+    backdrop-filter: blur(22px) saturate(140%);
+    border: 1px solid rgba(255,255,255,.09);
+    transition: all .3s cubic-bezier(.4,0,.2,1);
+    will-change: transform;
+    transform: translateZ(0);
+  }
+  .obs-glass:hover {
+    background: rgba(255,255,255,.07);
+    border-color: rgba(99,102,241,.4);
+    box-shadow:
+      0 0 0 1px rgba(99,102,241,.15),
+      0 24px 64px -20px rgba(99,102,241,.3),
+      0 4px 24px -4px rgba(0,0,0,.6);
+    transform: translateY(-4px);
+  }
+
+  /* ── Stat card ── */
+  .obs-stat {
+    position: relative; overflow: hidden;
+    background: rgba(255,255,255,.04);
+    backdrop-filter: blur(28px) saturate(130%);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 20px;
+    transition: all .4s cubic-bezier(.4,0,.2,1);
+  }
+  .obs-stat::before {
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:1px;
+    background: linear-gradient(90deg, transparent, rgba(99,102,241,.9) 40%, rgba(167,139,250,.7) 60%, transparent);
+  }
+  .obs-stat::after {
+    content:'';
+    position:absolute; inset:0; border-radius:inherit;
+    background: radial-gradient(ellipse at top, rgba(99,102,241,.06) 0%, transparent 65%);
+    pointer-events:none;
+  }
+  .obs-stat:hover {
+    border-color: rgba(99,102,241,.35);
+    box-shadow:
+      0 0 0 1px rgba(99,102,241,.2),
+      0 32px 64px -24px rgba(99,102,241,.25),
+      inset 0 1px 0 rgba(255,255,255,.08);
+    transform: translateY(-6px);
+  }
+
+  /* ── Gradient text helpers ── */
+  .obs-text-violet {
+    background: linear-gradient(135deg, #a5b4fc 0%, #c084fc 50%, #e879f9 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .obs-text-amber {
+    background: linear-gradient(135deg, #fde68a 0%, #fbbf24 50%, #f59e0b 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .obs-text-blue {
+    background: linear-gradient(135deg, #93c5fd 0%, #6366f1 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── Shimmer button ── */
+  .obs-btn-shimmer {
+    background: linear-gradient(90deg,#4f46e5,#7c3aed,#4338ca,#4f46e5);
+    background-size: 300% auto;
+    animation: shimmer-slide 4s linear infinite;
+    border: none; outline: none;
+  }
+  .obs-btn-shimmer:hover { opacity: .9; transform: translateY(-1px); }
+
+  /* ── Badge pulse ring ── */
+  .obs-badge-pulse { position: relative; }
+  .obs-badge-pulse::after {
+    content:'';
+    position:absolute; inset:0; border-radius:inherit;
+    box-shadow: 0 0 0 0 rgba(99,102,241,.6);
+    animation: pulse-ring 2.5s ease-out infinite;
+  }
+
+  /* ── Job card wrapper ── */
+  .obs-job-wrap { transition: transform .3s cubic-bezier(.4,0,.2,1); }
+  .obs-job-wrap:hover { transform: translateY(-5px); }
+
+  /* ── Featured guest card ── */
+  .obs-feat-card {
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 16px;
+    transition: all .3s ease;
+  }
+  .obs-feat-card:hover {
+    background: rgba(255,255,255,.08);
+    border-color: rgba(139,92,246,.45);
+    box-shadow: 0 0 0 1px rgba(139,92,246,.2), 0 16px 40px -12px rgba(139,92,246,.25);
+    transform: translateY(-3px);
+  }
+
+  /* ── Ticker ── */
+  .obs-ticker-track { animation: ticker-scroll 22s linear infinite; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width:5px; height:5px; }
+  ::-webkit-scrollbar-track { background: rgba(255,255,255,.02); }
+  ::-webkit-scrollbar-thumb { background: rgba(99,102,241,.45); border-radius:3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,.7); }
+
+  /* ── Dot grid hero decoration ── */
+  .obs-dot-grid {
+    position:absolute; inset:0; pointer-events:none;
+    background-image: radial-gradient(rgba(99,102,241,.18) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 20%, transparent 80%);
+  }
+
+  /* ── Glowing divider ── */
+  .obs-divider {
+    height:1px;
+    background: linear-gradient(90deg, transparent, rgba(99,102,241,.4) 40%, rgba(167,139,250,.3) 60%, transparent);
+    margin: 3rem 0;
+  }
+
+  /* ── Section badge ── */
+  .obs-section-badge {
+    display:inline-flex; align-items:center; gap:.5rem;
+    padding: .35rem 1rem; border-radius:999px;
+    font-size:.75rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase;
+    border: 1px solid rgba(245,158,11,.35);
+    background: rgba(245,158,11,.1);
+    color: #fbbf24;
+  }
+  .obs-section-badge-violet {
+    border-color: rgba(139,92,246,.35);
+    background: rgba(139,92,246,.1);
+    color: #c084fc;
+  }
+
+  /* ── Empty state ── */
+  .obs-empty {
+    background: rgba(255,255,255,.03);
+    border: 2px dashed rgba(255,255,255,.08);
+    border-radius:24px;
+    text-align:center; padding:5rem 2rem;
+  }
+
+  /* ── Light theme refinements ── */
+  .obs-root-light .obs-glass {
+    background: rgba(255,255,255,.95);
+    border: 1px solid rgba(226,232,240,1);
+    box-shadow:
+      0 18px 40px -24px rgba(15,23,42,.25),
+      0 0 0 1px rgba(148,163,184,.18);
+  }
+  .obs-root-light .obs-glass:hover {
+    background: #ffffff;
+    border-color: rgba(129,140,248,.6);
+    box-shadow:
+      0 22px 50px -26px rgba(129,140,248,.45),
+      0 0 0 1px rgba(129,140,248,.35);
+  }
+
+  .obs-root-light .obs-stat {
+    background: rgba(255,255,255,.96);
+    border: 1px solid rgba(226,232,240,1);
+    box-shadow:
+      0 18px 40px -24px rgba(15,23,42,.20),
+      0 0 0 1px rgba(148,163,184,.12);
+  }
+
+  .obs-root-light .obs-feat-card {
+    background: rgba(255,255,255,.98);
+    border: 1px solid rgba(226,232,240,1);
+    box-shadow:
+      0 16px 40px -24px rgba(15,23,42,.15);
+  }
+  .obs-root-light .obs-feat-card:hover {
+    background: #ffffff;
+    border-color: rgba(129,140,248,.55);
+    box-shadow:
+      0 22px 50px -24px rgba(129,140,248,.35);
+  }
+
+  .obs-root-light .obs-empty {
+    background: rgba(248,250,252,1);
+    border-color: rgba(203,213,225,1);
+  }
+`;
+
+/* ─── Job icon map ─────────────────────────────────────────────── */
+const jobIcons: Record<string, LucideIcon> = {
+  software: Code, developer: Code, engineer: Code, frontend: Palette,
+  backend: Database, fullstack: Code, mobile: Smartphone, cloud: Cloud,
+  devops: Zap, design: Palette, data: Database, ai: Zap, machine: Zap,
+  web: Code, application: Code, senior: TrendingUp, junior: Code,
+  lead: TrendingUp, principal: TrendingUp,
+};
+const getJobIcon = (title: string): LucideIcon => {
+  const t = title.toLowerCase();
+  for (const [k, v] of Object.entries(jobIcons)) if (t.includes(k)) return v;
   return Briefcase;
 };
 
-// Animated Counter Component
-const AnimatedCounter = ({
-  value,
-  duration = 200,
-}: {
-  value: number;
-  duration?: number;
-}) => {
+/* ─── Animated Counter ─────────────────────────────────────────── */
+const AnimatedCounter = ({ value, duration = 2000 }: { value: number; duration?: number }) => {
   const [count, setCount] = useState(0);
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-80px" });
 
   useEffect(() => {
-    if (isInView && value > 0) {
-      let start = 0;
-      const end = value;
-      const incrementTime = Math.max(1, duration / end);
+    if (!inView || value === 0) { setCount(0); return; }
+    let cur = 0;
+    const inc = Math.max(1, Math.ceil(value / (duration / 16)));
+    const id = setInterval(() => {
+      cur = Math.min(cur + inc, value);
+      setCount(cur);
+      if (cur >= value) clearInterval(id);
+    }, 16);
+    return () => clearInterval(id);
+  }, [inView, value, duration]);
 
-      const timer = setInterval(() => {
-        start += 1;
-        setCount(start);
-        if (start >= end) {
-          setCount(end);
-          clearInterval(timer);
-        }
-      }, incrementTime);
-
-      return () => clearInterval(timer);
-    } else if (isInView) {
-      setCount(0);
-    }
-  }, [isInView, value, duration]);
-
-  return <span ref={ref}>{count}</span>;
+  return <span ref={ref}>{count.toLocaleString()}</span>;
 };
 
-// Floating Element Component
-const FloatingElement = ({
-  children,
-  delay = 0,
-}: {
-  children: React.ReactNode;
-  delay?: number;
-}) => (
-  <motion.div
-    initial={{ y: 20, opacity: 0 }}
-    animate={{ y: 0, opacity: 1 }}
-    transition={{
-      duration: 0.6,
-      delay,
-      type: "spring",
-      stiffness: 100,
-    }}
-    whileHover={{
-      y: -5,
-      transition: { duration: 0.2 },
-    }}
-  >
-    {children}
-  </motion.div>
-);
+/* ─── Ticker labels ────────────────────────────────────────────── */
+const TICKER_ITEMS = [
+  "Full-Time", "Remote", "Internship", "Part-Time", "Contract",
+  "Engineering", "Design", "Product", "Data Science", "DevOps", "AI/ML",
+  "Full-Time", "Remote", "Internship", "Part-Time", "Contract",
+  "Engineering", "Design", "Product", "Data Science", "DevOps", "AI/ML",
+];
 
+/* ═══════════════════════════════════════════════════════════════════
+   COMPONENT
+═══════════════════════════════════════════════════════════════════ */
 export default function Jobs() {
-  const [filters, setFilters] = useState({
-    location: "",
-    skills: [] as string[],
-    jobType: "",
-    search: "",
-  });
+  const { user } = useAuth();
+  const { t } = useLanguage();
+  const { theme } = useTheme();
+
+  const [filters, setFilters] = useState({ location: "", skills: [] as string[], jobType: "", search: "" });
   const [page, setPage] = useState(1);
   const [randomizedJobs, setRandomizedJobs] = useState<Job[]>([]);
-  const [overallStats, setOverallStats] = useState({
-    totalLocations: 0,
-    totalJobTypes: 0,
-    avgSalary: 0,
-  });
+  const [overallStats, setOverallStats] = useState({ totalLocations: 0, totalJobTypes: 0, avgSalary: 0 });
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showQuickApply, setShowQuickApply] = useState(false);
+  const [selectedJobForDetail, setSelectedJobForDetail] = useState<Job | null>(null);
 
-  const itemsPerPage = 10;
-  const statsRef = useRef(null);
-  const jobsRef = useRef(null);
-  const isStatsInView = useInView(statsRef, { once: true, margin: "-50px" });
-  const isJobsInView = useInView(jobsRef, { once: true, margin: "-100px" });
-
+  const itemsPerPage = 12;
+  const statsRef = useRef<HTMLDivElement>(null);
+  const jobsRef = useRef<HTMLDivElement>(null);
+  const isStatsInView = useInView(statsRef, { once: true, margin: "-40px" });
+  const isJobsInView = useInView(jobsRef, { once: true, margin: "-80px" });
   const { scrollYProgress } = useScroll();
-  const opacity = useTransform(scrollYProgress, [0, 0.1], [1, 0]);
-  const scale = useTransform(scrollYProgress, [0, 0.1], [1, 0.8]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.12], [1, 0]);
+  const heroScale = useTransform(scrollYProgress, [0, 0.12], [1, 0.88]);
 
-  const buildJobsQueryString = (
-    filters: any,
-    page: number,
-    itemsPerPage: number
-  ) => {
+  /* ── inject CSS ── */
+  useEffect(() => {
+    const el = document.createElement("style");
+    el.textContent = OBSIDIAN_CSS;
+    document.head.appendChild(el);
+    return () => { document.head.removeChild(el); };
+  }, []);
+
+  /* ── helpers ── */
+  const buildQS = (f: typeof filters, p: number, n: number) => {
     const params = new URLSearchParams();
-    if (filters.location) params.append("location", filters.location);
-    if (filters.jobType) params.append("jobType", filters.jobType);
-    if (filters.search) params.append("search", filters.search);
-    if (filters.skills.length > 0) {
-      filters.skills.forEach((skill: string) => params.append("skills", skill));
-    }
-    params.append("page", page.toString());
-    params.append("itemsPerPage", itemsPerPage.toString());
+    if (f.location) params.append("location", f.location);
+    if (f.jobType) params.append("jobType", f.jobType);
+    if (f.search) params.append("search", f.search);
+    f.skills.forEach((s) => params.append("skills", s));
+    params.append("page", String(p));
+    params.append("itemsPerPage", String(n));
     return params.toString();
   };
 
-  // Fetch overall stats
+  /* ── queries ── */
   const { data: overallData } = useQuery<JobsApiResponse>({
     queryKey: ["/api/jobs/overall", { ...filters }],
-    queryFn: async (): Promise<JobsApiResponse> => {
+    queryFn: async () => {
       try {
-        const qs = buildJobsQueryString(filters, 1, 1000);
-        const response = await apiFetch(`/api/jobs?${qs}`);
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch overall stats");
-        }
-
-        const data = await response.json();
-
-        if (!data || !Array.isArray(data.jobs)) {
-          throw new Error("Invalid API response format");
-        }
-
-        return {
-          jobs: data.jobs,
-          totalCount: data.totalCount || 0,
-        };
-      } catch (err) {
-        console.error("Error fetching overall stats:", err);
-        return { jobs: [], totalCount: 0 };
-      }
+        const r = await apiFetch(`/api/jobs?${buildQS(filters, 1, 1000)}`);
+        if (!r.ok) throw new Error("overall fetch failed");
+        const d = await r.json();
+        return { jobs: d.jobs ?? [], totalCount: d.totalCount ?? 0 };
+      } catch { return { jobs: [], totalCount: 0 }; }
     },
-    staleTime: 10 * 60 * 100,
+    staleTime: 600_000,
   });
 
-  // Fetch paginated jobs
+  const isProfessional = user?.userType === "Professional" || user?.userType === "job_seeker";
+  const { data: recommendedData } = useQuery({
+    queryKey: ["/api/jobs/recommended"],
+    queryFn: () => api.jobs.getRecommended(),
+    staleTime: 300_000,
+    enabled: !!isProfessional,
+  });
+  const recommendedJobs = (recommendedData?.jobs ?? []) as Job[];
+
+  const isGuest = !user;
+  const { data: featuredForGuestsData } = useQuery<JobsApiResponse>({
+    queryKey: ["/api/jobs/featured-guests"],
+    queryFn: async () => {
+      const r = await apiFetch(`/api/jobs?page=1&itemsPerPage=4image.png`);
+      if (!r.ok) throw new Error("featured fetch failed");
+      const d = await r.json();
+      return { jobs: d.jobs ?? [], totalCount: d.totalCount ?? 0 };
+    },
+    staleTime: 300_000,
+    enabled: isGuest,
+  });
+  const featuredForGuests = (featuredForGuestsData?.jobs ?? []) as Job[];
+
   const { data, isLoading } = useQuery<JobsApiResponse>({
     queryKey: ["/api/jobs", { ...filters, page, itemsPerPage }],
-    queryFn: async (): Promise<JobsApiResponse> => {
-      try {
-        const qs = buildJobsQueryString(filters, page, itemsPerPage);
-        const response = await apiFetch(`/api/jobs?${qs}`);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(
-            `Failed to fetch jobs: ${response.status} ${errorText}`
-          );
-        }
-
-        const data = await response.json();
-
-        if (!data || !Array.isArray(data.jobs)) {
-          throw new Error("Invalid API response format");
-        }
-
-        return {
-          jobs: data.jobs,
-          totalCount: data.totalCount || 0,
-        };
-      } catch (err) {
-        console.error("Error fetching jobs:", err);
-        throw err;
-      }
+    queryFn: async () => {
+      const r = await apiFetch(`/api/jobs?${buildQS(filters, page, itemsPerPage)}`);
+      if (!r.ok) throw new Error("jobs fetch failed");
+      const d = await r.json();
+      return { jobs: d.jobs ?? [], totalCount: d.totalCount ?? 0 };
     },
-    staleTime: 5 * 60 * 100,
+    staleTime: 30_000,
   });
 
-  // Calculate overall stats
+  /* ── effects ── */
   useEffect(() => {
-    if (overallData?.jobs) {
-      const allJobs = overallData.jobs;
-      const uniqueLocations = new Set(allJobs.map((job) => job.location)).size;
-      const uniqueJobTypes = new Set(allJobs.map((job) => job.jobType)).size;
-      const totalSalary = allJobs.reduce(
-        (acc, job) => acc + (job.salaryMin + job.salaryMax) / 2,
-        0
-      );
-      const avgSalary =
-        allJobs.length > 0
-          ? Math.round(totalSalary / allJobs.length / 1000)
-          : 0;
-
-      setOverallStats({
-        totalLocations: uniqueLocations,
-        totalJobTypes: uniqueJobTypes,
-        avgSalary,
-      });
-    }
+    if (!overallData?.jobs) return;
+    const all = overallData.jobs;
+    setOverallStats({
+      totalLocations: new Set(all.map((j) => j.location)).size,
+      totalJobTypes: new Set(all.map((j) => j.jobType)).size,
+      avgSalary: all.length > 0 ? Math.round(all.reduce((a, j) => a + (j.salaryMin + j.salaryMax) / 2, 0) / all.length / 1000) : 0,
+    });
   }, [overallData]);
 
-  // Randomize job order
   useEffect(() => {
-    if (data?.jobs) {
-      const shuffled = [...data.jobs].sort(() => Math.random() - 0.5);
-      setRandomizedJobs(shuffled);
-    }
+    if (data?.jobs) setRandomizedJobs([...data.jobs].sort(() => Math.random() - 0.5));
   }, [data?.jobs]);
 
   const jobs = randomizedJobs;
   const totalJobs = data?.totalCount ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalJobs / itemsPerPage));
 
-  // Stats cards data
-  const statsCards = [
-    {
-      icon: Briefcase,
-      label: "Total Jobs",
-      value: totalJobs,
-      color: "blue",
-      delay: 0,
-    },
-    {
-      icon: MapPin,
-      label: "Locations",
-      value: overallStats.totalLocations,
-      color: "green",
-      delay: 0.1,
-    },
-    {
-      icon: Clock,
-      label: "Job Types",
-      value: overallStats.totalJobTypes,
-      color: "purple",
-      delay: 0.2,
-    },
-    {
-      icon: IndianRupee,
-      label: "Avg Salary",
-      value: overallStats.avgSalary,
-      color: "orange",
-      delay: 0.0,
-      isCurrency: true,
-    },
+  /* ── stat cards config ── */
+  const statCards = [
+    { icon: Briefcase, label: t("jobs.totalJobs"),  value: totalJobs,                   suffix: "+", gradient: "from-indigo-500 to-violet-600",  textCls: "obs-text-violet", delay: 0    },
+    { icon: MapPin,    label: t("jobs.locations"),   value: overallStats.totalLocations, suffix: "+", gradient: "from-blue-500 to-cyan-500",       textCls: "obs-text-blue",   delay: 0.07 },
+    { icon: Clock,     label: t("jobs.jobTypes"),    value: overallStats.totalJobTypes,  suffix: "+", gradient: "from-purple-500 to-pink-500",     textCls: "obs-text-violet", delay: 0.14 },
+    { icon: IndianRupee, label: t("jobs.avgSalary"), value: overallStats.avgSalary,      suffix: "k+",gradient: "from-amber-400 to-orange-500",   textCls: "obs-text-amber",  delay: 0.21, isCurrency: true },
   ];
 
-  const getColorClasses = (color: string) => {
-    const colors = {
-      blue: {
-        bg: "bg-blue-100 dark:bg-blue-900/30",
-        text: "text-blue-600 dark:text-blue-400",
-        border: "border-l-blue-500",
-      },
-      green: {
-        bg: "bg-green-100 dark:bg-green-900/30",
-        text: "text-green-600 dark:text-green-400",
-        border: "border-l-green-500",
-      },
-      purple: {
-        bg: "bg-purple-100 dark:bg-purple-900/30",
-        text: "text-purple-600 dark:text-purple-400",
-        border: "border-l-purple-500",
-      },
-      orange: {
-        bg: "bg-orange-100 dark:bg-orange-900/30",
-        text: "text-orange-600 dark:text-orange-400",
-        border: "border-l-orange-500",
-      },
-    };
-    return colors[color as keyof typeof colors] || colors.blue;
-  };
-
+  /* ════════════════════════════════════════════════════════════════
+     RENDER
+  ════════════════════════════════════════════════════════════════ */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
-      {/* Animated Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          className="absolute top-20 left-10 w-72 h-72 bg-purple-200 dark:bg-purple-900 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-3xl opacity-20"
-          animate={{
-            x: [0, 100, 0],
-            y: [0, -50, 0],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-        <motion.div
-          className="absolute top-60 right-10 w-96 h-96 bg-blue-200 dark:bg-blue-900 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-3xl opacity-20"
-          animate={{
-            x: [0, -80, 0],
-            y: [0, 60, 0],
-          }}
-          transition={{
-            duration: 25,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-      </div>
+    <div
+      className={`obs-root min-h-screen relative overflow-x-clip ${
+        theme === "dark" ? "obs-root-dark" : "obs-root-light"
+      }`}
+    >
+      {/* ── Grain (kept only for dark theme so light stays crisp) ── */}
+      {theme === "dark" && <div className="obs-grain" />}
 
-      <div className="relative z-10 py-8">
-        <div className="container mx-auto px-4">
-          {/* Hero Section with Scroll Effects */}
-          <motion.div style={{ opacity, scale }} className="text-center mb-12">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, type: "spring" }}
-              className="inline-flex items-center gap-3 mb-4 px-6 py-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full shadow-lg border border-gray-200 dark:border-gray-700"
-            >
-              <motion.div
-                animate={{ rotate: [0, 10, 0] }}
-                transition={{ duration: 2, repeat: Infinity }}
+      {/* ── Background orbs (kept only for dark mode to avoid washing out light theme) ── */}
+      {theme === "dark" && (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
+          <div
+            style={{
+              position: "absolute",
+              top: "-15%",
+              left: "-8%",
+              width: 700,
+              height: 700,
+              borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(99,102,241,.13) 0%, transparent 68%)",
+              filter: "blur(50px)",
+              animation: "orb-a 28s ease-in-out infinite",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: "25%",
+              right: "-12%",
+              width: 800,
+              height: 800,
+              borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(139,92,246,.1) 0%, transparent 65%)",
+              filter: "blur(60px)",
+              animation: "orb-b 34s ease-in-out infinite",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              bottom: "8%",
+              left: "25%",
+              width: 560,
+              height: 560,
+              borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(245,158,11,.07) 0%, transparent 65%)",
+              filter: "blur(50px)",
+              animation: "orb-c 22s ease-in-out infinite reverse",
+            }}
+          />
+          {/* Subtle grid lines */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              backgroundImage:
+                "linear-gradient(rgba(99,102,241,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,.035) 1px, transparent 1px)",
+              backgroundSize: "72px 72px",
+              maskImage: "radial-gradient(ellipse at 50% 40%, black 10%, transparent 75%)",
+            }}
+          />
+        </div>
+      )}
+
+      {/* ════ CONTENT ════ */}
+      <div className="relative py-10" style={{ zIndex: 2 }}>
+        <div style={{ maxWidth:1280, margin:"0 auto", padding:"0 1.5rem" }}>
+
+          {/* ── HERO ── */}
+          <motion.div style={{ opacity: heroOpacity, scale: heroScale }} className="text-center mb-16 relative">
+            {/* Dot grid decoration */}
+            <div className="obs-dot-grid" style={{ position:"absolute", top:-40, left:"50%", transform:"translateX(-50%)", width:"100%", height:320, pointerEvents:"none" }} />
+
+            {/* Eyebrow */}
+            <motion.div initial={{ opacity:0, y:18 }} animate={{ opacity:1, y:0 }} transition={{ duration:.6, delay:.1 }} className="inline-block mb-6">
+              <div
+                className="obs-badge-pulse inline-flex items-center gap-2 px-5 py-2.5 rounded-full"
+                style={{ background:"rgba(99,102,241,.1)", border:"1px solid rgba(99,102,241,.35)", backdropFilter:"blur(14px)" }}
               >
-                <Zap className="w-6 h-6 text-yellow-500" />
-              </motion.div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                <AnimatedCounter value={totalJobs} duration={3000} />{" "}
-                Opportunities Waiting
-              </span>
+                <motion.div animate={{ rotate:[0,18,0] }} transition={{ duration:3, repeat:Infinity, ease:"easeInOut" }}>
+                  <Zap className="w-4 h-4" style={{ color:"#f59e0b" }} />
+                </motion.div>
+                <span style={{ fontSize:".875rem", fontWeight:600, color:"#a5b4fc", letterSpacing:".02em" }}>
+                  <AnimatedCounter value={totalJobs} duration={1800} /> live opportunities
+                </span>
+              </div>
             </motion.div>
 
+            {/* Headline */}
             <motion.h1
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+              initial={{ opacity:0, y:44 }}
+              animate={{ opacity:1, y:0 }}
+              transition={{ duration:.85, delay:.2, type:"spring", stiffness:75 }}
+              className="obs-display"
+              style={{ fontSize:"clamp(2.8rem,8vw,5.5rem)", fontWeight:800, lineHeight:1.06, letterSpacing:"-.035em", marginBottom:"1.25rem" }}
             >
-              Find Your Dream Job
+              <span style={{ color: theme === "dark" ? "#f1f5f9" : "#0f172a" }}>
+                {t("jobs.title")}
+              </span>
+              <br />
+              <span
+                className={theme === "dark" ? "obs-text-violet" : ""}
+                style={{
+                  color: theme === "dark" ? undefined : "#7c3aed",
+                }}
+              >
+                That Move You Forward
+              </span>
             </motion.h1>
 
             <motion.p
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed"
-            >
-              Discover opportunities that match your{" "}
-              <motion.span
-                animate={{ color: ["#2563eb", "#7c3aed", "#2563eb"] }}
-                transition={{ duration: 3, repeat: Infinity }}
-                className="font-semibold text-blue-600 dark:text-blue-400"
-              >
-                skills
-              </motion.span>{" "}
-              and{" "}
-              <motion.span
-                animate={{ color: ["#7c3aed", "#2563eb", "#7c3aed"] }}
-                transition={{ duration: 3, repeat: Infinity, delay: 1 }}
-                className="font-semibold text-purple-600 dark:text-purple-400"
-              >
-                aspirations
-              </motion.span>
-            </motion.p>
-          </motion.div>
-
-          {/* Enhanced Job Search */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.6 }}
-            className="mb-12"
-          >
-            <JobSearch
-              onSearch={(searchFilters) => {
-                setFilters((current) => ({
-                  ...current,
-                  location: searchFilters.location,
-                  jobType: searchFilters.jobType,
-                  search: searchFilters.search,
-                  skills: current.skills,
-                }));
-                setPage(1);
+              initial={{ opacity:0, y:30 }}
+              animate={{ opacity:1, y:0 }}
+              transition={{ duration:.7, delay:.4 }}
+              style={{
+                fontSize: "1.15rem",
+                color: theme === "dark" ? "#94a3b8" : "#475569",
+                maxWidth: 520,
+                margin: "0 auto 2.5rem",
+                lineHeight: 1.75,
               }}
-            />
+            >
+              {t("jobs.discoverLine")}
+            </motion.p>
+
+            {/* CTA pills */}
+            <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ duration:.6, delay:.55 }} className="flex items-center justify-center gap-3 flex-wrap">
+              {["React", "Node.js", "Python", "AI/ML", "Cloud", "DevOps"].map((tag, i) => (
+                <motion.span
+                  key={tag}
+                  initial={{ opacity:0, scale:.85 }}
+                  animate={{ opacity:1, scale:1 }}
+                  transition={{ delay:.55 + i*.06 }}
+                  style={{
+                    padding:".3rem .9rem", borderRadius:999,
+                    fontSize:".78rem", fontWeight:600,
+                    background:"rgba(255,255,255,.05)",
+                    border:"1px solid rgba(255,255,255,.1)",
+                    color:"#94a3b8",
+                    cursor:"pointer",
+                    transition:"all .2s",
+                  }}
+                  whileHover={{ background:"rgba(99,102,241,.15)", borderColor:"rgba(99,102,241,.45)", color:"#a5b4fc", y:-2 }}
+                  onClick={() => { setFilters(f => ({ ...f, search: tag })); setPage(1); }}
+                >
+                  {tag}
+                </motion.span>
+              ))}
+            </motion.div>
           </motion.div>
 
-          <div className="mt-8">
-            {/* Animated Stats Bar */}
-            <div ref={statsRef}>
-              {!isLoading && totalJobs > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 50 }}
-                  animate={
-                    isStatsInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }
-                  }
-                  transition={{ duration: 0.6 }}
-                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12"
-                >
-                  {statsCards.map((stat, index) => {
-                    const colorClasses = getColorClasses(stat.color);
-                    return (
-                      <FloatingElement key={stat.label} delay={stat.delay}>
-                        <Card
-                          className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-l-4 ${colorClasses.border} shadow-lg hover:shadow-xl transition-all duration-300`}
-                        >
-                          <CardContent className="p-6">
-                            <div className="flex items-center gap-4">
-                              <motion.div
-                                className={`p-3 ${
-                                  colorClasses.bg
-                                } rounded-xl border ${colorClasses.border.replace(
-                                  "border-l-",
-                                  "border-"
-                                )}`}
-                                whileHover={{ scale: 1.1, rotate: 5 }}
-                                transition={{ type: "spring", stiffness: 300 }}
-                              >
-                                <stat.icon
-                                  className={`w-6 h-6 ${colorClasses.text}`}
-                                />
-                              </motion.div>
-                              <div>
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                  {stat.label}
-                                </p>
-                                <motion.p
-                                  className="text-2xl font-bold text-gray-900 dark:text-white"
-                                  initial={{ scale: 0.5 }}
-                                  animate={
-                                    isStatsInView
-                                      ? { scale: 1 }
-                                      : { scale: 0.5 }
-                                  }
-                                  transition={{
-                                    duration: 0.5,
-                                    delay: stat.delay + 0.2,
-                                  }}
-                                >
-                                  {stat.isCurrency ? (
-                                    <>
-                                      <AnimatedCounter
-                                        value={stat.value}
-                                        duration={2500}
-                                      />
-                                      k+
-                                    </>
-                                  ) : (
-                                    <>
-                                      <AnimatedCounter
-                                        value={stat.value}
-                                        duration={2500}
-                                      />
-                                      +
-                                    </>
-                                  )}
-                                </motion.p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </FloatingElement>
-                    );
-                  })}
-                </motion.div>
-              )}
+          {/* ── TICKER ── */}
+          <motion.div
+            initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:.7 }}
+            style={{ overflow:"hidden", margin:"0 -1.5rem 3rem", padding:".75rem 0", borderTop:"1px solid rgba(255,255,255,.05)", borderBottom:"1px solid rgba(255,255,255,.05)", background:"rgba(255,255,255,.02)" }}
+          >
+            <div className="obs-ticker-track" style={{ display:"flex", gap:"2rem", width:"max-content" }}>
+              {TICKER_ITEMS.map((item, i) => (
+                <span key={i} style={{ display:"flex", alignItems:"center", gap:".5rem", whiteSpace:"nowrap", fontSize:".8rem", fontWeight:600, letterSpacing:".08em", textTransform:"uppercase", color:"rgba(148,163,184,.5)" }}>
+                  <span style={{ display:"inline-block", width:4, height:4, borderRadius:"50%", background:"rgba(99,102,241,.6)" }} />
+                  {item}
+                </span>
+              ))}
             </div>
+          </motion.div>
 
-            {/* Jobs List with Scroll Animations */}
-            <div ref={jobsRef}>
+          {/* ── AI RECOMMENDATIONS ── */}
+          {isProfessional && recommendedJobs.length > 0 && (
+            <motion.div initial={{ opacity:0, y:24 }} animate={{ opacity:1, y:0 }} transition={{ duration:.5, delay:.3 }} className="mb-14">
+              <div style={{ display:"flex", alignItems:"center", gap:".75rem", marginBottom:"1.5rem" }}>
+                <span className="obs-section-badge">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {t("jobs.jobsForYou")}
+                </span>
+                <span style={{ fontSize:".875rem", color:"#64748b" }}>{t("jobs.personalizedProfile")}</span>
+              </div>
+              <div className="space-y-4">
+                {recommendedJobs.map((job: Job, i: number) => (
+                  <motion.div key={job.id} initial={{ opacity:0, x:-20 }} animate={{ opacity:1, x:0 }} transition={{ duration:.4, delay:i*.05 }} className="obs-job-wrap">
+                    <JobCard
+                      job={job}
+                      setSelectedJob={(j) => { setSelectedJob(j); setShowQuickApply(true); }}
+                      setShowQuickApply={setShowQuickApply}
+                      onCardClick={() => setSelectedJobForDetail(job)}
+                    />
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── SEARCH ── */}
+          <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ duration:.5, delay:.6 }} style={{ marginBottom:"3rem" }}>
+            <div style={{ borderRadius:20, padding:1, background:"linear-gradient(135deg, rgba(99,102,241,.4), rgba(139,92,246,.25), rgba(99,102,241,.3))", boxShadow:"0 0 60px -20px rgba(99,102,241,.3)" }}>
+              <div style={{ borderRadius:19, overflow:"hidden" }}>
+                <JobSearch
+                  onSearch={(sf) => {
+                    setFilters(c => ({ ...c, location:sf.location, jobType:sf.jobType, search:sf.search }));
+                    setPage(1);
+                  }}
+                />
+              </div>
+            </div>
+          </motion.div>
+
+          {/* ── STATS BENTO ── */}
+          <div ref={statsRef}>
+            {!isLoading && totalJobs > 0 && (
               <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={
-                  isJobsInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }
-                }
-                transition={{ duration: 0.6 }}
+                initial={{ opacity:0, y:40 }}
+                animate={isStatsInView ? { opacity:1, y:0 } : { opacity:0, y:40 }}
+                transition={{ duration:.65, ease:[.22,1,.36,1] }}
+                style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))", gap:"1.25rem", marginBottom:"3.5rem" }}
               >
-                <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <motion.h2
-                      className="text-3xl font-bold text-gray-900 dark:text-white mb-2"
-                      whileInView={{ x: [-50, 0], opacity: [0, 1] }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      Available Opportunities
-                    </motion.h2>
-                    <motion.p
-                      className="text-gray-600 dark:text-gray-400 text-lg"
-                      whileInView={{ x: [-30, 0], opacity: [0, 1] }}
-                      transition={{ duration: 0.5, delay: 0.1 }}
-                    >
-                      {totalJobs > 0
-                        ? `Showing ${Math.min(
-                            itemsPerPage,
-                            jobs.length
-                          )} of ${totalJobs} carefully selected positions`
-                        : "No jobs matching your criteria"}
-                    </motion.p>
-                  </div>
-
-                  {jobs.length > 0 && (
-                    <motion.div
-                      className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400"
-                      whileInView={{ x: [30, 0], opacity: [0, 1] }}
-                      transition={{ duration: 0.5, delay: 0.2 }}
-                    >
-                      <motion.div
-                        animate={{ rotate: [0, 360] }}
-                        transition={{
-                          duration: 4,
-                          repeat: Infinity,
-                          ease: "linear",
-                        }}
-                      >
-                        <TrendingUp className="w-4 h-4" />
+                {statCards.map((stat, idx) => (
+                  <motion.div
+                    key={stat.label}
+                    initial={{ opacity:0, y:24 }}
+                    animate={isStatsInView ? { opacity:1, y:0 } : {}}
+                    transition={{ duration:.55, delay:stat.delay, ease:[.22,1,.36,1] }}
+                    className="obs-stat"
+                    style={{ padding:"1.75rem 1.5rem" }}
+                  >
+                    {/* Icon */}
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"1.25rem" }}>
+                      <div style={{ width:44, height:44, borderRadius:12, display:"flex", alignItems:"center", justifyContent:"center", background:`linear-gradient(135deg, ${stat.gradient.replace("from-","").replace(" to-",", ").split(" ").map(c=>`var(--tw-${c.replace("-","/")})`).join(", ")})`, backgroundImage:`linear-gradient(135deg, var(--tw-gradient-from), var(--tw-gradient-to))`, boxShadow:`0 8px 24px -8px rgba(99,102,241,.4)` }}>
+                        <div style={{ width:44, height:44, borderRadius:12, display:"flex", alignItems:"center", justifyContent:"center", background:idx===3?"linear-gradient(135deg,#f59e0b,#d97706)":idx===1?"linear-gradient(135deg,#3b82f6,#06b6d4)":idx===2?"linear-gradient(135deg,#a855f7,#ec4899)":"linear-gradient(135deg,#6366f1,#7c3aed)", boxShadow:"0 6px 20px -6px rgba(99,102,241,.5)" }}>
+                          <stat.icon className="w-5 h-5 text-white" />
+                        </div>
+                      </div>
+                      <motion.div animate={{ rotate:360 }} transition={{ duration:20, repeat:Infinity, ease:"linear" }} style={{ opacity:.35 }}>
+                        <BarChart3 className="w-4 h-4" style={{ color:"#6366f1" }} />
                       </motion.div>
-                      <span>Sorted by relevance</span>
-                    </motion.div>
-                  )}
-                </div>
+                    </div>
+                    {/* Value */}
+                    <div style={{ marginBottom:".375rem" }}>
+                      <span
+                        className={`obs-display ${stat.textCls}`}
+                        style={{ fontSize:"2.25rem", fontWeight:800, letterSpacing:"-.04em", lineHeight:1 }}
+                      >
+                        <AnimatedCounter value={stat.value} duration={2200} />
+                        {stat.suffix}
+                      </span>
+                    </div>
+                    <p style={{ fontSize:".8rem", fontWeight:500, color:"#64748b", textTransform:"uppercase", letterSpacing:".06em" }}>{stat.label}</p>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </div>
 
-                <div className="space-y-6">
-                  <AnimatePresence>
-                    {isLoading ? (
-                      Array.from({ length: 5 }).map((_, i) => (
-                        <motion.div
-                          key={i}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.3, delay: i * 0.1 }}
-                        >
-                          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 shadow-sm">
-                            <CardContent className="p-6">
-                              <div className="flex items-start gap-4">
-                                <Skeleton className="h-12 w-12 rounded-xl bg-gray-300 dark:bg-gray-600" />
-                                <div className="flex-1">
-                                  <Skeleton className="h-6 w-3/4 mb-2 bg-gray-300 dark:bg-gray-600" />
-                                  <Skeleton className="h-4 w-1/2 mb-4 bg-gray-300 dark:bg-gray-600" />
-                                  <div className="flex gap-4">
-                                    <Skeleton className="h-4 w-20 bg-gray-300 dark:bg-gray-600" />
-                                    <Skeleton className="h-4 w-20 bg-gray-300 dark:bg-gray-600" />
-                                    <Skeleton className="h-4 w-20 bg-gray-300 dark:bg-gray-600" />
-                                  </div>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                      ))
-                    ) : jobs.length > 0 ? (
-                      jobs.map((job: any, index: number) => {
+          {/* ── GUEST FEATURED JOBS ── */}
+          {isGuest && featuredForGuests.length > 0 && (
+            <motion.div initial={{ opacity:0, y:28 }} animate={{ opacity:1, y:0 }} transition={{ duration:.55 }} style={{ marginBottom:"3.5rem" }}>
+              {/* Gradient border wrapper */}
+            <div
+              style={{
+                borderRadius: 24,
+                padding: 1,
+                background:
+                  theme === "dark"
+                    ? "linear-gradient(135deg, rgba(139,92,246,.5) 0%, rgba(99,102,241,.25) 40%, rgba(245,158,11,.2) 100%)"
+                    : "linear-gradient(135deg, rgba(129,140,248,.35) 0%, rgba(196,181,253,.25) 40%, rgba(248,250,252,1) 100%)",
+                boxShadow: "0 0 80px -30px rgba(99,102,241,.25)",
+              }}
+            >
+                <div
+                  style={{
+                    borderRadius: 23,
+                    background:
+                      theme === "dark"
+                        ? "linear-gradient(160deg, #0d0d1f 0%, #0a0a18 100%)"
+                        : "linear-gradient(160deg, #ffffff 0%, #eef2ff 60%, #faf5ff 100%)",
+                    padding: "2.5rem",
+                    position: "relative",
+                    overflow: "hidden",
+                  }}
+                >
+                  {/* Inner orb */}
+                  <div style={{ position:"absolute", top:-80, right:-80, width:320, height:320, borderRadius:"50%", background:"radial-gradient(circle, rgba(139,92,246,.12) 0%, transparent 70%)", filter:"blur(40px)", pointerEvents:"none" }} />
+                  <div style={{ position:"absolute", bottom:-60, left:-60, width:260, height:260, borderRadius:"50%", background:"radial-gradient(circle, rgba(245,158,11,.07) 0%, transparent 70%)", filter:"blur(35px)", pointerEvents:"none" }} />
+
+                  <div style={{ position:"relative" }}>
+                    {/* Header */}
+                    <div style={{ display:"flex", alignItems:"center", gap:".75rem", marginBottom:".75rem" }}>
+                      <span className="obs-section-badge-violet obs-section-badge">
+                        <Crown className="w-3.5 h-3.5" />
+                        {t("jobs.curatedForYou")}
+                      </span>
+                      <span style={{ fontSize:".875rem", color:"#475569" }}>{t("jobs.topPicks")}</span>
+                    </div>
+                    <h2
+                      className="obs-display"
+                      style={{
+                        fontSize: "clamp(1.5rem,4vw,2.25rem)",
+                        fontWeight: 800,
+                        letterSpacing: "-.03em",
+                        marginBottom: ".5rem",
+                        color: theme === "dark" ? "#f1f5f9" : "#0f172a",
+                      }}
+                    >
+                      {t("jobs.bestRecommended")}
+                    </h2>
+                    <p style={{ color:"#64748b", fontSize:".9rem", marginBottom:"2rem", maxWidth:480 }}>
+                      {t("jobs.createAccountToApply")}
+                    </p>
+
+                    {/* Cards grid */}
+                    <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(270px, 1fr))", gap:"1rem", marginBottom:"2rem" }}>
+                      {featuredForGuests.slice(0, 6).map((job: Job, i: number) => {
                         const JobIcon = getJobIcon(job.title);
                         return (
                           <motion.div
                             key={job.id}
-                            initial={{ opacity: 0, y: 30, scale: 0.9 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            transition={{
-                              duration: 0.5,
-                              delay: index * 0.1,
-                              type: "spring",
-                              stiffness: 100,
+                            initial={{ opacity:0, y:14 }}
+                            animate={{ opacity:1, y:0 }}
+                            transition={{ duration:.35, delay:i*.065 }}
+                            className="obs-feat-card"
+                            style={{ padding:"1.25rem" }}
+                          >
+                            <div style={{ display:"flex", alignItems:"flex-start", gap:"1rem" }}>
+                          <div
+                            style={{
+                              flexShrink: 0,
+                              width: 44,
+                              height: 44,
+                              borderRadius: 12,
+                              background:
+                                theme === "dark"
+                                  ? "linear-gradient(135deg, #6366f1, #8b5cf6)"
+                                  : "linear-gradient(135deg, #4f46e5, #a855f7)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              boxShadow: "0 6px 20px -6px rgba(99,102,241,.5)",
                             }}
-                            whileHover={{
-                              y: -8,
-                              scale: 1.02,
-                              transition: { duration: 0.2 },
-                            }}
-                            viewport={{ once: true, margin: "-50px" }}
-                            className="group"
+                          >
+                                <JobIcon className="w-5 h-5 text-white" />
+                              </div>
+                              <div style={{ minWidth:0 }}>
+                                <h3
+                                  style={{
+                                    fontWeight: 700,
+                                    color: theme === "dark" ? "#e2e8f0" : "#0f172a",
+                                    fontSize: ".9rem",
+                                    marginBottom: ".2rem",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {job.title}
+                                </h3>
+                                <p
+                                  style={{
+                                    fontSize: ".8rem",
+                                    color: theme === "dark" ? "#64748b" : "#6b7280",
+                                    marginBottom: ".5rem",
+                                  }}
+                                >
+                                  {job.company?.name || t("common.company")}
+                                </p>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexWrap: "wrap",
+                                    gap: ".5rem",
+                                    fontSize: ".75rem",
+                                    color: theme === "dark" ? "#475569" : "#6b7280",
+                                    marginBottom: ".5rem",
+                                  }}
+                                >
+                                  <span style={{ display:"flex", alignItems:"center", gap:.25 * 4 }}>
+                                    <MapPin className="w-3 h-3" /> {job.location}
+                                  </span>
+                                  <span style={{ display:"flex", alignItems:"center", gap:.25 * 4, textTransform:"capitalize" }}>
+                                    <Clock className="w-3 h-3" /> {job.jobType?.replace("-", " ")}
+                                  </span>
+                                </div>
+                                {job.skills?.length > 0 && (
+                                  <div style={{ display:"flex", flexWrap:"wrap", gap:".35rem" }}>
+                                    {job.skills.slice(0, 2).map((s: string, si: number) => (
+                                      <span key={si} style={{ padding:".2rem .6rem", borderRadius:999, fontSize:".72rem", fontWeight:600, background:"rgba(99,102,241,.15)", border:"1px solid rgba(99,102,241,.25)", color:"#a5b4fc" }}>
+                                        {s}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+
+                    {/* CTA Strip */}
+                    <div style={{ display:"flex", flexWrap:"wrap", alignItems:"center", justifyContent:"space-between", gap:"1rem", borderRadius:16, padding:"1.5rem 1.75rem", background:"rgba(255,255,255,.04)", border:"1px solid rgba(255,255,255,.07)" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:"1rem" }}>
+                        <div style={{ width:44, height:44, borderRadius:12, background:"linear-gradient(135deg, #6366f1, #8b5cf6)", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 6px 20px -6px rgba(99,102,241,.5)" }}>
+                          <UserPlus className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p style={{ fontWeight:700, color:"#f1f5f9", marginBottom:".15rem" }}>{t("jobs.joinSkillConnect")}</p>
+                          <p style={{ fontSize:".8rem", color:"#64748b" }}>{t("jobs.getRecommendations")}</p>
+                        </div>
+                      </div>
+                      <div style={{ display:"flex", alignItems:"center", gap:".75rem" }}>
+                        <Link
+                          to="/login"
+                          style={{ display:"inline-flex", alignItems:"center", gap:".5rem", padding:".6rem 1.25rem", borderRadius:10, fontWeight:600, fontSize:".875rem", background:"rgba(255,255,255,.06)", border:"1px solid rgba(255,255,255,.1)", color:"#cbd5e1", textDecoration:"none", transition:"all .2s" }}
+                        >
+                          {t("nav.signIn")} <ArrowRight className="w-4 h-4" />
+                        </Link>
+                        <Link
+                          to="/signup"
+                          className="obs-btn-shimmer"
+                          style={{ display:"inline-flex", alignItems:"center", gap:".5rem", padding:".6rem 1.5rem", borderRadius:10, fontWeight:700, fontSize:".875rem", color:"#fff", textDecoration:"none", boxShadow:"0 8px 28px -8px rgba(99,102,241,.55)", transition:"transform .2s" }}
+                        >
+                          {t("jobs.signUpFree")}
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── DIVIDER ── */}
+          <div className="obs-divider" />
+
+          {/* ── ALL JOBS ── */}
+          <div ref={jobsRef}>
+            <motion.div
+              initial={{ opacity:0, y:32 }}
+              animate={isJobsInView ? { opacity:1, y:0 } : {}}
+              transition={{ duration:.65, ease:[.22,1,.36,1] }}
+            >
+              {/* Section header */}
+              <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", marginBottom:"2rem", flexWrap:"wrap", gap:"1rem" }}>
+                <div>
+                  <motion.div whileInView={{ x:[-30,0], opacity:[0,1] }} transition={{ duration:.45 }}>
+                    <span className="obs-section-badge-violet obs-section-badge" style={{ marginBottom:".75rem" }}>
+                      <Layers className="w-3.5 h-3.5" />
+                      All Positions
+                    </span>
+                  </motion.div>
+                  <motion.h2
+                    className="obs-display"
+                    whileInView={{ x:[-40,0], opacity:[0,1] }}
+                    transition={{ duration:.5 }}
+                    style={{ fontSize:"clamp(1.5rem,4vw,2rem)", fontWeight:800, letterSpacing:"-.03em", color:"#f1f5f9", marginBottom:".4rem" }}
+                  >
+                    {t("jobs.availableOpportunities")}
+                  </motion.h2>
+                  <motion.p
+                    whileInView={{ x:[-30,0], opacity:[0,1] }}
+                    transition={{ duration:.5, delay:.08 }}
+                    style={{ fontSize:".9rem", color:"#64748b" }}
+                  >
+                    {totalJobs > 0
+                      ? t("jobs.showingCount", { count: Math.min(itemsPerPage, jobs.length), total: totalJobs })
+                      : t("jobs.noJobsMatching")}
+                  </motion.p>
+                </div>
+
+                {jobs.length > 0 && (
+                  <motion.div
+                    whileInView={{ x:[30,0], opacity:[0,1] }}
+                    transition={{ duration:.45, delay:.1 }}
+                    style={{ display:"flex", alignItems:"center", gap:".4rem", fontSize:".8rem", color:"#475569", fontWeight:500 }}
+                  >
+                    <motion.div animate={{ rotate:360 }} transition={{ duration:5, repeat:Infinity, ease:"linear" }}>
+                      <TrendingUp className="w-4 h-4" style={{ color:"#6366f1" }} />
+                    </motion.div>
+                    {t("jobs.sortedByRelevance")}
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Grid */}
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(310px, 1fr))", gap:"1.25rem" }}>
+                <AnimatePresence>
+                  {isLoading
+                    ? Array.from({ length: 6 }).map((_, i) => (
+                        <motion.div key={i} initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:i*.05 }}>
+                          <div className="obs-glass" style={{ borderRadius:20, padding:"1.5rem" }}>
+                            <div style={{ display:"flex", gap:"1rem", alignItems:"flex-start" }}>
+                              <Skeleton style={{ width:44, height:44, borderRadius:12, background:"rgba(255,255,255,.07)" }} />
+                              <div style={{ flex:1 }}>
+                                <Skeleton style={{ height:20, width:"75%", marginBottom:8, borderRadius:8, background:"rgba(255,255,255,.07)" }} />
+                                <Skeleton style={{ height:14, width:"50%", marginBottom:16, borderRadius:8, background:"rgba(255,255,255,.05)" }} />
+                                <div style={{ display:"flex", gap:8 }}>
+                                  {[60,60,60].map((w,j)=><Skeleton key={j} style={{ height:14, width:w, borderRadius:8, background:"rgba(255,255,255,.05)" }} />)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))
+                    : jobs.length > 0
+                      ? jobs.map((job: any, i: number) => (
+                          <motion.div
+                            key={job.id}
+                            initial={{ opacity:0, y:20, scale:.97 }}
+                            animate={{ opacity:1, y:0, scale:1 }}
+                            transition={{ duration:.4, delay:Math.min(i,.8)*.05, type:"spring", stiffness:90 }}
+                            viewport={{ once:true, margin:"-40px" }}
+                            className="obs-job-wrap"
                           >
                             <JobCard
                               job={job}
-                              setSelectedJob={(job) => {
-                                setSelectedJob(job);
-                                setShowQuickApply(true);
-                              }}
+                              setSelectedJob={(j) => { setSelectedJob(j); setShowQuickApply(true); }}
                               setShowQuickApply={setShowQuickApply}
+                              onCardClick={() => setSelectedJobForDetail(job)}
                             />
                           </motion.div>
-                        );
-                      })
-                    ) : (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.4 }}
-                      >
-                        <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-dashed border-gray-300 dark:border-gray-600 shadow-sm">
-                          <CardContent className="p-12 text-center">
-                            <div className="w-20 h-20 mx-auto mb-6 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                              <Briefcase className="w-10 h-10 text-gray-400 dark:text-gray-500" />
+                        ))
+                      : (
+                          <motion.div
+                            key="empty"
+                            initial={{ opacity:0, scale:.95 }}
+                            animate={{ opacity:1, scale:1 }}
+                            style={{ gridColumn:"1 / -1" }}
+                          >
+                            <div className="obs-empty">
+                              <div style={{ width:72, height:72, borderRadius:"50%", background:"rgba(255,255,255,.05)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 1.5rem" }}>
+                                <Briefcase className="w-9 h-9" style={{ color:"#334155" }} />
+                              </div>
+                              <h3 className="obs-display" style={{ fontSize:"1.5rem", fontWeight:700, color:"#f1f5f9", marginBottom:".75rem" }}>
+                                No jobs found
+                              </h3>
+                              <p style={{ color:"#64748b", fontSize:".9rem", marginBottom:"1.75rem", maxWidth:380, margin:"0 auto 1.75rem" }}>
+                                We couldn't find any jobs matching your filters. Try broadening your search.
+                              </p>
+                              <button
+                                onClick={() => { setFilters({ location:"", skills:[], jobType:"", search:"" }); setPage(1); }}
+                                className="obs-btn-shimmer"
+                                style={{ padding:".7rem 1.75rem", borderRadius:12, fontWeight:700, color:"#fff", fontSize:".9rem", cursor:"pointer", boxShadow:"0 8px 24px -8px rgba(99,102,241,.5)" }}
+                              >
+                                View All Jobs
+                              </button>
                             </div>
-                            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                              No jobs found
-                            </h3>
-                            <p className="text-gray-600 dark:text-gray-400 text-lg mb-6 max-w-md mx-auto">
-                              We couldn't find any jobs matching your current
-                              filters. Try adjusting your search criteria or
-                              browse all available positions.
-                            </p>
-                            <Button
-                              onClick={() => {
-                                setFilters({
-                                  location: "",
-                                  skills: [],
-                                  jobType: "",
-                                  search: "",
-                                });
-                                setPage(1);
-                              }}
-                              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-6 text-lg"
-                            >
-                              View All Jobs
-                            </Button>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                          </motion.div>
+                        )
+                  }
+                </AnimatePresence>
+              </div>
 
-                {/* Enhanced Pagination */}
-                {totalPages > 1 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="mt-12"
-                  >
-                    <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 shadow-sm">
-                      <CardContent className="p-6">
-                        <Pagination>
-                          <PaginationContent className="flex items-center justify-between w-full">
-                            <PaginationItem>
-                              <PaginationPrevious
-                                onClick={() => setPage(Math.max(1, page - 1))}
-                                className={`flex items-center gap-2 ${
-                                  page === 1
-                                    ? "pointer-events-none opacity-50 text-gray-400 dark:text-gray-600"
-                                    : "text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
-                                }`}
-                              />
-                            </PaginationItem>
+              {/* ── PAGINATION ── */}
+              {totalPages > 1 && (
+                <motion.div
+                  initial={{ opacity:0, y:20 }}
+                  whileInView={{ opacity:1, y:0 }}
+                  transition={{ duration:.5 }}
+                  style={{ marginTop:"3rem" }}
+                >
+                  <div className="obs-glass" style={{ borderRadius:20, padding:"1.5rem" }}>
+                    <Pagination>
+                      <PaginationContent style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%" }}>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() => setPage(Math.max(1, page - 1))}
+                            style={{ color: page===1 ? "#334155" : "#a5b4fc", pointerEvents: page===1 ? "none" : "auto", opacity: page===1 ? .4 : 1, fontWeight:600, fontSize:".875rem" }}
+                          />
+                        </PaginationItem>
 
-                            <div className="flex items-center gap-2">
-                              {Array.from(
-                                { length: Math.min(5, totalPages) },
-                                (_, i) => {
-                                  let pageNum;
-                                  if (totalPages <= 5) {
-                                    pageNum = i + 1;
-                                  } else if (page <= 3) {
-                                    pageNum = i + 1;
-                                  } else if (page >= totalPages - 2) {
-                                    pageNum = totalPages - 4 + i;
-                                  } else {
-                                    pageNum = page - 2 + i;
-                                  }
-
-                                  return (
-                                    <PaginationItem key={pageNum}>
-                                      <PaginationLink
-                                        onClick={() => setPage(pageNum)}
-                                        isActive={pageNum === page}
-                                        className={`font-semibold ${
-                                          pageNum === page
-                                            ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0"
-                                            : "text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 bg-transparent"
-                                        }`}
-                                      >
-                                        {pageNum}
-                                      </PaginationLink>
-                                    </PaginationItem>
-                                  );
-                                }
-                              )}
-
-                              {totalPages > 5 && page < totalPages - 2 && (
-                                <>
-                                  <span className="text-gray-400 dark:text-gray-600 mx-1">
-                                    ...
-                                  </span>
-                                  <PaginationItem>
-                                    <PaginationLink
-                                      onClick={() => setPage(totalPages)}
-                                      className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
-                                    >
-                                      {totalPages}
-                                    </PaginationLink>
-                                  </PaginationItem>
-                                </>
-                              )}
-                            </div>
-
-                            <PaginationItem>
-                              <PaginationNext
-                                onClick={() =>
-                                  setPage(Math.min(totalPages, page + 1))
-                                }
-                                className={`flex items-center gap-2 ${
-                                  page === totalPages
-                                    ? "pointer-events-none opacity-50 text-gray-400 dark:text-gray-600"
-                                    : "text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
-                                }`}
-                              />
-                            </PaginationItem>
-                          </PaginationContent>
-                        </Pagination>
-
-                        <div className="text-center mt-4">
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Page {page} of {totalPages} • {totalJobs} total
-                            opportunities
-                          </p>
+                        <div style={{ display:"flex", alignItems:"center", gap:".5rem" }}>
+                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            let pn = totalPages <= 5 ? i+1 : page <= 3 ? i+1 : page >= totalPages-2 ? totalPages-4+i : page-2+i;
+                            return (
+                              <PaginationItem key={pn}>
+                                <PaginationLink
+                                  onClick={() => setPage(pn)}
+                                  isActive={pn === page}
+                                  style={{
+                                    fontWeight:700, fontSize:".875rem",
+                                    borderRadius:10, width:38, height:38,
+                                    display:"flex", alignItems:"center", justifyContent:"center",
+                                    background: pn===page ? "linear-gradient(135deg,#6366f1,#7c3aed)" : "transparent",
+                                    color: pn===page ? "#fff" : "#64748b",
+                                    border: pn===page ? "none" : "1px solid rgba(255,255,255,.07)",
+                                    boxShadow: pn===page ? "0 6px 20px -6px rgba(99,102,241,.6)" : "none",
+                                    cursor:"pointer",
+                                    transition:"all .2s",
+                                  }}
+                                >
+                                  {pn}
+                                </PaginationLink>
+                              </PaginationItem>
+                            );
+                          })}
+                          {totalPages > 5 && page < totalPages - 2 && (
+                            <>
+                              <span style={{ color:"#334155" }}>···</span>
+                              <PaginationItem>
+                                <PaginationLink
+                                  onClick={() => setPage(totalPages)}
+                                  style={{ fontWeight:700, color:"#64748b", fontSize:".875rem", cursor:"pointer" }}
+                                >
+                                  {totalPages}
+                                </PaginationLink>
+                              </PaginationItem>
+                            </>
+                          )}
                         </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                )}
-              </motion.div>
-            </div>
+
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() => setPage(Math.min(totalPages, page + 1))}
+                            style={{ color: page===totalPages ? "#334155" : "#a5b4fc", pointerEvents: page===totalPages ? "none" : "auto", opacity: page===totalPages ? .4 : 1, fontWeight:600, fontSize:".875rem" }}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+
+                    <p style={{ textAlign:"center", fontSize:".8rem", color:"#334155", marginTop:".75rem" }}>
+                      Page {page} of {totalPages} · {totalJobs.toLocaleString()} total opportunities
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
           </div>
         </div>
       </div>
 
-      {/* Quick Apply Modal */}
+      {/* ── JOB DETAIL MODAL ── */}
+      <Dialog open={!!selectedJobForDetail} onOpenChange={(o) => !o && setSelectedJobForDetail(null)}>
+        <DialogContent
+          style={{
+            maxWidth: 680,
+            maxHeight: "90vh",
+            overflowY: "auto",
+            background: "hsl(var(--background))",
+            border: "1px solid hsl(var(--border))",
+            borderRadius: 24,
+            boxShadow:
+              "0 0 0 1px rgba(99,102,241,.12), 0 40px 80px -20px rgba(15,23,42,.85), 0 0 100px -40px rgba(99,102,241,.25)",
+          }}
+        >
+          {selectedJobForDetail && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="obs-display" style={{ fontSize:"1.5rem", fontWeight:800, color:"#f1f5f9", letterSpacing:"-.025em", paddingRight:"2rem" }}>
+                  {selectedJobForDetail.title}
+                </DialogTitle>
+              </DialogHeader>
+              <div style={{ marginTop:"1.25rem" }}>
+                {/* Meta row */}
+                <div style={{ display:"flex", flexWrap:"wrap", gap:".75rem", fontSize:".8rem", color:"#64748b", marginBottom:"1.5rem" }}>
+                  {[
+                    { icon: Building, text: selectedJobForDetail.company?.name || t("common.company") },
+                    { icon: MapPin, text: selectedJobForDetail.location },
+                    { icon: Clock, text: selectedJobForDetail.jobType?.replace("-"," ") },
+                    { icon: IndianRupee, text: selectedJobForDetail.salaryMin != null ? `₹${(selectedJobForDetail.salaryMin/1000).toFixed(0)}k – ₹${(selectedJobForDetail.salaryMax/1000).toFixed(0)}k` : t("jobCard.salaryNotSpecified") },
+                  ].map(({ icon: Icon, text }, i) => (
+                    <span key={i} style={{ display:"flex", alignItems:"center", gap:".3rem", padding:".3rem .8rem", borderRadius:999, background:"rgba(255,255,255,.05)", border:"1px solid rgba(255,255,255,.08)", textTransform:i===2?"capitalize":"none" }}>
+                      <Icon className="w-3.5 h-3.5" style={{ color:"#6366f1" }} /> {text}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Skills */}
+                {selectedJobForDetail.skills?.length > 0 && (
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:".5rem", marginBottom:"1.5rem" }}>
+                    {selectedJobForDetail.skills.map((s: string, i: number) => (
+                      <span key={i} style={{ padding:".3rem .85rem", borderRadius:999, fontSize:".78rem", fontWeight:600, background:"rgba(99,102,241,.12)", border:"1px solid rgba(99,102,241,.25)", color:"#a5b4fc" }}>
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Divider */}
+                <div className="obs-divider" style={{ margin:"1.25rem 0" }} />
+
+                {/* Description */}
+                <div style={{ marginBottom:"1.25rem" }}>
+                  <h4 style={{ fontSize:".8rem", fontWeight:700, color:"#6366f1", letterSpacing:".07em", textTransform:"uppercase", marginBottom:".75rem" }}>
+                    {t("jobs.description")}
+                  </h4>
+                  <p style={{ color:"#94a3b8", fontSize:".9rem", lineHeight:1.75, whiteSpace:"pre-wrap" }}>
+                    {selectedJobForDetail.description}
+                  </p>
+                </div>
+
+                {selectedJobForDetail.requirements && (
+                  <div style={{ marginBottom:"1.75rem" }}>
+                    <h4 style={{ fontSize:".8rem", fontWeight:700, color:"#6366f1", letterSpacing:".07em", textTransform:"uppercase", marginBottom:".75rem" }}>
+                      {t("jobs.requirements")}
+                    </h4>
+                    <p style={{ color:"#94a3b8", fontSize:".9rem", lineHeight:1.75, whiteSpace:"pre-wrap" }}>
+                      {selectedJobForDetail.requirements}
+                    </p>
+                  </div>
+                )}
+
+                <div style={{ display:"flex", justifyContent:"flex-end" }}>
+                  <button
+                    className="obs-btn-shimmer"
+                    style={{ padding:".7rem 1.75rem", borderRadius:12, fontWeight:700, color:"#fff", fontSize:".9rem", cursor:"pointer", boxShadow:"0 8px 24px -8px rgba(99,102,241,.55)" }}
+                    onClick={() => { setSelectedJob(selectedJobForDetail); setShowQuickApply(true); setSelectedJobForDetail(null); }}
+                  >
+                    {t("jobs.quickApply")}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── QUICK APPLY MODAL ── */}
       {showQuickApply && selectedJob && (
         <QuickApplyModal
           isOpen={showQuickApply}
           onClose={() => setShowQuickApply(false)}
           jobId={selectedJob.id}
           jobTitle={selectedJob.title}
-          companyName={selectedJob.company?.name || ''}
-          matchPercentage={0}
+          companyName={selectedJob.company?.name || ""}
+          matchPercentage={selectedJob.matchScore ?? 0}
         />
       )}
     </div>
   );
 }
-

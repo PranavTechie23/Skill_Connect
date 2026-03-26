@@ -14,26 +14,26 @@ interface NavItemProps {
   variant?: 'default' | 'secondary' | 'ghost';
 }
 
-export function NavItem({ 
-  to, 
-  isActive, 
-  children, 
-  onClick, 
-  fullWidth, 
-  icon, 
+export function NavItem({
+  to,
+  isActive,
+  children,
+  onClick,
+  fullWidth,
+  icon,
   className = '',
   variant = 'ghost'
 }: NavItemProps) {
   return (
     <Link to={to} onClick={onClick} className={fullWidth ? "w-full block" : ""}>
-      <GlareHover 
+      <GlareHover
         {...useGlareHover({ isActive, variant })}
         className={`cursor-pointer overflow-visible ${fullWidth ? "w-full" : ""} ${className}`}
       >
         <Button
           variant={isActive ? "default" : variant}
           className={`
-            rounded-full px-6 py-2 text-lg relative z-10 transition-all duration-300
+            rounded-full px-6 py-2 text-xl relative z-10 transition-all duration-300
             ${fullWidth ? "w-full justify-start" : ""}
           `}
         >

@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Eye, EyeOff } from "lucide-react";
 import { normalizeUserType } from "@/lib/utils";
 import { apiFetch } from "@/lib/api";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 
 export default function Login() {
@@ -17,6 +18,7 @@ export default function Login() {
   const { toast } = useToast();
   const auth = useAuth();
   const user = auth.user;
+  const { t } = useLanguage();
 
   const [open, setOpen] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -103,14 +105,14 @@ export default function Login() {
           <div className="flex flex-col lg:flex-row">
             <div className="hidden lg:flex lg:w-1/2 items-center justify-center bg-gradient-to-br from-blue-600 to-purple-600 p-10">
               <div className="text-center text-white max-w-xs">
-                <h2 className="text-3xl font-extrabold mb-2">Welcome back</h2>
-                <p className="text-sm opacity-90">Sign in to access your SkillConnect dashboard and manage your professional journey.</p>
+                <h2 className="text-3xl font-extrabold mb-2">{t("login.welcomeBack")}</h2>
+                <p className="text-sm opacity-90">{t("login.welcomeBackSub")}</p>
               </div>
             </div>
 
             <div className="w-full lg:w-1/2 p-8 sm:p-10">
               <CardHeader className="p-0 mb-4">
-                <CardTitle className="text-2xl font-bold">Sign in to SkillConnect</CardTitle>
+                <CardTitle className="text-2xl font-bold">{t("login.title")}</CardTitle>
                 <p className="text-sm text-muted-foreground mt-2">Access your personalized dashboard</p>
               </CardHeader>
 
@@ -132,15 +134,22 @@ export default function Login() {
                 
 
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Signing in..." : "Sign In"}
+                  {loading ? t("login.signingIn") : t("login.signIn")}
                 </Button>
               </form>
 
-              <div className="text-sm text-center mt-4">Don't have an account? <Link to="/signup" className="text-primary hover:underline">Create one</Link></div>
+              <div className="text-sm text-center mt-4">
+                Don't have an account?{" "}
+                <Link to="/signup" className="text-primary hover:underline">
+                  {t("login.createAccount")}
+                </Link>
+              </div>
 
               <CardFooter className="pt-4 px-0">
                 <div className="flex justify-end">
-                  <button onClick={handleClose} className="text-sm text-muted-foreground hover:underline">Close</button>
+                  <button onClick={handleClose} className="text-sm text-muted-foreground hover:underline">
+                    {t("common.close")}
+                  </button>
                 </div>
               </CardFooter>
             </div>

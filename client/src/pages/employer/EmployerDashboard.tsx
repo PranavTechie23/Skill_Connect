@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from "@/components/theme-provider";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { apiFetch } from '@/lib/api';
 
 import { ModeToggle } from "@/components/ui/dark-mode-toggle";
@@ -115,6 +116,7 @@ const EmployerDashboard: React.FC = () => {
   const { theme } = useTheme();
   const { user } = useAuth();
   const darkMode = theme === 'dark';
+  const { t } = useLanguage();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -707,7 +709,7 @@ const EmployerDashboard: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h1 className={`text-4xl font-black mb-3 bg-gradient-to-r ${darkMode ? 'from-white to-gray-300' : 'from-gray-900 to-gray-700'} bg-clip-text text-transparent`}>
-                  Dashboard Overview
+                  {t("employer.dashboard.overview")}
                 </h1>
                 <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   Welcome back! Here's what's happening with your hiring today.

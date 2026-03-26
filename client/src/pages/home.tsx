@@ -4,20 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {  BarChart2, Target, GraduationCap, MapPin, Users, Star } from "lucide-react";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useTheme } from "@/components/theme-provider";
 import ChromaGrid, { ChromaItem } from "@/components/ChromaGrid";
 import { motion } from "framer-motion";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // Add a new component for the feature items
 // Enhanced FeatureItem component
 const FeatureItem = ({ icon: Icon, text }: { icon: React.ComponentType<{ className?: string }>; text: string }) => (
-  <div className="flex items-center bg-white/60 dark:bg-slate-800/60 px-4 py-3 rounded-xl backdrop-blur-md border border-white/20 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105">
+  <div className="flex items-center bg-white/80 dark:bg-slate-800/80 px-4 py-3 rounded-xl border border-white/20 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105">
     <Icon className="text-blue-600 dark:text-blue-400 mr-3 h-6 w-6 flex-shrink-0" />
     <span className="font-semibold text-slate-800 dark:text-white text-base whitespace-nowrap">{text}</span>
   </div>
 );
 export default function Home() {
+  const { theme } = useTheme();
+  const { t } = useLanguage();
+
   // booking/form state reserved for future features
   const workers = [
     { name: 'Axar Patel', role: 'Building worker', img: '/images/building_worker.jpg', rating: 4.2 },
@@ -46,16 +50,18 @@ export default function Home() {
     return () => clearInterval(interval); // Cleanup on unmount
   }, []);
 
-  const chromaItems: ChromaItem[] = workers.map(worker => ({
+  const chromaItems: ChromaItem[] = useMemo(() => workers.map(worker => ({
     image: worker.img,
     title: worker.name,
     subtitle: worker.role,
     location: `Role: ${worker.role}`,
-    borderColor: '#ffffffff',
-    gradient: 'linear-gradient(145deg, #0000ffff, #000000ff)',
+    borderColor: theme === 'dark' ? '#3B82F6' : '#60A5FA',
+    gradient: theme === 'dark' 
+      ? 'linear-gradient(145deg, #1e3a8a, #000000)' 
+      : 'linear-gradient(145deg, #dbeafe, #ffffff)',
     url: 'https://www.linkedin.com',
     rating: worker.rating,
-  }));
+  })), [theme, workers]);
 
   // Animation variants for framer-motion
   const sectionVariants = {
@@ -72,7 +78,7 @@ export default function Home() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(true);
 
-  const { theme } = useTheme();
+  // Hooks already declared at top
 
   useEffect(() => {
     const video = videoRef.current;
@@ -103,20 +109,11 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-hidden">
       {/* Hero Section */}
-      <motion.section
+      <section
         className="bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 dark:from-blue-500 dark:via-indigo-500 dark:to-purple-500 dark:text-white py-16 lg:py-24 relative overflow-hidden"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-        variants={sectionVariants}
       >
-        <div className="absolute inset-0 hero-animated-bg z-0"></div>
-        <div className="pointer-events-none absolute inset-0 mesh-hero-overlay opacity-70 z-0"></div>
-        <div className="pointer-events-none absolute inset-0 grid-overlay opacity-20 z-0"></div>
-        <div className="absolute inset-0 z-10">
-        </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
@@ -124,7 +121,7 @@ export default function Home() {
                 <TextType
                   as="span"
                   className="align-middle"
-                  text={["Connect Talent with Perfect Opportunities"]}
+                  text={[t("home.headline")]}
                   typingSpeed={105}
                   pauseDuration={5500}
                   showCursor={true}
@@ -132,8 +129,7 @@ export default function Home() {
                 />
               </h1>
               <p className="mt-4 sm:mt-6 text-lg sm:text-xl text-slate-800/90 dark:text-white/90 leading-relaxed">
-                Skills-based matching that brings together job seekers and employers.
-                Build your professional network and discover opportunities in your community.
+                {t("home.subheadLine1")} {t("home.subheadLine2")}
               </p>
               <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-4">
                 <Link to="/jobs">
@@ -148,17 +144,16 @@ export default function Home() {
                 </Link>
               </div>
 <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row gap-4 justify-center sm:justify-start">
-  <FeatureItem icon={MapPin} text="100% Local Focus" />
-  <FeatureItem icon={Users} text="Skills-Based Matching" />
-  <FeatureItem icon={Star} text="Free to Join" />
+  <FeatureItem icon={MapPin} text={t("home.featureLocal")} />
+  <FeatureItem icon={Users} text={t("home.featureMatching")} />
+  <FeatureItem icon={Star} text={t("home.featureFree")} />
 </div>
             </div>
             <div className="lg:pl-8 mt-6 lg:mt-0 flex justify-center">
-              <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl aspect-[9/16] w-full max-w-xs lg:max-w-md">
-                <div className="absolute -inset-4 sm:-inset-6 bg-gradient-to-r from-yellow-400 to-pink-400 rounded-2xl sm:rounded-3xl blur opacity-75 animate-pulse z-10"></div>
+            <div className="relative rounded-2xl sm:rounded-3xl aspect-[9/16] w-full max-w-xs lg:max-w-md shadow-2xl">
                 <video
                   ref={videoRef}
-                  className={`relative rounded-2xl sm:rounded-3xl shadow-2xl w-full h-full border-4 ${theme === 'dark' ? 'border-slate-700' : 'border-white'} object-cover z-20`}
+                  className={`relative rounded-2xl sm:rounded-3xl w-full h-full border-4 ${theme === 'dark' ? 'border-slate-700' : 'border-white'} object-cover z-20`}
                   muted
                   loop
                   playsInline
@@ -183,7 +178,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </motion.section>
+      </section>
 
       {/* Services Grid */}
       <motion.section
@@ -209,7 +204,7 @@ export default function Home() {
               { title: '📚 Education & Tutoring', desc: 'Tutors, coaching, language training.', color: 'from-pink-400 via-rose-500 to-red-500', icon: '🎓' },
               { title: '💻 Technology & Web', desc: 'Websites, apps, digital marketing, data entry.', color: 'from-indigo-400 via-purple-500 to-pink-500', icon: '🚀' },
             ].map((s, i) => (
-              <Card key={i} className="overflow-hidden hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 border-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md shadow-sm dark:shadow-slate-700/50">
+              <Card key={i} className="overflow-hidden hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 border-0 bg-white dark:bg-slate-800 shadow-sm dark:shadow-slate-700/50">
                 <div className={`h-2 w-full bg-gradient-to-r ${s.color}`}></div>
                 <CardContent className="p-4 sm:p-6">
                   <div className="text-2xl sm:text-3xl mb-2 sm:mb-3">{s.icon}</div>
@@ -241,7 +236,7 @@ export default function Home() {
                 not just keywords. Build a comprehensive skills profile and let employers find you.
               </p>
               <div className="space-y-4 sm:space-y-6">
-                <div className="flex items-start p-3 sm:p-4 bg-white/70 dark:bg-slate-700/70 rounded-xl backdrop-blur-md hover:bg-white/90 dark:hover:bg-slate-600/90 transition-all shadow-sm dark:shadow-slate-700/50">
+                <div className="flex items-start p-3 sm:p-4 bg-white/90 dark:bg-slate-700/90 rounded-xl hover:bg-white dark:hover:bg-slate-600 transition-all shadow-sm dark:shadow-slate-700/50">
                   <div className="flex-shrink-0 w-10 sm:w-12 h-10 sm:h-12 bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-600 dark:to-purple-700 rounded-full flex items-center justify-center mr-2 sm:mr-4 shadow-lg">
                     <BarChart2 className="text-white h-4 sm:h-5 w-4 sm:w-5" />
                   </div>
@@ -250,7 +245,7 @@ export default function Home() {
                     <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">Take quick assessments to validate your skills and stand out to employers.</p>
                   </div>
                 </div>
-                <div className="flex items-start p-3 sm:p-4 bg-white/70 dark:bg-slate-700/70 rounded-xl backdrop-blur-md hover:bg-white/90 dark:hover:bg-slate-600/90 transition-all shadow-sm dark:shadow-slate-700/50">
+                <div className="flex items-start p-3 sm:p-4 bg-white/70 dark:bg-slate-700/70 rounded-xl hover:bg-white/90 dark:hover:bg-slate-600/90 transition-all shadow-sm dark:shadow-slate-700/50">
                   <div className="flex-shrink-0 w-10 sm:w-12 h-10 sm:h-12 bg-gradient-to-r from-green-500 to-blue-600 dark:from-green-600 dark:to-blue-700 rounded-full flex items-center justify-center mr-2 sm:mr-4 shadow-lg">
                     <Target className="text-white h-4 sm:h-5 w-4 sm:w-5" />
                   </div>
@@ -259,7 +254,7 @@ export default function Home() {
                     <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">Get personalized job recommendations based on your skill profile and preferences.</p>
                   </div>
                 </div>
-                <div className="flex items-start p-3 sm:p-4 bg-white/70 dark:bg-slate-700/70 rounded-xl backdrop-blur-md hover:bg-white/90 dark:hover:bg-slate-600/90 transition-all shadow-sm dark:shadow-slate-700/50">
+                <div className="flex items-start p-3 sm:p-4 bg-white/70 dark:bg-slate-700/70 rounded-xl hover:bg-white/90 dark:hover:bg-slate-600/90 transition-all shadow-sm dark:shadow-slate-700/50">
                   <div className="flex-shrink-0 w-10 sm:w-12 h-10 sm:h-12 bg-gradient-to-r from-purple-500 to-pink-600 dark:from-purple-600 dark:to-pink-700 rounded-full flex items-center justify-center mr-2 sm:mr-4 shadow-lg">
                     <GraduationCap className="text-white h-4 sm:h-5 w-4 sm:w-5" />
                   </div>
@@ -272,7 +267,8 @@ export default function Home() {
             </div>
             <div className="lg:pl-8 mt-6 lg:mt-0">
               <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl">
-                <div className="absolute -inset-4 sm:-inset-6 bg-gradient-to-r from-green-400 to-blue-400 dark:from-green-500 dark:to-blue-500 rounded-2xl sm:rounded-3xl blur opacity-75 animate-pulse"></div>
+                {/* Subtle premium glow behind the hero media (no blur to avoid rectangle artifacts). */}
+                <div className="absolute -inset-2 sm:-inset-3 bg-gradient-to-r from-green-400/25 to-blue-400/25 dark:from-green-500/25 dark:to-blue-500/25 rounded-2xl sm:rounded-3xl opacity-20"></div>
                 <img
                   src="/images/building_worker.jpg"
                   alt="Building worker demonstrating skills"
@@ -443,7 +439,7 @@ export default function Home() {
             viewport={{ once: true, amount: 0.3 }}
             variants={sectionVariants}
           >
-            <div className="bg-white/80 dark:bg-slate-800/80 p-4 sm:p-6 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 backdrop-blur-md max-w-sm sm:max-w-md mx-auto text-center transition-opacity duration-1000">
+            <div className="bg-white/95 dark:bg-slate-800/95 p-4 sm:p-6 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 max-w-sm sm:max-w-md mx-auto text-center transition-opacity duration-1000">
               <h3 className="text-lg sm:text-xl font-extrabold text-gray-900 dark:text-white mb-2">Motivational Quote</h3>
               <p className="text-gray-600 dark:text-gray-300 italic mb-2 sm:mb-4 text-sm sm:text-base">{motivationalQuote.text}</p>
               <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">- {motivationalQuote.author}</p>

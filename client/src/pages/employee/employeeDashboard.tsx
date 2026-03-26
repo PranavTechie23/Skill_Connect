@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/components/theme-provider';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const ROUTES = {
   EMPLOYEE: {
@@ -86,6 +87,7 @@ const mockApplications: Application[] = [
 const EmployeeDashboard: React.FC = () => {
   const { theme, setTheme } = useTheme();
   const darkMode = theme === 'dark';
+  const { t } = useLanguage();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
@@ -464,7 +466,7 @@ const fetchDashboardData = async () => {
                 <h1 className={`text-2xl font-bold ${
                   darkMode ? 'text-white' : 'bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent'
                 }`}>
-                  Welcome back, {user?.firstName}! 👋
+                  {t("employee.dashboard.welcomeBack")}, {user?.firstName}! 👋
                 </h1>
                 <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
                   Let's find your dream job today

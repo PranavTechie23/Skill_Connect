@@ -8,11 +8,13 @@ import {
 import { useTheme } from "@/components/theme-provider";
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const SettingsPage = () => {
   const { theme } = useTheme();
   const { user, logout } = useAuth();
   const darkMode = theme === 'dark';
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('account');
   const [isEditing, setIsEditing] = useState(false);
@@ -139,7 +141,7 @@ const SettingsPage = () => {
               <h1 className={`text-3xl font-black ${
                 darkMode ? 'text-white' : 'bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent'
               }`}>
-                Settings
+                {t("employee.settings.title")}
               </h1>
               <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
                 Manage your account preferences and security

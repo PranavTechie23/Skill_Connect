@@ -12,6 +12,7 @@ import { apiFetch } from "@/lib/api";
 import { normalizeUserType } from "@/lib/utils";
 import { useLocation } from "react-router-dom";
 import { Eye, EyeOff, User as UserIcon, Building } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -66,6 +67,7 @@ export default function Signup() {
   const auth = useAuth(); // expects { user, setUser, logout, ... }
   const user = auth.user;
   const location = useLocation();
+  const { t } = useLanguage();
 
   const [open, setOpen] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -613,7 +615,7 @@ export default function Signup() {
       </div>
 
       <div className="text-sm text-muted-foreground mt-2">
-        If everything looks good, click "Create account" to finish.
+        {t("signup.reviewCta")}
       </div>
     </div>
   );
@@ -636,15 +638,15 @@ export default function Signup() {
           <div className="flex flex-col lg:flex-row">
             <div className="hidden lg:flex lg:w-1/3 items-center justify-center bg-gradient-to-br from-blue-600 to-purple-600 p-10">
               <div className="text-center text-white max-w-xs">
-                <h2 className="text-2xl font-extrabold mb-2">Join SkillConnect</h2>
-                <p className="text-sm opacity-90">Create your account in 4 quick steps — we'll guide you.</p>
+                <h2 className="text-2xl font-extrabold mb-2">{t("signup.join")}</h2>
+                <p className="text-sm opacity-90">{t("signup.subhead")}</p>
                 <div className="mt-6 text-xs opacity-75">Step {step + 1} of 4</div>
               </div>
             </div>
 
             <div className="w-full lg:w-2/3 p-8 sm:p-10">
               <CardHeader className="p-0 mb-3">
-                <CardTitle className="text-2xl font-bold">Create your account</CardTitle>
+                <CardTitle className="text-2xl font-bold">{t("signup.title")}</CardTitle>
                 <p className="text-sm text-muted-foreground mt-2">
                   Join thousands of professionals and employers
                 </p>
@@ -669,13 +671,13 @@ export default function Signup() {
               {/* Navigation */}
               <div className="mt-6 flex items-center justify-between">
                 <div>
-                  {step > 0 && <Button variant="outline" onClick={back}>Back</Button>}
+                  {step > 0 && <Button variant="outline" onClick={back}>{t("common.back")}</Button>}
                 </div>
 
                 <div className="flex items-center gap-3">
                   {step < 3 && (
                     <Button type="button" onClick={next}>
-                      Continue
+                      {t("signup.continue")}
                     </Button>
                   )}
                   {step === 3 && (
@@ -693,7 +695,7 @@ export default function Signup() {
                       }} 
                       disabled={loading || emailError !== null}
                     >
-                      {loading ? "Creating..." : "Create account"}
+                      {loading ? t("signup.creating") : t("signup.createAccount")}
                     </Button>
                   )}
                     
@@ -702,7 +704,10 @@ export default function Signup() {
 
               <CardFooter className="pt-4 px-0">
                 <div className="text-sm text-center w-full">
-                  Already have an account? <Link to="/login" className="text-primary hover:underline">Sign in</Link>
+                  {t("signup.alreadyHaveAccount")}{" "}
+                  <Link to="/login" className="text-primary hover:underline">
+                    {t("common.signIn")}
+                  </Link>
                 </div>
               </CardFooter>
             </div>

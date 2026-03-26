@@ -11,10 +11,12 @@ import {
 import { adminService, type UpdateUserData } from '@/lib/admin-service';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const AdminDashboard: React.FC = () => {
   const { theme, setTheme } = useTheme();
   const darkMode = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+  const { t } = useLanguage();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
@@ -617,7 +619,7 @@ const AdminDashboard: React.FC = () => {
                     </div>
                     <div>
                       <h1 className={`text-xl font-bold bg-gradient-to-r ${darkMode ? 'from-white to-gray-300' : 'from-gray-900 to-gray-700'} bg-clip-text text-transparent`}>
-                        Admin Control Panel
+                        {t("admin.controlPanel")}
                       </h1>
                       <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         SkillConnect Management System

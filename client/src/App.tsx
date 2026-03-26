@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { SavedJobsProvider } from "./contexts/SavedJobsContext";
@@ -20,6 +20,7 @@ import About from "./pages/about";
 import Login from "./pages/login";
 import Signup from "./pages/signup";
 import SubmitStory from "./pages/submit-story";
+import Onboarding from "./pages/onboarding";
 
 // Dashboard Pages
 import Dashboards from "./pages/dashboards";
@@ -64,6 +65,7 @@ const ROUTES = {
     SUBMIT_STORY: "/submit-story",
     DASHBOARDS: "/dashboards",
     APPLICATIONS: "/applications",
+    ONBOARDING: "/onboarding",
     NOT_FOUND: "/404"
   },
   EMPLOYEE: {
@@ -109,6 +111,8 @@ const routeConfig = {
     { path: ROUTES.PUBLIC.SUBMIT_STORY, element: <SubmitStory /> },
     { path: ROUTES.PUBLIC.DASHBOARDS, element: <Dashboards /> },
     { path: ROUTES.PUBLIC.APPLICATIONS, element: <EmployeeApplications /> }
+    ,
+    { path: ROUTES.PUBLIC.ONBOARDING, element: <Onboarding /> }
   ],
   employee: [
     { path: ROUTES.EMPLOYEE.DASHBOARD, element: <EmployeeDashboard /> },
@@ -151,7 +155,7 @@ function useRouteVisibility() {
     isAdminRoute,
     isSpecialRoute,
     showNavbar: !isSpecialRoute,
-    mainPadding: isSpecialRoute ? "p-0" : "pt-20"
+    mainPadding: isSpecialRoute ? "p-0" : "pt-16"
   };
 }
 
@@ -160,7 +164,7 @@ function AppContent() {
   const { showNavbar, mainPadding } = useRouteVisibility();
 
   return (
-    <div className="min-h-screen w-screen flex flex-col overflow-x-hidden">
+    <div className="min-h-screen w-full flex flex-col overflow-x-hidden">
       {showNavbar && <Navbar />}
       <main className={`flex-1 ${mainPadding}`}>
         <Routes>
@@ -218,6 +222,7 @@ function AppContent() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
+      {/* <SupportChatbot /> */}
     </div>
   );
 }
