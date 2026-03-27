@@ -122,6 +122,7 @@ const EmployeeDashboard: React.FC = () => {
   });
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMessages, setShowMessages] = useState(false);
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -146,6 +147,15 @@ const EmployeeDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
+  const avatarSrc = (() => {
+    const raw = user?.profilePhoto;
+    if (!raw) return null;
+    if (raw.startsWith('data:image/')) return raw;
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    if (raw.startsWith('/')) return raw;
+    return `/${raw.replace(/^\/+/, '')}`;
+  })();
+
   const resetNotificationsAndMessages = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: false, cleared: false })));
     setMessages(prev => prev.map(m => ({ ...m, read: false, cleared: false })));
@@ -163,6 +173,32 @@ const EmployeeDashboard: React.FC = () => {
     navigate('/', { replace: true });
   };
 
+  const computeProfileCompletionFromUser = (u: any): number => {
+    if (!u) return 0;
+
+    const bio = (u.profile?.bio ?? u.bio ?? '').toString().trim();
+    const headline = (u.profile?.headline ?? '').toString().trim();
+    const skills = Array.isArray(u.profile?.skills)
+      ? u.profile.skills
+      : (Array.isArray(u.skills) ? u.skills : []);
+
+    const checks = [
+      !!u.firstName?.toString().trim(),
+      !!u.lastName?.toString().trim(),
+      !!u.email?.toString().trim(),
+      !!u.telephoneNumber?.toString().trim(),
+      !!u.location?.toString().trim(),
+      bio.length >= 40,
+      !!headline,
+      skills.length > 0,
+      true, // education is treated as complete in dashboard context
+      true, // experience is treated as complete in dashboard context
+    ];
+
+    const completed = checks.filter(Boolean).length;
+    return Math.round((completed / checks.length) * 100);
+  };
+
 const fetchDashboardData = async () => {
   setLoading(true);
   try {
@@ -174,11 +210,13 @@ const fetchDashboardData = async () => {
     const data = await response.json();
     
     if (data.stats) {
+      const localProfileCompletion = computeProfileCompletionFromUser(user);
       setStats({
         totalApplications: data.stats.totalApplications,
         pendingApplications: data.stats.pendingApplications,
         interviewInvitations: data.stats.interviewInvitations,
-        profileCompletion: data.stats.profileCompletion
+        // Prefer latest client-side profile state so dashboard reflects immediate saves.
+        profileCompletion: localProfileCompletion || data.stats.profileCompletion
       });
     }
 
@@ -216,6 +254,13 @@ const fetchDashboardData = async () => {
     setLoading(false);
   }
 };
+
+  useEffect(() => {
+    const localProfileCompletion = computeProfileCompletionFromUser(user);
+    if (localProfileCompletion > 0) {
+      setStats((prev) => ({ ...prev, profileCompletion: localProfileCompletion }));
+    }
+  }, [user]);
 
   const toggleSaveJob = (jobId: string) => {
     setSavedJobs(prev => 
@@ -711,8 +756,17 @@ const fetchDashboardData = async () => {
 
               <div className="relative group">
                 <button className="flex items-center gap-2 p-2 pr-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all">
-                  <div className="w-9 h-9 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
-                    {user?.firstName?.[0] || 'A'}{user?.lastName?.[0] || ''}
+                  <div className="w-9 h-9 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg overflow-hidden">
+                    {avatarSrc && !avatarLoadFailed ? (
+                      <img
+                        src={avatarSrc}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                        onError={() => setAvatarLoadFailed(true)}
+                      />
+                    ) : (
+                      <>{user?.firstName?.[0] || 'A'}{user?.lastName?.[0] || ''}</>
+                    )}
                   </div>
                   <ChevronDown className={`w-4 h-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
                 </button>

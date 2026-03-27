@@ -51,7 +51,7 @@ const AboutUs = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-hidden">
-      <div className="container mx-auto px-4 py-12 sm:py-16 lg:py-24 relative">
+      <div className="container mx-auto px-4 pt-4 pb-12 relative">
         {/* Dynamic background accents */}
         <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-96 h-96 bg-purple-500/10 dark:bg-purple-500/5 blur-[120px] rounded-full pointer-events-none" />
         <div className="absolute bottom-0 left-0 translate-y-1/4 -translate-x-1/4 w-96 h-96 bg-blue-500/10 dark:bg-blue-500/5 blur-[120px] rounded-full pointer-events-none" />
@@ -60,7 +60,7 @@ const AboutUs = () => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-center mb-24 relative z-10"
+          className="text-center mb-20 relative z-10 pt-0"
         >
           <div className="inline-block px-4 py-1.5 mb-6 rounded-full bg-purple-100 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-400 text-sm font-bold tracking-wide uppercase">
             {t("about.title")}
