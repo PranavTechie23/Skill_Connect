@@ -94,6 +94,12 @@ const storySchema = z.object({
   tags: z.array(z.string()).optional(),
 });
 
+const normalizeOptionalText = (value: unknown) => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
 // Helper functions
 const requireAuth = async (req: any, res: any, next: any) => {
   // Simple check - don't try to reload non-existent sessions
@@ -118,7 +124,21 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
   // For regular users, check their userType in the database
   const user = await storage.getUser(req.session.userId);
-  if (user?.userType === 'admin') {
+  const normalizedUserType = ((user as any)?.userType || (user as any)?.user_type || "")
+    .toString()
+    .toLowerCase()
+    .trim();
+
+  if (String(req.path || "").includes("/api/admin/stories")) {
+    console.log("🔐 requireAdmin(admin/stories):", {
+      sessionUserId: req.session.userId,
+      resolvedUserTypeRaw: (user as any)?.userType || (user as any)?.user_type,
+      resolvedUserTypeNormalized: normalizedUserType,
+      userFound: !!user,
+    });
+  }
+
+  if (normalizedUserType === 'admin') {
     return next();
   }
 
@@ -1257,53 +1277,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (applicantId !== req.session.userId) {
           return res.status(403).json({ message: "Not authorized to view these applications" });
         }
-        applications = await storage.getApplicationsByApplicant(applicantId).catch(() => []);
+        applications = await storage.getApplicationsWithDetailsByApplicant(applicantId).catch(() => []);
       } else if (jobId) {
         const job = await storage.getJob(jobId);
         if (job?.employerId?.toString() !== req.session.userId) {
           return res.status(403).json({ message: "Not authorized to view applications for this job" });
         }
-        applications = await storage.getApplicationsByJob(jobId).catch(() => []);
+        applications = await storage.getApplicationsWithDetailsByJob(jobId).catch(() => []);
       } else if (employerId) {
         if (employerId !== req.session.userId) {
           return res.status(403).json({ message: "Not authorized to view these applications" });
         }
-        // Get applications for employer's jobs
-        const jobs = await storage.getJobsByEmployer(employerId);
-        const jobApplications = await Promise.all(
-          jobs.map(job => storage.getApplicationsByJob(job.id).catch(() => []))
-        );
-        applications = jobApplications.flat();
+        applications = await storage.getApplicationsWithDetailsByEmployer(employerId).catch(() => []);
       } else {
         return res.status(400).json({ message: "applicantId, jobId, or employerId is required" });
       }
       
-      const enrichedApplications = await Promise.all(
-        applications.map(async (app) => {
-          const normalizedJobId = app.jobId ?? app.job_id;
-          const normalizedApplicantId = app.applicantId ?? app.applicant_id;
+      const sanitizedApplications = applications.map((application) => ({
+        ...application,
+        applicant: application.applicant ? sanitizeUser(application.applicant) : null,
+      }));
 
-          const [job, applicant] = await Promise.all([
-            normalizedJobId ? storage.getJob(String(normalizedJobId)) : null,
-            normalizedApplicantId ? storage.getUser(String(normalizedApplicantId)) : null,
-          ]);
-          
-          const company = job?.companyId ? await storage.getCompany(String(job.companyId)) : null;
-          
-          return {
-            ...app,
-            jobId: normalizedJobId,
-            applicantId: normalizedApplicantId,
-            appliedAt: app.appliedAt ?? app.applied_at,
-            updatedAt: app.updatedAt ?? app.updated_at,
-            job: job ? job : null,
-            applicant: applicant ? sanitizeUser(applicant) : null,
-            company: company ? company : null,
-          };
-        })
-      );
-      
-      res.json(enrichedApplications);
+      res.json(sanitizedApplications);
     } catch (error) {
       handleError(res, error, "Failed to fetch applications");
     }
@@ -1821,12 +1816,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/companies", requireAdmin, async (req, res) => {
     try {
       console.log('✅ Admin API: Request received for /api/admin/companies');
-      const companies = await storage.getAllCompanies();
+      const companies = await storage.getAllCompaniesWithDetails();
       console.log('✅ Admin API: Successfully fetched companies from storage.');
       res.json(companies);
     } catch (error) {
       console.error('❌ Admin API: Error in /api/admin/companies route handler:', error);
       handleError(res, error, "Failed to fetch companies");
+    }
+  });
+
+  // Admin: Create company
+  app.post("/api/admin/companies", requireAdmin, async (req, res) => {
+    try {
+      const name = normalizeOptionalText(req.body?.name);
+      if (!name) {
+        return res.status(400).json({ message: "Company name is required" });
+      }
+
+      const company = await storage.createCompany({
+        name,
+        description: normalizeOptionalText(req.body?.description),
+        website: normalizeOptionalText(req.body?.website),
+        location: normalizeOptionalText(req.body?.location),
+        industry: normalizeOptionalText(req.body?.industry),
+        size: normalizeOptionalText(req.body?.size),
+        ownerId: normalizeOptionalText(req.body?.ownerId),
+      } as unknown as InsertCompany);
+
+      res.status(201).json(company);
+    } catch (error) {
+      handleError(res, error, "Failed to create company");
+    }
+  });
+
+  // Admin: Update company
+  app.put("/api/admin/companies/:id", requireAdmin, async (req, res) => {
+    try {
+      const existingCompany = await storage.getCompany(req.params.id);
+      if (!existingCompany) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+
+      const updates: Record<string, string | null> = {};
+
+      if (Object.prototype.hasOwnProperty.call(req.body, "name")) {
+        const name = normalizeOptionalText(req.body?.name);
+        if (!name) {
+          return res.status(400).json({ message: "Company name is required" });
+        }
+        updates.name = name;
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, "description")) {
+        updates.description = normalizeOptionalText(req.body?.description);
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, "website")) {
+        updates.website = normalizeOptionalText(req.body?.website);
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, "location")) {
+        updates.location = normalizeOptionalText(req.body?.location);
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, "industry")) {
+        updates.industry = normalizeOptionalText(req.body?.industry);
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, "size")) {
+        updates.size = normalizeOptionalText(req.body?.size);
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, "ownerId")) {
+        updates.ownerId = normalizeOptionalText(req.body?.ownerId);
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No valid fields provided for update" });
+      }
+
+      const updatedCompany = await storage.updateCompany(req.params.id, updates as any);
+      res.json(updatedCompany);
+    } catch (error) {
+      handleError(res, error, "Failed to update company");
+    }
+  });
+
+  // Admin: Delete company
+  app.delete("/api/admin/companies/:id", requireAdmin, async (req, res) => {
+    try {
+      const existingCompany = await storage.getCompany(req.params.id);
+      if (!existingCompany) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+
+      await storage.deleteCompany(req.params.id);
+      res.json({ message: "Company deleted successfully" });
+    } catch (error) {
+      handleError(res, error, "Failed to delete company");
     }
   });
 
@@ -1927,22 +2008,196 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin: Get pending approvals (mocked for now)
+  // Admin: Get pending approvals (live DB-backed)
   app.get("/api/admin/approvals", requireAdmin, async (req, res) => {
     try {
-      // This is a placeholder. You'll need to implement logic
-      // in your storage layer to fetch items pending approval.
-      res.json([]);
+      const [applications, stories] = await Promise.all([
+        storage.getApplicationsByJob("all"),
+        storage.getAllStories(),
+      ]);
+
+      const pendingApplicationStatuses = new Set(["applied", "review", "reviewing", "pending"]);
+      const pendingApplications = await Promise.all(
+        applications
+          .filter((app: any) => pendingApplicationStatuses.has(String(app.status || "").toLowerCase()))
+          .slice(0, 50)
+          .map(async (app: any) => {
+            const normalizedApp = normalizeApplication(app);
+            const jobId = normalizedApp.jobId ? String(normalizedApp.jobId) : "";
+            const applicantId = normalizedApp.applicantId ? String(normalizedApp.applicantId) : "";
+
+            const [job, applicant] = await Promise.all([
+              jobId ? storage.getJob(jobId).catch(() => null) : null,
+              applicantId ? storage.getUser(applicantId).catch(() => null) : null,
+            ]);
+
+            const jobTitle =
+              (job as any)?.title ||
+              (job as any)?.job_title ||
+              (jobId ? `Job ${jobId}` : "Job application");
+
+            const applicantName = applicant
+              ? `${(applicant as any)?.firstName || (applicant as any)?.first_name || ""} ${(applicant as any)?.lastName || (applicant as any)?.last_name || ""}`.trim()
+              : "";
+
+            return {
+              id: `application-${app.id}`,
+              type: "application",
+              status: normalizedApp.status,
+              createdAt: normalizedApp.appliedAt || null,
+              title: jobTitle,
+              subtitle: applicantName || "Unknown applicant",
+              submittedBy: applicantName || applicantId || "Unknown applicant",
+              submittedDate: normalizedApp.appliedAt || normalizedApp.submittedAt || null,
+              priority: "low",
+              details: {
+                status: normalizedApp.status,
+                jobId,
+                applicantId,
+                jobTitle,
+                applicantName: applicantName || applicantId || "Unknown applicant",
+                appliedAt: normalizedApp.appliedAt,
+                submittedAt: normalizedApp.submittedAt,
+                resume: normalizedApp.resume,
+                coverLetter: normalizedApp.coverLetter,
+                notes: normalizedApp.notes,
+              },
+              data: normalizedApp,
+            };
+          })
+      );
+
+      const pendingStories = stories
+        .filter((story: any) => story.approved !== true)
+        .slice(0, 50)
+        .map((story: any) => ({
+          id: `story-${story.id}`,
+          type: "story",
+          status: "pending",
+          createdAt: story.createdAt || (story as any).created_at || null,
+          data: story,
+        }));
+
+      const pendingItems = [...pendingApplications, ...pendingStories]
+        .sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        });
+
+      res.json(pendingItems);
     } catch (error) {
       handleError(res, error, "Failed to fetch approvals");
     }
   });
 
-  // Admin: Get analytics data (mocked for now)
+  // Admin: Update approval status (application or story)
+  app.put("/api/admin/approvals/:id", requireAdmin, async (req, res) => {
+    try {
+      const { status } = req.body as { status?: string };
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+
+      const approvalId = String(req.params.id || "");
+      const isApproved = status === "approved";
+      const normalizedStatus = isApproved ? "approved" : "rejected";
+
+      if (approvalId.startsWith("application-")) {
+        const applicationId = approvalId.replace("application-", "");
+        const updatedApplication = await storage.updateApplication(applicationId, {
+          status: normalizedStatus,
+        });
+        return res.json(updatedApplication);
+      }
+
+      if (approvalId.startsWith("story-")) {
+        const storyId = approvalId.replace("story-", "");
+        const updatedStory = await storage.updateStoryApproval(storyId, isApproved);
+        if (!updatedStory) return res.status(404).json({ message: "Story not found" });
+        return res.json(updatedStory);
+      }
+
+      return res.status(400).json({ message: "Invalid approval id" });
+    } catch (error) {
+      handleError(res, error, "Failed to update approval");
+    }
+  });
+
+  // Admin: Get analytics data (live DB-backed)
   app.get("/api/admin/analytics", requireAdmin, async (req, res) => {
     try {
-      // This is a placeholder. You would build a real analytics object here.
-      res.json({ recentActivities: [] });
+      const [users, jobsResult, companies, applications] = await Promise.all([
+        storage.getAllUsers(),
+        storage.getJobs(),
+        storage.getAllCompanies(),
+        storage.getApplicationsByJob("all"),
+      ]);
+
+      const jobs = jobsResult.jobs || [];
+
+      const userGrowth = users
+        .map((user: any) => {
+          const created = user.createdAt || user.created_at;
+          const dateKey = created ? new Date(created).toISOString().slice(0, 10) : null;
+          return dateKey;
+        })
+        .filter(Boolean)
+        .reduce((acc: Record<string, number>, key: string) => {
+          acc[key] = (acc[key] || 0) + 1;
+          return acc;
+        }, {});
+
+      const jobCategories = jobs.reduce((acc: Record<string, number>, job: any) => {
+        const key = job.jobType || job.job_type || "unknown";
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {});
+
+      const recentActivities = [
+        ...users.slice(0, 5).map((user: any) => ({
+          type: "user",
+          action: "User registered",
+          label: user.email,
+          createdAt: user.createdAt || user.created_at || null,
+        })),
+        ...jobs.slice(0, 5).map((job: any) => ({
+          type: "job",
+          action: "Job posted",
+          label: job.title,
+          createdAt: job.createdAt || job.created_at || null,
+        })),
+        ...applications.slice(0, 5).map((application: any) => ({
+          type: "application",
+          action: "Application submitted",
+          label: String(application.status || "applied"),
+          createdAt: application.appliedAt || application.applied_at || null,
+        })),
+      ]
+        .sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        })
+        .slice(0, 20);
+
+      res.json({
+        userGrowth: Object.entries(userGrowth).map(([date, count]) => ({ date, count })),
+        jobCategories: Object.entries(jobCategories).map(([category, count]) => ({ category, count })),
+        recentActivities,
+        performanceMetrics: {
+          totalUsers: users.length,
+          activeJobs: jobs.filter((job: any) => job.isActive || job.is_active).length,
+          totalCompanies: companies.length,
+          totalApplications: applications.length,
+        },
+        stats: {
+          users: users.length,
+          jobs: jobs.length,
+          companies: companies.length,
+          applications: applications.length,
+        },
+      });
     } catch (error) {
       handleError(res, error, "Failed to fetch analytics");
     }

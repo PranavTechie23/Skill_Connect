@@ -7,6 +7,7 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
+    "db:bootstrap": "tsx scripts/bootstrap-db.ts",
     "fix:schema": "tsx scripts/fix-telephone-number.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -36,6 +37,8 @@
     "express-session": "^1.18.2",
     "node-postgres": "^0.6.2",
     "pg": "^8.16.3",
+    "postgres": "^3.4.9",
+    "uuid": "^13.0.0",
     "zod": "^4.1.11"
   }
 }

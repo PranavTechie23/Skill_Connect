@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, serial } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -22,7 +22,10 @@ export const professionalProfiles = pgTable("professional_profiles", {
     headline: text("headline"),
     bio: text("bio"),
     skills: jsonb("skills").default('[]'), // Store as native JSON
+    resumeUrl: text("resume_url"),
+    resumeName: text("resume_name"),
 });
+
 
 export const companies = pgTable("companies", {
   id: text("id").primaryKey(),
@@ -54,7 +57,8 @@ export const jobs = pgTable("jobs", {
 });
 
 export const applications = pgTable("applications", {
-  id: integer("id").primaryKey(),
+  id: serial("id").primaryKey(),
+
   jobId: text("job_id").references(() => jobs.id),
   applicantId: text("applicant_id").references(() => users.id, { onDelete: 'cascade' }),
   status: text("status").notNull().default("applied"),
@@ -66,7 +70,8 @@ export const applications = pgTable("applications", {
 });
 
 export const messages = pgTable("messages", {
-  id: integer("id").primaryKey(),
+  id: serial("id").primaryKey(),
+
   senderId: text("sender_id").references(() => users.id, { onDelete: 'cascade' }),
   receiverId: text("receiver_id").references(() => users.id, { onDelete: 'cascade' }),
   applicationId: integer("application_id").references(() => applications.id),
@@ -76,7 +81,8 @@ export const messages = pgTable("messages", {
 });
 
 export const experiences = pgTable("experiences", {
-  id: integer("id").primaryKey(),
+  id: serial("id").primaryKey(),
+
   userId: text("user_id").references(() => users.id, { onDelete: 'cascade' }),
   title: text("title").notNull(),
   company: text("company").notNull(),
@@ -87,7 +93,8 @@ export const experiences = pgTable("experiences", {
 });
 
 export const stories = pgTable('stories', {
-  id: integer('id').primaryKey(),
+  id: serial('id').primaryKey(),
+
   title: varchar('title', { length: 255 }).notNull(),
   content: text('content').notNull(),
   tags: text("tags").array().default([]),
