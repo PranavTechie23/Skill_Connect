@@ -72,7 +72,9 @@ export default function Analytics({ embedded = false }: AnalyticsProps) {
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
   const [activeMetric, setActiveMetric] = useState<'views' | 'applicants' | 'conversions'>('views');
   const { theme } = useTheme();
-  const isDark = theme === 'dark';
+  const isDark =
+    typeof window !== 'undefined' &&
+    (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
   const navigate = useNavigate();
 
   const analyticsData: AnalyticsData = {
@@ -508,9 +510,11 @@ export default function Analytics({ embedded = false }: AnalyticsProps) {
   );
 
   return (
-    <div className={`${embedded ? '' : 'min-h-screen'} transition-colors duration-700 ${
-      isDark 
-        ? 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-900 via-gray-950 to-black' 
+    <div className={`${embedded ? 'min-h-full' : 'min-h-screen'} transition-colors duration-700 ${
+      embedded
+        ? 'bg-transparent'
+        : isDark
+        ? 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-900 via-gray-950 to-black'
         : 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-50 via-white to-purple-50'
     }`}>
       {/* Animated particles */}
@@ -522,7 +526,7 @@ export default function Analytics({ embedded = false }: AnalyticsProps) {
         </div>
       )}
 
-      <div className={`container mx-auto max-w-7xl relative ${embedded ? 'p-2' : 'p-8'}`}>
+      <div className={`${embedded ? 'w-full' : 'container mx-auto max-w-7xl'} relative ${embedded ? 'p-2' : 'p-8'}`}>
         {/* Header */}
         <div className="flex justify-between items-start mb-10">
           <div>

@@ -205,10 +205,12 @@ export default function Applications({ embedded = false }: ApplicationsProps) {
   };
 
   const { theme } = useTheme();
-  const isDark = theme === 'dark';
+  const isDark =
+    typeof window !== 'undefined' &&
+    (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
 
   return (
-    <div className={`${embedded ? '' : 'min-h-screen'} ${isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gray-50'}`}>
+    <div className={`${embedded ? 'min-h-full' : 'min-h-screen'} ${embedded ? 'bg-transparent' : isDark ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gray-50'}`}>
       {/* Back Button */}
       {!embedded && (
         <div className="p-6">
@@ -224,7 +226,7 @@ export default function Applications({ embedded = false }: ApplicationsProps) {
         </div>
       )}
 
-      <div className={`relative container mx-auto max-w-7xl ${embedded ? 'p-2' : 'p-6'}`}>
+      <div className={`relative ${embedded ? 'w-full' : 'container mx-auto max-w-7xl'} ${embedded ? 'p-2' : 'p-6'}`}>
         {/* Header */}
         <div className="mb-8">
           <h1 className={`text-4xl font-bold ${isDark 

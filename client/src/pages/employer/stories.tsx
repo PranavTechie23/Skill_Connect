@@ -195,8 +195,8 @@ export default function Stories({ embedded = false }: StoriesProps) {
   };
 
   return (
-    <div className={`${embedded ? '' : 'min-h-screen'} ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-50 via-white to-purple-50'}`}>
-      <div className={`max-w-7xl mx-auto ${embedded ? 'p-2' : 'p-6'}`}>
+    <div className={`${embedded ? 'min-h-full' : 'min-h-screen'} ${embedded ? 'bg-transparent' : darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-50 via-white to-purple-50'}`}>
+      <div className={`${embedded ? 'w-full' : 'max-w-7xl mx-auto'} ${embedded ? 'p-2' : 'p-6'}`}>
         {/* Header */}
         <div className="mb-6">
           {!embedded && <AdminBackButton />}

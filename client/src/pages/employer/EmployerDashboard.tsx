@@ -21,7 +21,7 @@ import {
   MapPin, DollarSign, Calendar, Eye, Settings, LogOut, Menu, X, 
   Home, BarChart3, User, Star, ChevronDown, Edit, Pause, Play, 
   Trash2, Copy, CheckCircle, ArrowRight, Target, Award, Zap, Mail,
-  Bell, Search, Filter, Download, Share2, UserCircle
+  Bell, Search, Filter, Download, Share2, UserCircle, Loader2
 } from 'lucide-react';
 
 interface Job {
@@ -125,7 +125,9 @@ const EmployerDashboard: React.FC = () => {
   const { theme } = useTheme();
   const { user } = useAuth();
   const { toast } = useToast();
-  const darkMode = theme === 'dark';
+  const darkMode =
+    typeof window !== 'undefined' &&
+    (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
   const premiumSurface = darkMode
     ? 'bg-gray-800/50 border-gray-700'
     : 'bg-white/90 border-slate-200/90 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.35)]';
@@ -238,16 +240,44 @@ const EmployerDashboard: React.FC = () => {
   const { logout } = useAuth();
 
   const handleLogout = async () => {
+    const logoutToast = toast({
+      title: "Logging out...",
+      description: (
+        <span className="inline-flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Please wait
+        </span>
+      ),
+    });
+
     try {
       await logout();
-      const toastId = toast({
-        title: "Logged out",
-        description: "Logout successful.",
-        variant: "success",
+      logoutToast.update({
+        id: logoutToast.id,
+        title: "",
+        className: "border-0 bg-white text-gray-800 p-0 pr-8 overflow-hidden min-h-[72px]",
+        duration: 1800,
+        description: (
+          <div className="relative w-full px-4 py-4">
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-full bg-green-500 flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-white" />
+              </span>
+              <span className="text-xl leading-none font-medium text-gray-600">Logout Successful</span>
+            </div>
+            <span className="absolute bottom-0 left-0 h-1 bg-green-500 animate-[logout-progress-fill_1.8s_linear_forwards]" />
+          </div>
+        ),
       });
-      if (toastId?.dismiss) setTimeout(toastId.dismiss, 4000);
     } catch (e) {
       console.warn('Logout failed:', e);
+      logoutToast.update({
+        id: logoutToast.id,
+        title: "Logout failed",
+        description: "Something went wrong while logging out.",
+        variant: "destructive",
+      });
+      return;
     }
     navigate('/', { replace: true });
   };
@@ -521,24 +551,24 @@ const EmployerDashboard: React.FC = () => {
       <div className={`fixed top-0 left-0 right-0 z-50 ${darkMode ? 'bg-gray-900/90 backdrop-blur-xl border-gray-800' : 'bg-white/95 backdrop-blur-xl border-gray-200 shadow-sm'} border-b`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 min-w-0">
               <button
                 onClick={() => setSidebarOpen(prev => !prev)}
-                className={`p-2 rounded-xl transition-all duration-200 lg:hidden ${
+                className={`p-2.5 rounded-xl border transition-all duration-200 ${
                   darkMode
-                    ? 'text-gray-400 hover:text-white hover:bg-gray-800/80'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/80'
+                    ? 'bg-gray-900/40 border-gray-700 text-gray-300 hover:bg-gray-800'
+                    : 'bg-white/70 border-gray-200 text-gray-600 hover:bg-gray-100'
                 }`}
-                aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+                aria-label="Toggle sidebar"
               >
-                {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                <Menu className="w-5 h-5" />
               </button>
 
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg">
                   {company.logo}
                 </div>
-                <h1 className={`text-2xl font-black tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'} font-['Poppins']`}>
+                <h1 className={`text-lg font-bold tracking-tight truncate ${darkMode ? 'text-white' : 'text-gray-900'} font-['Poppins']`}>
                   {company.name}
                 </h1>
               </div>
@@ -558,8 +588,10 @@ const EmployerDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
+            <div className={`flex items-center gap-2 rounded-2xl p-1.5 border ${
+              darkMode ? 'bg-gray-900/30 border-white/10' : 'bg-white/60 border-gray-200'
+            }`}>
+              <div className="flex items-center gap-1">
                 <button className={`relative p-2.5 rounded-xl transition-all duration-200 ${
                   darkMode 
                     ? 'text-gray-400 hover:text-white hover:bg-gray-800/80' 
@@ -579,31 +611,39 @@ const EmployerDashboard: React.FC = () => {
               </div>
 
               {/* Company Info + Direct Logout */}
-              <div className={`ml-2 flex items-center rounded-xl text-sm p-2 gap-3 transition-all duration-200 ${
-                darkMode 
-                  ? 'bg-gray-800/80' 
-                  : 'bg-white/80 shadow-sm'
-              }`}>
-                <div className="h-9 w-9 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg">
+              <button
+                onClick={() => switchToTab('profile')}
+                className={`ml-1 flex items-center rounded-xl text-sm p-2 gap-2.5 transition-all duration-200 border ${
+                  darkMode
+                    ? 'bg-gray-800/80 border-gray-700 hover:bg-gray-800'
+                    : 'bg-white/80 border-gray-200 hover:bg-white shadow-sm'
+                }`}
+                title="Open profile"
+              >
+                <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-md">
                   {company.logo}
                 </div>
-                <div className="hidden lg:block text-left">
-                  <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{company.name}</p>
-                  <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{company.plan} Plan</p>
+                <div className="hidden xl:block text-left max-w-[140px]">
+                  <p className={`text-sm font-semibold truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>{company.name}</p>
+                  <p className={`text-xs truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{company.plan} Plan</p>
                 </div>
-              </div>
+              </button>
+
               <button
                 onClick={handleLogout}
-                className={`px-3 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${
+                className={`ml-1 px-3 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${
                   darkMode
                     ? 'text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20'
                     : 'text-red-600 bg-red-50 hover:bg-red-100 border border-red-200'
                 }`}
               >
                 <LogOut className="w-4 h-4" />
-                Logout
+                <span className="hidden md:inline">Logout</span>
               </button>
-              <ModeToggle />
+
+              <div className={`ml-1 rounded-xl ${darkMode ? 'bg-gray-800/70' : 'bg-white/80'}`}>
+                <ModeToggle />
+              </div>
             </div>
           </div> {/* Added missing closing div */}
         </div>
@@ -619,19 +659,6 @@ const EmployerDashboard: React.FC = () => {
       )}
 
       <div className="flex mt-16 relative">
-        <button
-          onClick={() => setSidebarOpen(prev => !prev)}
-          className={`hidden lg:flex absolute top-4 z-[80] items-center justify-center w-11 h-11 rounded-full border transition-all duration-300 ease-out ${
-            darkMode
-              ? 'bg-gray-900 text-gray-200 border-gray-700 hover:bg-gray-800 shadow-lg'
-              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 shadow-md'
-          }`}
-          style={{ left: sidebarOpen ? '20rem' : '5rem' }}
-          aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-        >
-          {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
-
         {/* Enhanced Sidebar */}
         <aside className={`fixed lg:sticky top-16 left-0 z-40 lg:z-auto h-[calc(100vh-4rem)] ${sidebarOpen ? 'translate-x-0 w-80 lg:w-80' : '-translate-x-full w-80 lg:translate-x-0 lg:w-20'} ${darkMode ? 'bg-gray-900/80 border-gray-700/50 shadow-2xl' : 'bg-white border-gray-200 shadow-xl'} border-r transition-all duration-300 overflow-visible backdrop-blur-sm`}>
           <div className={`${sidebarOpen ? 'p-6' : 'p-3'} space-y-6 h-full overflow-y-auto overflow-x-visible`}>
@@ -736,39 +763,39 @@ const EmployerDashboard: React.FC = () => {
         {/* Enhanced Main Content */}
         <main className="flex-1 px-6 py-8 overflow-y-auto min-h-[calc(100vh-4rem)]">
           {activeTab === 'candidates' ? (
-            <div className="max-w-7xl mx-auto">
+            <div className="w-full">
               <CandidatesPage embedded />
             </div>
           ) : activeTab === 'jobs' ? (
-            <div className="max-w-7xl mx-auto">
+            <div className="w-full">
               <JobManagement embedded />
             </div>
           ) : activeTab === 'applications' ? (
-            <div className="max-w-7xl mx-auto">
+            <div className="w-full">
               <ApplicationsPage embedded />
             </div>
           ) : activeTab === 'messages' ? (
-            <div className="max-w-7xl mx-auto">
+            <div className="w-full">
               <MessagesPage embedded />
             </div>
           ) : activeTab === 'analytics' ? (
-            <div className="max-w-7xl mx-auto">
+            <div className="w-full">
               <AnalyticsPage embedded />
             </div>
           ) : activeTab === 'stories' ? (
-            <div className="max-w-7xl mx-auto">
+            <div className="w-full">
               <StoriesPage embedded />
             </div>
           ) : activeTab === 'profile' ? (
-            <div className="max-w-7xl mx-auto">
+            <div className="w-full">
               <ProfilePage embedded />
             </div>
           ) : activeTab === 'settings' ? (
-            <div className="max-w-7xl mx-auto">
+            <div className="w-full">
               <SettingsPage embedded />
             </div>
           ) : (
-          <div className="max-w-7xl mx-auto space-y-7">
+          <div className="w-full space-y-7">
             {/* Enhanced Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>

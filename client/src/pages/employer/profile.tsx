@@ -58,7 +58,9 @@ export default function Profile({ embedded = false }: ProfileProps) {
   const { user } = useAuth();
   const { theme } = useTheme();
   const navigate = useNavigate();
-  const darkMode = theme === 'dark';
+  const darkMode =
+    typeof window !== 'undefined' &&
+    (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
   
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
@@ -393,7 +395,7 @@ export default function Profile({ embedded = false }: ProfileProps) {
 
   if (loading) {
     return (
-      <div className={`${embedded ? '' : 'min-h-screen'} flex items-center justify-center ${darkMode ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gray-50'}`}>
+      <div className={`${embedded ? 'min-h-full' : 'min-h-screen'} flex items-center justify-center ${embedded ? 'bg-transparent' : darkMode ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gray-50'}`}>
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-600" />
           <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading company profile...</p>
@@ -403,8 +405,8 @@ export default function Profile({ embedded = false }: ProfileProps) {
   }
 
   return (
-    <div className={`${embedded ? '' : 'min-h-screen'} ${darkMode ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gray-50'}`}>
-      <div className={`container mx-auto max-w-7xl ${embedded ? 'p-2' : 'p-6'}`}>
+    <div className={`${embedded ? 'min-h-full' : 'min-h-screen'} ${embedded ? 'bg-transparent' : darkMode ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gray-50'}`}>
+      <div className={`${embedded ? 'w-full' : 'container mx-auto max-w-7xl'} ${embedded ? 'p-2' : 'p-6'}`}>
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-4">

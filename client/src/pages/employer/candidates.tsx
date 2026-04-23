@@ -53,7 +53,9 @@ interface CandidatesProps {
 
 export default function Candidates({ embedded = false }: CandidatesProps) {
   const { theme } = useTheme();
-  const darkMode = theme === 'dark';
+  const darkMode =
+    typeof window !== 'undefined' &&
+    (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
   const panelClass = darkMode
     ? 'bg-slate-900/85 border-slate-700/70'
     : 'bg-white border-slate-200';
@@ -290,14 +292,14 @@ export default function Candidates({ embedded = false }: CandidatesProps) {
   };
 
   return (
-    <div className={`${embedded ? '' : 'min-h-screen'} transition-colors duration-300 ${darkMode ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-slate-50'}`}>
+    <div className={`${embedded ? 'min-h-full' : 'min-h-screen'} transition-colors duration-300 ${embedded ? 'bg-transparent' : darkMode ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-slate-50'}`}>
       {/* Animated background */}
       <div className={`${embedded ? 'absolute' : 'fixed'} inset-0 overflow-hidden pointer-events-none ${darkMode ? 'opacity-100' : 'opacity-0'}`}>
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute top-1/2 -left-40 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
         <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
       </div>
-      <div className={`${embedded ? '' : 'container mx-auto'} p-6 max-w-7xl relative`}>
+      <div className={`${embedded ? 'w-full' : 'container mx-auto max-w-7xl'} p-6 relative`}>
         {/* Back Button */}
         {!embedded && (
           <div className="mb-6">

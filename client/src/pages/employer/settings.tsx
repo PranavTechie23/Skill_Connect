@@ -84,7 +84,9 @@ interface EmployerSettingsProps {
 const EmployerSettings: React.FC<EmployerSettingsProps> = ({ embedded = false }) => {
   const { theme } = useTheme();
   const { user } = useAuth();
-  const isDarkMode = theme === 'dark';
+  const isDarkMode =
+    typeof window !== 'undefined' &&
+    (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
   const [activeSection, setActiveSection] = useState<string>('notifications');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [showSaveSuccess, setShowSaveSuccess] = useState<boolean>(false);
@@ -224,9 +226,11 @@ const EmployerSettings: React.FC<EmployerSettingsProps> = ({ embedded = false })
 
 
   return (
-    <div className={`${embedded ? '' : 'min-h-screen'} transition-colors duration-300 ${
-      isDarkMode 
-        ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white' 
+    <div className={`${embedded ? 'min-h-full' : 'min-h-screen'} transition-colors duration-300 ${
+      embedded
+        ? 'bg-transparent'
+        : isDarkMode
+        ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white'
         : 'bg-gradient-to-br from-gray-50 via-blue-50 to-cyan-50 text-gray-900'
     }`}>
       {/* Enhanced Animated background */}
@@ -259,7 +263,7 @@ const EmployerSettings: React.FC<EmployerSettingsProps> = ({ embedded = false })
         </div>
       )}
 
-      <div className={`container mx-auto px-4 max-w-7xl relative ${embedded ? 'py-2' : 'py-8'}`}>
+      <div className={`${embedded ? 'w-full px-2' : 'container mx-auto px-4 max-w-7xl'} relative ${embedded ? 'py-2' : 'py-8'}`}>
         {/* Enhanced Back Button */}
         {!embedded && (
           <div className="mb-6">

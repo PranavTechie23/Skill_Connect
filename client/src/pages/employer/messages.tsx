@@ -133,10 +133,12 @@ export default function Messages({ embedded = false }: MessagesProps) {
   };
 
   const { theme } = useTheme();
-  const darkMode = theme === 'dark';
+  const darkMode =
+    typeof window !== 'undefined' &&
+    (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
 
   return (
-    <div className={`${embedded ? '' : 'min-h-screen'} ${darkMode ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gray-50'}`}>
+    <div className={`${embedded ? 'min-h-full' : 'min-h-screen'} ${embedded ? 'bg-transparent' : darkMode ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gray-50'}`}>
       {!embedded && (
         <div className="mb-6 p-6">
           <AdminBackButton />
@@ -149,7 +151,7 @@ export default function Messages({ embedded = false }: MessagesProps) {
         <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
       </div>}
 
-      <div className={`relative container mx-auto max-w-7xl ${embedded ? 'p-2' : 'p-6'}`}>
+      <div className={`relative ${embedded ? 'w-full' : 'container mx-auto max-w-7xl'} ${embedded ? 'p-2' : 'p-6'}`}>
         {/* Header */}
         <div className="mb-6">
           <h1 className={`text-4xl font-bold ${darkMode ? 'bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent' : 'text-gray-900'} mb-2`}>

@@ -78,7 +78,9 @@ function parseSalaryRange(input: string): { min: number | null; max: number | nu
 export default function JobManagement({ embedded = false }: JobManagementProps) {
   const { theme } = useTheme();
   const { user } = useAuth();
-  const darkMode = theme === 'dark';
+  const darkMode =
+    typeof window !== 'undefined' &&
+    (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
@@ -468,9 +470,11 @@ export default function JobManagement({ embedded = false }: JobManagementProps) 
   );
 
   return (
-    <div className={`${embedded ? '' : 'min-h-screen'} transition-colors duration-300 ${
-      darkMode 
-        ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' 
+    <div className={`${embedded ? 'min-h-full' : 'min-h-screen'} transition-colors duration-300 ${
+      embedded
+        ? 'bg-transparent'
+        : darkMode
+        ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950'
         : 'bg-gradient-to-br from-gray-50 via-blue-50 to-gray-50'
     }`}>
       {/* Enhanced Animated Background */}
@@ -484,7 +488,7 @@ export default function JobManagement({ embedded = false }: JobManagementProps) 
         </div>
       )}
 
-      <div className={`container mx-auto max-w-7xl relative ${embedded ? 'p-2' : 'p-6'}`}>
+      <div className={`${embedded ? 'w-full' : 'container mx-auto max-w-7xl'} relative ${embedded ? 'p-2' : 'p-6'}`}>
         {/* Back Button */}
         {!embedded && (
           <div className="mb-6">
