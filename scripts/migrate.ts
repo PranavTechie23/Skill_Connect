@@ -3,8 +3,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 async function runMigrations() {
+  const host = process.env.POSTGRES_HOST || 'localhost';
+  const port = process.env.POSTGRES_PORT || '5432';
+  const user = process.env.POSTGRES_USER || 'postgres';
+  const password = process.env.POSTGRES_PASSWORD || '';
+  const database = process.env.POSTGRES_DB || 'graphicgenie';
+
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:dsa@localhost:5432/graphicgenie'
+    connectionString: process.env.DATABASE_URL || `postgresql://${user}:${encodeURIComponent(password)}@${host}:${port}/${database}`
   });
 
   try {
@@ -18,7 +24,10 @@ async function runMigrations() {
       '0001_security.sql',
       '0002_add_telephone_number.sql',
       '0003_fix_skills_column.sql',
-      '0004_convert_skills_to_jsonb.sql'
+      '0004_convert_skills_to_jsonb.sql',
+      '0009_notifications.sql',
+      '0010_add_company_cover_image.sql',
+      '0011_user_account_status.sql',
     ];
 
     for (const migration of migrations) {
