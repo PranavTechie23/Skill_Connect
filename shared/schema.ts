@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   location: text("location"),
   profilePhoto: text("profile_photo"),
   telephoneNumber: text("telephone_number"),
+  accountStatus: text("account_status").notNull().default("active"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -36,6 +37,7 @@ export const companies = pgTable("companies", {
   size: text("size"),
   industry: text("industry"),
   logo: text("logo"),
+  coverImage: text("cover_image"),
   ownerId: text("owner_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -108,6 +110,18 @@ export const stories = pgTable('stories', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  type: text("type").notNull(), // application_status | new_message | application_submitted
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  metadata: jsonb("metadata").default({}),
+  isRead: boolean("is_read").default(false),
+  linkTab: text("link_tab"), // activity | applications | messages
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 
 
 // Insert schemas
@@ -165,6 +179,11 @@ export const insertStorySchema = z.object({
   authorId: z.string().nullable(),
 });
 
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
 
 // Auth schemas
 export const loginSchema = z.object({
@@ -203,19 +222,29 @@ export const adminCreateUserSchema = z.object({
   title: z.string().optional(),
 });
 
-// Profile update schema
+// Profile update schema (professional_profiles table)
 export const updateProfileSchema = z.object({
   headline: z.string().optional(),
   bio: z.string().optional(),
-  skills: z.array(z.string()).default([])
+  skills: z.array(z.string()).optional(),
+});
+
+// Combined employee profile update (users + professional_profiles)
+export const updateMeProfileSchema = updateProfileSchema.extend({
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  location: z.string().optional(),
+  telephoneNumber: z.string().optional(),
 });
 
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type ProfessionalProfile = typeof professionalProfiles.$inferSelect;
-export type InsertProfessionalProfile = z.infer<typeof insertProfessionalProfileSchema>;
+export type InsertProfessionalProfile = Omit<typeof professionalProfiles.$inferInsert, 'id'>;
 export type UpdateProfile = z.infer<typeof updateProfileSchema>;
+export type UpdateMeProfile = z.infer<typeof updateMeProfileSchema>;
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
 export type Job = typeof jobs.$inferSelect;
@@ -228,5 +257,7 @@ export type Experience = typeof experiences.$inferSelect;
 export type InsertExperience = z.infer<typeof insertExperienceSchema>;
 export type Story = typeof stories.$inferSelect;
 export type InsertStory = z.infer<typeof insertStorySchema>;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type LoginData = z.infer<typeof loginSchema>;
 export type RegisterData = z.infer<typeof registerSchema>;
