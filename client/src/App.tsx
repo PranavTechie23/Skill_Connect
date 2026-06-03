@@ -1,30 +1,23 @@
-import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { AuthProvider } from "./contexts/AuthContext";
+import React, { useEffect } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
 import { SavedJobsProvider } from "./contexts/SavedJobsContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { ThemeProvider } from "./components/theme-provider";
 import Navbar from "./components/navbar";
 import EmployeeLayout from "./components/layouts/EmployeeLayout";
 import EmployerLayout from "./components/layouts/employer-layout";
 import { SkillConnectAssistant } from "./components/skillconnect-assistant";
+import { GlobalLoader } from "./components/GlobalLoader";
 import { normalizeUserType } from "./lib/utils";
+import { scrollDashboardToTop } from "./lib/scroll-to-top";
 
-
-// Public Pages
 import Home from "./pages/home";
-import { useEffect } from "react";
-
-function ScrollToTop() {
-  const { pathname } = useLocation();
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" });
-  }, [pathname]);
-
-  return null;
-}
 import ProfileRedirect from "./pages/profile-redirect";
 import NotFound from "./pages/not-found";
 import OurStories from "./pages/our-stories";
@@ -33,39 +26,26 @@ import Jobs from "./pages/jobs";
 import About from "./pages/about";
 import Login from "./pages/login";
 import Signup from "./pages/signup";
-import SubmitStory from "./pages/submit-story";
 import Onboarding from "./pages/onboarding";
-
-// Dashboard Pages
 import Dashboards from "./pages/dashboards";
-import EmployeeDashboard from "./pages/employee/dashboard";
-import EmployerDashboard from "./pages/employer/dashboard";
+import EmployeeDashboard from "./pages/employee/employeeDashboard";
+import EmployerDashboard from "./pages/employer/EmployerDashboard";
 import EmployeeApplications from "./pages/employee/applications";
-
-// Employee Pages
 import BrowseJobs from "./pages/employee/browse-jobs";
 import SavedJobs from "./pages/employee/saved-jobs";
-import EmployeeMessages from "./pages/employee/messages.tsx";
+import EmployeeMessages from "./pages/employee/messages";
 import EmployeeProfile from "./pages/employee/profile";
 import EmployeeStory from "./pages/employee/story";
 import EmployeeSettings from "./pages/employee/settings";
-
-//Employer Pages
 import JobManagement from "./pages/employer/job-management";
 import EmployerProfile from "./pages/employer/profile";
 import EmployerSettings from "./pages/employer/settings";
-import Analytics from "./pages/employer/analytics.tsx";
-import Stories from "./pages/employer/stories.tsx";
-import Messages from "./pages/employer/messages.tsx";
-import Applications from "./pages/employer/applications.tsx";
-import Candidates from "./pages/employer/candidates.tsx";
-
-// Admin Routes
+import EmployerAnalytics from "./pages/employer/analytics";
+import EmployerStories from "./pages/employer/stories";
+import EmployerMessages from "./pages/employer/messages";
+import EmployerApplications from "./pages/employer/applications";
 import AdminRoutes from "./pages/admin";
 
-
-
-// Route configuration for better maintainability
 const ROUTES = {
   PUBLIC: {
     HOME: "/",
@@ -76,11 +56,10 @@ const ROUTES = {
     ABOUT: "/about",
     LOGIN: "/login",
     SIGNUP: "/signup",
-    SUBMIT_STORY: "/submit-story",
     DASHBOARDS: "/dashboards",
     APPLICATIONS: "/applications",
     ONBOARDING: "/onboarding",
-    NOT_FOUND: "/404"
+    NOT_FOUND: "/404",
   },
   EMPLOYEE: {
     BASE: "/employee",
@@ -91,11 +70,11 @@ const ROUTES = {
     MESSAGES: "/employee/messages",
     PROFILE: "/employee/profile",
     STORY: "/employee/story",
-    SETTINGS: "/employee/settings"
+    SETTINGS: "/employee/settings",
   },
   EMPLOYER: {
     BASE: "/employer",
-    DASHBOARD: "/employer/dashboard", 
+    DASHBOARD: "/employer/dashboard",
     JOB_MANAGEMENT: "/employer/jobs",
     PROFILE: "/employer/profile",
     SETTINGS: "/employer/settings",
@@ -103,41 +82,52 @@ const ROUTES = {
     APPLICATIONS: "/employer/applications",
     ANALYTICS: "/employer/analytics",
     STORIES: "/employer/stories",
-    CANDIDATES: "/employer/candidates"
   },
   ADMIN: {
     BASE: "/admin/*",
-    DASHBOARD: "/admin" // Add a specific dashboard route for admin
-  }
+  },
 } as const;
+
+function ScrollToTop() {
+  const { pathname, search } = useLocation();
+
+  useEffect(() => {
+    scrollDashboardToTop();
+  }, [pathname, search]);
+
+  return null;
+}
 
 function JobsRouteGate() {
   const { user } = useAuth();
-
   if (!user) return <Jobs />;
-
-  const normalized = normalizeUserType((user as any)?.userType ?? (user as any)?.user_type);
-  if (normalized === "professional") return <Navigate to={ROUTES.EMPLOYEE.JOBS} replace />;
-  if (normalized === "employer") return <Navigate to={ROUTES.EMPLOYER.DASHBOARD} replace />;
+  const normalized = normalizeUserType(
+    (user as { userType?: string; user_type?: string }).userType ??
+      (user as { user_type?: string }).user_type
+  );
+  if (normalized === "professional")
+    return <Navigate to={ROUTES.EMPLOYEE.JOBS} replace />;
+  if (normalized === "employer")
+    return <Navigate to={ROUTES.EMPLOYER.DASHBOARD} replace />;
   if (normalized === "admin") return <Navigate to="/admin" replace />;
-
   return <Jobs />;
 }
 
 function HomeRouteGate() {
   const { user } = useAuth();
-
   if (!user) return <Home />;
-
-  const normalized = normalizeUserType((user as any)?.userType ?? (user as any)?.user_type);
-  if (normalized === "professional") return <Navigate to={ROUTES.EMPLOYEE.DASHBOARD} replace />;
-  if (normalized === "employer") return <Navigate to={ROUTES.EMPLOYER.DASHBOARD} replace />;
+  const normalized = normalizeUserType(
+    (user as { userType?: string; user_type?: string }).userType ??
+      (user as { user_type?: string }).user_type
+  );
+  if (normalized === "professional")
+    return <Navigate to={ROUTES.EMPLOYEE.DASHBOARD} replace />;
+  if (normalized === "employer")
+    return <Navigate to={ROUTES.EMPLOYER.DASHBOARD} replace />;
   if (normalized === "admin") return <Navigate to="/admin" replace />;
-
   return <Home />;
 }
 
-// Route protection configuration
 const routeConfig = {
   public: [
     { path: ROUTES.PUBLIC.HOME, element: <HomeRouteGate /> },
@@ -148,11 +138,11 @@ const routeConfig = {
     { path: ROUTES.PUBLIC.ABOUT, element: <About /> },
     { path: ROUTES.PUBLIC.LOGIN, element: <Login /> },
     { path: ROUTES.PUBLIC.SIGNUP, element: <Signup /> },
-    { path: ROUTES.PUBLIC.SUBMIT_STORY, element: <SubmitStory /> },
+    { path: "/submit-story", element: <Navigate to={ROUTES.PUBLIC.STORIES} replace /> },
+    { path: "/stories", element: <Navigate to={ROUTES.PUBLIC.STORIES} replace /> },
     { path: ROUTES.PUBLIC.DASHBOARDS, element: <Dashboards /> },
-    { path: ROUTES.PUBLIC.APPLICATIONS, element: <EmployeeApplications /> }
-    ,
-    { path: ROUTES.PUBLIC.ONBOARDING, element: <Onboarding /> }
+    { path: ROUTES.PUBLIC.APPLICATIONS, element: <EmployeeApplications /> },
+    { path: ROUTES.PUBLIC.ONBOARDING, element: <Onboarding /> },
   ],
   employee: [
     { path: ROUTES.EMPLOYEE.DASHBOARD, element: <EmployeeDashboard /> },
@@ -162,44 +152,36 @@ const routeConfig = {
     { path: ROUTES.EMPLOYEE.MESSAGES, element: <EmployeeMessages /> },
     { path: ROUTES.EMPLOYEE.PROFILE, element: <EmployeeProfile /> },
     { path: ROUTES.EMPLOYEE.STORY, element: <EmployeeStory /> },
-    { path: ROUTES.EMPLOYEE.SETTINGS, element: <EmployeeSettings /> }
+    { path: ROUTES.EMPLOYEE.SETTINGS, element: <EmployeeSettings /> },
+    { path: "/employee/activity", element: <Navigate to={ROUTES.EMPLOYEE.APPLICATIONS} replace /> },
   ],
   employer: [
     { path: ROUTES.EMPLOYER.DASHBOARD, element: <EmployerDashboard /> },
     { path: ROUTES.EMPLOYER.JOB_MANAGEMENT, element: <JobManagement /> },
     { path: ROUTES.EMPLOYER.PROFILE, element: <EmployerProfile /> },
     { path: ROUTES.EMPLOYER.SETTINGS, element: <EmployerSettings /> },
-    { path: ROUTES.EMPLOYER.MESSAGES, element: <Messages /> },
-    { path: ROUTES.EMPLOYER.APPLICATIONS, element: <Applications /> },
-    { path: ROUTES.EMPLOYER.ANALYTICS, element: <Analytics /> },
-    { path: ROUTES.EMPLOYER.STORIES, element: <Stories /> },
-        { path: ROUTES.EMPLOYER.CANDIDATES, element: <Candidates /> }
+    { path: ROUTES.EMPLOYER.MESSAGES, element: <EmployerMessages /> },
+    { path: ROUTES.EMPLOYER.APPLICATIONS, element: <EmployerApplications /> },
+    { path: ROUTES.EMPLOYER.ANALYTICS, element: <EmployerAnalytics /> },
+    { path: ROUTES.EMPLOYER.STORIES, element: <EmployerStories /> },
+    { path: "/employer/candidates", element: <Navigate to={ROUTES.EMPLOYER.APPLICATIONS} replace /> },
   ],
-  admin: [
-    { path: ROUTES.ADMIN.BASE, element: <AdminRoutes /> }
-  ]
+  admin: [{ path: ROUTES.ADMIN.BASE, element: <AdminRoutes /> }],
 };
 
-// Custom hook for route visibility logic
 function useRouteVisibility() {
   const location = useLocation();
-  
   const isEmployeeRoute = location.pathname.startsWith(ROUTES.EMPLOYEE.BASE);
   const isEmployerRoute = location.pathname.startsWith(ROUTES.EMPLOYER.BASE);
-  const isAdminRoute = location.pathname.startsWith('/admin');
+  const isAdminRoute = location.pathname.startsWith("/admin");
   const isSpecialRoute = isEmployeeRoute || isEmployerRoute || isAdminRoute;
-  
+
   return {
-    isEmployeeRoute,
-    isEmployerRoute,
-    isAdminRoute,
-    isSpecialRoute,
     showNavbar: !isSpecialRoute,
-    mainPadding: isSpecialRoute ? "p-0" : "pt-16"
+    mainPadding: isSpecialRoute ? "p-0" : "pt-16",
   };
 }
 
-// Main app content component
 function AppContent() {
   const { showNavbar, mainPadding } = useRouteVisibility();
 
@@ -208,12 +190,10 @@ function AppContent() {
       {showNavbar && <Navbar />}
       <main className={`flex-1 ${mainPadding}`}>
         <Routes>
-          {/* Public Routes */}
           {routeConfig.public.map(({ path, element }) => (
             <Route key={path} path={path} element={element} />
           ))}
 
-          {/* Admin Routes */}
           <Route
             path={ROUTES.ADMIN.BASE}
             element={
@@ -223,7 +203,6 @@ function AppContent() {
             }
           />
 
-          {/* Employee Routes with Layout */}
           <Route element={<EmployeeLayout />}>
             {routeConfig.employee.map(({ path, element }) => (
               <Route
@@ -238,7 +217,6 @@ function AppContent() {
             ))}
           </Route>
 
-          {/* Employer Routes with Layout */}
           <Route element={<EmployerLayout />}>
             {routeConfig.employer.map(({ path, element }) => (
               <Route
@@ -253,11 +231,15 @@ function AppContent() {
             ))}
           </Route>
 
-          {/* Automatic Redirects */}
-          <Route path={ROUTES.EMPLOYEE.BASE} element={<Navigate to={ROUTES.EMPLOYEE.DASHBOARD} replace />} />
-          <Route path={ROUTES.EMPLOYER.BASE} element={<Navigate to={ROUTES.EMPLOYER.DASHBOARD} replace />} />
+          <Route
+            path={ROUTES.EMPLOYEE.BASE}
+            element={<Navigate to={ROUTES.EMPLOYEE.DASHBOARD} replace />}
+          />
+          <Route
+            path={ROUTES.EMPLOYER.BASE}
+            element={<Navigate to={ROUTES.EMPLOYER.DASHBOARD} replace />}
+          />
 
-          {/* 404 Handling */}
           <Route path={ROUTES.PUBLIC.NOT_FOUND} element={<NotFound />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
@@ -267,7 +249,6 @@ function AppContent() {
   );
 }
 
-// Error Boundary Component (optional but recommended)
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean }
@@ -290,10 +271,9 @@ class ErrorBoundary extends React.Component<
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Something went wrong
-            </h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Something went wrong</h1>
             <button
+              type="button"
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
               onClick={() => this.setState({ hasError: false })}
             >
@@ -303,38 +283,32 @@ class ErrorBoundary extends React.Component<
         </div>
       );
     }
-
     return this.props.children;
   }
 }
 
-// Loading component for better UX
 function AppLoading() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto" />
         <p className="mt-4 text-gray-600">Loading...</p>
       </div>
     </div>
   );
 }
 
-// Main App Component with Suspense
 export default function App() {
   return (
     <ErrorBoundary>
       <React.Suspense fallback={<AppLoading />}>
-          <Router>
-            <ScrollToTop />
-            <AuthProvider>
-              <SavedJobsProvider>
-                <ThemeProvider defaultTheme="system" storageKey="skillconnect-theme">
-                  <AppContent />
-                </ThemeProvider>
-              </SavedJobsProvider>
-            </AuthProvider>
-          </Router>
+        <Router>
+          <ScrollToTop />
+          <SavedJobsProvider>
+            <AppContent />
+            <GlobalLoader />
+          </SavedJobsProvider>
+        </Router>
       </React.Suspense>
     </ErrorBoundary>
   );
