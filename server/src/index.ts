@@ -17,7 +17,7 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5002;
 process.env.PORT = String(PORT);
 
 // Import the database health check
-import { checkDatabaseHealth } from './db';
+import { checkDatabaseHealth, ensureNotificationsTable } from './db';
 
 // Log environment variables (excluding sensitive data)
 console.log("Environment:", {
@@ -36,10 +36,17 @@ const server = http.createServer(app);
     console.log('Checking database connection...');
     const isDatabaseHealthy = await checkDatabaseHealth();
     if (!isDatabaseHealthy) {
-      console.error('Database is not healthy. Please check your database connection.');
-      process.exit(1);
+      if (process.env.NODE_ENV === "production") {
+        console.error('Database is not healthy. Please check your database connection.');
+        process.exit(1);
+      }
+      console.warn('⚠️ Database is not healthy. Starting server in degraded dev mode.');
+      console.warn('⚠️ API routes that depend on PostgreSQL may fail until DB is available.');
     }
-    console.log('Database connection is healthy.');
+    if (isDatabaseHealthy) {
+      console.log('Database connection is healthy.');
+      await ensureNotificationsTable();
+    }
 
     const allowedOrigins = [
       'http://localhost:5173',  // Vite dev server
@@ -69,8 +76,7 @@ const server = http.createServer(app);
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
     }));
 
-    // Explicitly handle preflight requests
-    app.options('*', cors());
+    // Explicitly handle preflight requests (removed app.options('*') for Express 5 compatibility)
 
     // Basic health check endpoint
     app.get('/health', (req, res) => {
@@ -96,17 +102,20 @@ const server = http.createServer(app);
     });
     if (process.env.NODE_ENV === "production") {
       serveStatic(app);
-    } else {
+    } else if (process.env.USE_INTEGRATED_VITE === "true") {
+      // Single-process dev: server serves UI via Vite middleware (requires vite in server deps).
       await setupVite(app, server);
+    } else {
+      // Default for `npm run dev`: client runs Vite on :5173 and proxies /api to this server.
+      console.log("API-only dev mode — UI at http://localhost:5173 (run dev:client if needed)");
     }
 
     console.log('Attempting to start server on port:', PORT);
     
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`✅ Server is running on http://localhost:${PORT}`);
-      if (process.env.NODE_ENV !== "production") {
-        console.log("📦 Vite is enabled for HMR and client-side development");
-        console.log("🌐 Client available at http://localhost:5173");
+      if (process.env.NODE_ENV !== "production" && process.env.USE_INTEGRATED_VITE !== "true") {
+        console.log("🌐 Client dev server: http://localhost:5173");
       }
     });
 

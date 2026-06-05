@@ -1,5 +1,11 @@
 import dashboardRouter from "./routes/dashboard";
 import jobsRouter from "./routes/jobs";
+import {
+  buildEmployerAnalytics,
+  mapApplicationsForAnalytics,
+  mapJobsForAnalytics,
+  type EmployerAnalyticsRange,
+} from "./lib/employer-analytics";
 import adminStoriesRouter from "./routes/admin/stories";
 import authOauthRouter, { passport as oauthPassport } from "./routes/auth-oauth";
 import { type Express, Router } from "express";
@@ -15,13 +21,14 @@ import multer from 'multer';
 // Remove import { applications } from './schema'; removed as we use shared schema
 
 import { db, pool } from './db';
-import { storage } from "./storage";
+import { storage, Storage } from "./storage";
 import connectPgSimple from 'connect-pg-simple';
 import type { Session } from 'express-session';
 import { 
   loginSchema as sharedLoginSchema, 
   registerSchema,
   updateProfileSchema,
+  updateMeProfileSchema,
   type User,
   type InsertUser,
   type InsertCompany, 
@@ -34,6 +41,84 @@ import {
 
 
 import { handleError } from "./utils";
+import { resumeSummaryFromRaw } from "./lib/resume-attachments";
+import {
+  notifyApplicationStatusChange,
+  notifyApplicationSubmitted,
+  notifyNewMessage,
+} from "./lib/activity-notifications";
+import {
+  buildRuleBasedInsight,
+  countPipeline,
+  enrichInsightWithGemini,
+} from "./lib/activity-insights";
+import {
+  isHrUser,
+  isHrUserType,
+  isProfessionalUser,
+  isEmployerUser,
+  resolveEmployeeMessagingAccess,
+  employeeMessagingHint,
+  normalizeApplicationStatus,
+} from "./lib/messaging-policy";
+import { createApplication } from "./routes/applications";
+import applicationsRouter from "./routes/applications-router";
+import {
+  normalizeAccountStatus,
+  readAccountStatusFromRow,
+  accountStatusBlocksLogin,
+  accountStatusLoginMessage,
+  USER_ACCOUNT_STATUSES,
+} from "./lib/account-status";
+
+function jobEmployerId(job: { employerId?: string | null; employer_id?: string | null } | null): string {
+  if (!job) return "";
+  const id = job.employerId ?? job.employer_id;
+  return id != null ? String(id) : "";
+}
+
+const APPLICATION_STATUS_ALIASES: Record<string, string> = {
+  new: "applied",
+  pending: "applied",
+  review: "under_review",
+  reviewing: "under_review",
+  reviewed: "under_review",
+  screening: "under_review",
+  interview: "interview",
+  interviewing: "interview",
+  shortlisted: "shortlisted",
+  accepted: "hired",
+  approved: "hired",
+  offer: "hired",
+  hired: "hired",
+  rejected: "rejected",
+  declined: "rejected",
+  applied: "applied",
+  under_review: "under_review",
+};
+
+function normalizeApplicationStatusInput(status: unknown): string | null {
+  if (status == null || status === "") return null;
+  const key = String(status).toLowerCase().trim();
+  return APPLICATION_STATUS_ALIASES[key] ?? key;
+}
+
+async function emitApplicationStatusNotification(
+  application: { id: number | string; applicantId: string; jobId: string | null; status?: string | null },
+  oldStatus: string | null | undefined,
+  newStatus: string
+) {
+  if (!application.applicantId || !newStatus) return;
+  const job = application.jobId ? await storage.getJob(String(application.jobId)).catch(() => null) : null;
+  const jobTitle = (job as { title?: string } | null)?.title ?? "your role";
+  await notifyApplicationStatusChange(storage, {
+    applicantId: String(application.applicantId),
+    applicationId: application.id,
+    oldStatus,
+    newStatus,
+    jobTitle,
+  }).catch((err) => console.error("Notification emit failed:", err));
+}
 
 declare module 'express-session' {
   interface SessionData {
@@ -48,16 +133,30 @@ declare module 'express' {
 }
 
 // Validation schemas
+const normalizeUserType = (value: unknown): "Professional" | "Employer" | "admin" | undefined => {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "employer") return "Employer";
+  if (normalized === "admin") return "admin";
+  if (normalized === "professional" || normalized === "job_seeker") return "Professional";
+  if (value === "Professional" || value === "Employer" || value === "admin") return value;
+  return undefined;
+};
+
 const updateUserSchema = z.object({
   email: z.string().email().optional(),
   password: z.string().min(6).optional(),
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
+  userType: z.preprocess(normalizeUserType, z.enum(["Professional", "Employer", "admin"]).optional()),
   location: z.string().optional(),
+  telephoneNumber: z.string().optional(),
   title: z.string().optional(),
   bio: z.string().optional(),
   skills: z.array(z.string()).optional(),
   profilePhoto: z.string().optional(),
+  accountStatus: z.enum(USER_ACCOUNT_STATUSES).optional(),
+  status: z.enum(USER_ACCOUNT_STATUSES).optional(),
 });
 
 const insertCompanySchema = z.object({
@@ -147,6 +246,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
 
 const sanitizeUser = (user: any) => {
   const { password, ...sanitizedUser } = user;
+  const accountStatus = readAccountStatusFromRow(sanitizedUser as Record<string, unknown>);
   // Map snake_case database fields to camelCase for frontend
   return {
     ...sanitizedUser,
@@ -156,6 +256,8 @@ const sanitizeUser = (user: any) => {
     createdAt: sanitizedUser.createdAt || sanitizedUser.created_at,
     profilePhoto: sanitizedUser.profilePhoto || sanitizedUser.profile_photo,
     telephoneNumber: sanitizedUser.telephoneNumber || sanitizedUser.telephone_number,
+    accountStatus,
+    status: accountStatus,
   };
 };
 
@@ -635,7 +737,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('Validation error:', validationError);
         return res.status(400).json({ 
           message: "Invalid login data", 
-          error: validationError instanceof z.ZodError ? validationError.errors : String(validationError)
+          error: validationError instanceof z.ZodError ? validationError.issues : String(validationError)
         });
       }
 
@@ -695,6 +797,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!isPasswordValid) {
         console.log('❌ Invalid password for user:', data.email);
         return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      const accountStatus = readAccountStatusFromRow(user as Record<string, unknown>);
+      if (accountStatusBlocksLogin(accountStatus)) {
+        return res.status(403).json({ message: accountStatusLoginMessage(accountStatus) });
       }
       
       console.log('✅ Login successful for user:', { id: user.id, email: user.email });
@@ -781,11 +888,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const limit = parseInt(req.query.limit as string) || 12;
       const offset = (page - 1) * limit;
 
-      // Get total count first
-      const countResult = await storage.getStoryCount();
-      
-      // Get paginated stories
-      const stories = await storage.getPaginatedStories(limit, offset);
+      const [countResult, stories] = await Promise.all([
+        storage.getStoryCount(),
+        storage.getPaginatedStories(limit, offset),
+      ]);
       
       res.json({
         stories,
@@ -817,7 +923,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const user = await storage.getUser(userId);
-      if (!user || (user.userType !== 'Employer' && user.userType !== 'admin')) {
+      const jobsUserType = String(
+        (user as { userType?: string; user_type?: string })?.userType ??
+          (user as { user_type?: string })?.user_type ??
+          "",
+      )
+        .toLowerCase()
+        .trim();
+      if (!user || (!isEmployerUser(user) && jobsUserType !== "admin")) {
         return res.status(403).json({ message: "Not authorized" });
       }
 
@@ -853,6 +966,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(enrichedJobs);
     } catch (error) {
       handleError(res, error, "Failed to fetch employer jobs");
+    }
+  });
+
+  // Employer: recruiting analytics (DB-backed, for HR reporting)
+  authRouter.get("/employer/analytics", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(userId);
+      const rawType = String(
+        (user as { userType?: string; user_type?: string })?.userType ??
+          (user as { user_type?: string })?.user_type ??
+          "",
+      )
+        .toLowerCase()
+        .trim();
+      if (!user || (!isEmployerUser(user) && rawType !== "admin")) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const rawRange = String(req.query.timeRange || "30d");
+      const allowed: EmployerAnalyticsRange[] = ["7d", "30d", "90d", "1y"];
+      const timeRange = allowed.includes(rawRange as EmployerAnalyticsRange)
+        ? (rawRange as EmployerAnalyticsRange)
+        : "30d";
+
+      const [jobs, applications, ownedCompanies] = await Promise.all([
+        storage.getJobsByEmployer(userId),
+        storage.getApplicationsWithDetailsByEmployer(userId),
+        storage.getCompaniesByOwner(userId).catch(() => []),
+      ]);
+
+      const companyById = new Map<string, any>(
+        ownedCompanies.map((c: any) => [String(c.id), c] as [string, any]),
+      );
+
+      const applicationCounts = new Map<string, number>();
+      for (const app of applications) {
+        const jobId = app.jobId ?? app.job_id;
+        if (jobId) {
+          const key = String(jobId);
+          applicationCounts.set(key, (applicationCounts.get(key) ?? 0) + 1);
+        }
+      }
+
+      const enrichedJobs = jobs.map((job) => ({
+        ...job,
+        company: job.companyId
+          ? companyById.get(String(job.companyId)) ?? null
+          : null,
+        applications: applicationCounts.get(job.id) ?? 0,
+      }));
+
+      const company =
+        enrichedJobs.find((j) => j.company)?.company ?? ownedCompanies[0] ?? null;
+
+      const payload = buildEmployerAnalytics(
+        mapJobsForAnalytics(enrichedJobs as Array<Record<string, unknown>>, applicationCounts),
+        mapApplicationsForAnalytics(applications as Array<Record<string, unknown>>),
+        timeRange,
+        (company as { name?: string } | null)?.name ?? null,
+      );
+
+      res.json(payload);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch employer analytics");
     }
   });
 
@@ -1020,45 +1202,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Note: /api/auth/me is already registered early (line 237) - this duplicate is removed
 
-  // Update current user profile
+  // Update current user profile (account fields + professional profile)
   authRouter.put("/me/profile", requireAuth, async (req, res) => {
     try {
         const userId = req.session.userId;
-        const user = await storage.getUser(userId);
+        let user = await storage.getUser(userId);
         if (!user) {
             return res.status(404).json({ message: "User not found" });
+        }
+
+        const body = updateMeProfileSchema.parse(req.body);
+
+        const userUpdates: Partial<User> = {};
+        if (body.firstName !== undefined) userUpdates.firstName = body.firstName;
+        if (body.lastName !== undefined) userUpdates.lastName = body.lastName;
+        if (body.email !== undefined) userUpdates.email = body.email;
+        if (body.location !== undefined) userUpdates.location = body.location;
+        if (body.telephoneNumber !== undefined) userUpdates.telephoneNumber = body.telephoneNumber;
+
+        if (Object.keys(userUpdates).length > 0) {
+          user = await storage.updateUser(user.id, userUpdates);
         }
 
         // Handle both snake_case and camelCase, and normalize for comparison
         const userTypeRaw = (user as any).userType || (user as any).user_type || "";
         const normalizedType = userTypeRaw.toString().toLowerCase();
-        
-        console.log('🔄 Profile Update Attempt:', {
-            userId,
-            userTypeRaw,
-            normalizedType,
-            bodyKeys: Object.keys(req.body)
-        });
 
-        let updatedProfile;
-        // Accept 'professional', 'Professional', 'job_seeker', 'job-seeker'
-        if (!normalizedType || normalizedType === 'professional' || normalizedType === 'job_seeker' || normalizedType === 'job-seeker') {
-            // Validate profile updates using schema
-            const profileUpdates = updateProfileSchema.parse(req.body);
-            updatedProfile = await storage.updateProfessionalProfile(user.id, profileUpdates);
-        } else {
-            console.warn('❌ Profile Update Rejected: Unsuitable userType', { userId, normalizedType });
-            return res.status(400).json({ 
-                message: "User does not have an updatable professional profile",
-                userType: userTypeRaw
+        const profileUpdates: { headline?: string; bio?: string; skills?: string[]; experience?: any[]; education?: any[] } = {};
+        if (body.headline !== undefined) profileUpdates.headline = body.headline;
+        if (body.bio !== undefined) profileUpdates.bio = body.bio;
+        if (body.skills !== undefined) profileUpdates.skills = body.skills;
+        if (body.experience !== undefined) profileUpdates.experience = body.experience;
+        if (body.education !== undefined) profileUpdates.education = body.education;
+
+        let updatedProfile = null;
+        const hasProfileUpdates = Object.keys(profileUpdates).length > 0;
+        const isProfessionalUser =
+          !normalizedType ||
+          normalizedType === "professional" ||
+          normalizedType === "job_seeker" ||
+          normalizedType === "job-seeker";
+
+        if (hasProfileUpdates) {
+          if (!isProfessionalUser) {
+            return res.status(400).json({
+              message: "User does not have an updatable professional profile",
+              userType: userTypeRaw,
             });
+          }
+          updatedProfile = await storage.updateProfessionalProfile(user.id, profileUpdates);
+        } else if (isProfessionalUser) {
+          updatedProfile = await storage.getProfessionalProfileByUserId(user.id);
         }
 
-        res.json({ profile: updatedProfile });
+        res.json({
+          user: sanitizeUser(user),
+          profile: updatedProfile,
+        });
 
     } catch (error) {
         console.error('❌ Profile Update Error:', error);
         handleError(res, error, "Failed to update profile");
+    }
+  });
+
+  // Export Data
+  authRouter.get("/me/export", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) return res.status(401).json({ message: "Not authenticated" });
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      
+      const profile = await storage.getProfessionalProfileByUserId(userId);
+      const applications = await storage.getApplicationsWithDetailsByApplicant(userId).catch(() => []);
+      const companies = await storage.getCompaniesByOwner(userId).catch(() => []);
+      
+      res.json({
+        user: sanitizeUser(user),
+        profile,
+        applications,
+        companies
+      });
+    } catch (error) {
+      handleError(res, error, "Failed to export data");
+    }
+  });
+
+  // Soft Delete Account
+  authRouter.delete("/me/account", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) return res.status(401).json({ message: "Not authenticated" });
+      
+      const { password } = req.body;
+      if (!password) {
+        return res.status(400).json({ message: "Password is required to confirm account deletion" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) {
+        return res.status(401).json({ message: "Incorrect password" });
+      }
+      
+      await storage.softDeleteUser(userId);
+      
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Session destruction error after account deletion:", err);
+        }
+        res.json({ message: "Account deleted and data anonymized successfully" });
+      });
+    } catch (error) {
+      handleError(res, error, "Failed to delete account");
     }
   });
 
@@ -1084,6 +1343,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
         handleError(res, error, "Failed to upload profile photo");
       }
     });
+  });
+
+  const uploadResume = multer({
+    storage: multerStorage,
+    fileFilter: (req, file, cb) => {
+      const ext = path.extname(file.originalname || "").toLowerCase();
+      const allowedExts = [".pdf", ".doc", ".docx"];
+      const allowedMimes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ];
+      if (allowedMimes.includes(file.mimetype) || allowedExts.includes(ext)) {
+        cb(null, true);
+      } else {
+        cb(new Error("Invalid file type. Only PDF and Word documents are allowed."));
+      }
+    },
+    limits: { fileSize: 10 * 1024 * 1024 },
+  });
+
+  // Upload current user's profile resume (professional)
+  authRouter.post("/me/resume", requireAuth, (req, res) => {
+    uploadResume.single("resume")(req, res, async (err: any) => {
+      if (err) {
+        return res.status(400).json({ message: err.message || "Invalid upload" });
+      }
+      try {
+        const userId = req.session.userId;
+        if (!userId) {
+          return res.status(401).json({ message: "Not authenticated" });
+        }
+        if (!req.file) {
+          return res.status(400).json({ message: "No resume file uploaded" });
+        }
+
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        const existingProfile = await storage.getProfessionalProfileByUserId(userId);
+        if (existingProfile?.resumeUrl?.startsWith("/uploads/")) {
+          const oldName = path.basename(existingProfile.resumeUrl);
+          const oldPath = path.join(process.cwd(), "uploads", oldName);
+          if (fs.existsSync(oldPath)) {
+            fs.unlinkSync(oldPath);
+          }
+        }
+
+        const resumeUrl = `/uploads/${req.file.filename}`;
+        const resumeName = req.file.originalname || req.file.filename;
+        const profile = await storage.updateProfessionalProfileResume(userId, resumeUrl, resumeName);
+        return res.json({ profile, resumeUrl, resumeName });
+      } catch (error) {
+        handleError(res, error, "Failed to upload resume");
+      }
+    });
+  });
+
+  // Remove current user's profile resume
+  authRouter.delete("/me/resume", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const existingProfile = await storage.getProfessionalProfileByUserId(userId);
+      if (existingProfile?.resumeUrl?.startsWith("/uploads/")) {
+        const fileName = path.basename(existingProfile.resumeUrl);
+        const filePath = path.join(process.cwd(), "uploads", fileName);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+
+      const profile = await storage.clearProfessionalProfileResume(userId);
+      return res.json({ profile, resumeUrl: null, resumeName: null });
+    } catch (error) {
+      handleError(res, error, "Failed to remove resume");
+    }
+  });
+
+  // Latest resume used on a past application (for quick-apply pre-fill)
+  authRouter.get("/me/application-resume/latest", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const apps = await storage.getApplicationsWithDetailsByApplicant(userId);
+      for (const app of apps) {
+        const summary = resumeSummaryFromRaw(app.resume);
+        if (!summary) continue;
+
+        return res.json({
+          resumeUrl: summary.resumeUrl,
+          resumeName: summary.originalName,
+          appliedAt: app.appliedAt ?? null,
+          jobTitle: app.job?.title ?? null,
+          applicationId: app.id,
+        });
+      }
+
+      return res.json({
+        resumeUrl: null,
+        resumeName: null,
+        appliedAt: null,
+        jobTitle: null,
+        applicationId: null,
+      });
+    } catch (error) {
+      handleError(res, error, "Failed to load last application resume");
+    }
   });
 
   // Remove current user's profile photo
@@ -1256,11 +1631,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log('✅ Authorization passed, updating company');
-      const updatedCompany = await storage.updateCompany(req.params.id, req.body);
+      const body = { ...req.body } as Record<string, unknown>;
+      if (body.coverUrl !== undefined && body.coverImage === undefined) {
+        body.coverImage = body.coverUrl;
+      }
+      const updatedCompany = await storage.updateCompany(req.params.id, body);
       res.json(updatedCompany);
     } catch (error) {
       console.error('❌ Error updating company:', error);
       handleError(res, error, "Failed to update company");
+    }
+  });
+
+  const assertCompanyOwner = async (
+    req: { session: Session & { userId?: string }; params: { id: string } },
+    res: { status: (code: number) => { json: (body: unknown) => void } }
+  ) => {
+    const company = await storage.getCompany(req.params.id);
+    if (!company) {
+      res.status(404).json({ message: "Company not found" });
+      return null;
+    }
+    const ownerId = (company as { ownerId?: string; owner_id?: string }).ownerId
+      ?? (company as { owner_id?: string }).owner_id;
+    const userId = req.session.userId;
+    const isOwner = ownerId && userId && String(ownerId) === String(userId);
+    const isAdmin = userId === "admin-001";
+    const hasNoOwner = !ownerId;
+    if (!isOwner && !isAdmin && !hasNoOwner) {
+      res.status(403).json({ message: "Not authorized to update this company" });
+      return null;
+    }
+    if (hasNoOwner && userId) {
+      await storage.updateCompany(req.params.id, { ownerId: userId } as unknown as InsertCompany);
+    }
+    return company;
+  };
+
+  authRouter.post("/companies/:id/cover", requireAuth, (req, res) => {
+    uploadImage.single("cover")(req, res, async (err: unknown) => {
+      if (err) {
+        const message = err instanceof Error ? err.message : "Invalid upload";
+        return res.status(400).json({ message });
+      }
+      try {
+        const company = await assertCompanyOwner(req, res);
+        if (!company) return;
+        if (!req.file) {
+          return res.status(400).json({ message: "No image file uploaded" });
+        }
+
+        const existingCover =
+          (company as { coverImage?: string; cover_image?: string }).coverImage
+          ?? (company as { cover_image?: string }).cover_image;
+        if (existingCover?.startsWith("/uploads/")) {
+          const oldPath = path.join(process.cwd(), "uploads", path.basename(existingCover));
+          if (fs.existsSync(oldPath)) {
+            fs.unlinkSync(oldPath);
+          }
+        }
+
+        const coverImage = `/uploads/${req.file.filename}`;
+        const updatedCompany = await storage.updateCompany(req.params.id, { coverImage });
+        return res.json({
+          coverImage,
+          company: updatedCompany,
+        });
+      } catch (error) {
+        handleError(res, error, "Failed to upload company cover");
+      }
+    });
+  });
+
+  authRouter.delete("/companies/:id/cover", requireAuth, async (req, res) => {
+    try {
+      const company = await assertCompanyOwner(req, res);
+      if (!company) return;
+
+      const existingCover =
+        (company as { coverImage?: string; cover_image?: string }).coverImage
+        ?? (company as { cover_image?: string }).cover_image;
+      if (existingCover?.startsWith("/uploads/")) {
+        const filePath = path.join(process.cwd(), "uploads", path.basename(existingCover));
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+
+      const updatedCompany = await storage.updateCompany(req.params.id, { coverImage: null });
+      return res.json({ coverImage: null, company: updatedCompany });
+    } catch (error) {
+      handleError(res, error, "Failed to remove company cover");
     }
   });
 
@@ -1280,7 +1741,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         applications = await storage.getApplicationsWithDetailsByApplicant(applicantId).catch(() => []);
       } else if (jobId) {
         const job = await storage.getJob(jobId);
-        if (job?.employerId?.toString() !== req.session.userId) {
+        if (jobEmployerId(job) !== String(req.session.userId ?? "")) {
           return res.status(403).json({ message: "Not authorized to view applications for this job" });
         }
         applications = await storage.getApplicationsWithDetailsByJob(jobId).catch(() => []);
@@ -1289,6 +1750,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ message: "Not authorized to view these applications" });
         }
         applications = await storage.getApplicationsWithDetailsByEmployer(employerId).catch(() => []);
+
+        const enriched = await Promise.all(
+          applications.map(async (application) => {
+            let profile: Awaited<ReturnType<typeof storage.getProfessionalProfileByUserId>> = null;
+            if (application.applicantId) {
+              profile = await storage
+                .getProfessionalProfileByUserId(String(application.applicantId))
+                .catch(() => null);
+            }
+            const match = Storage.computeMatchScore({
+              candidateSkills: Array.isArray(profile?.skills) ? profile.skills : [],
+              jobSkills: Array.isArray(application.job?.skills) ? application.job.skills : [],
+              candidateLocation: application.applicant?.location || null,
+              jobLocation: application.job?.location || null,
+              candidateHeadline: profile?.headline || null,
+              jobTitle: application.job?.title || null,
+              salaryMin: application.job?.salaryMin ?? null,
+              salaryMax: application.job?.salaryMax ?? null,
+            });
+            return {
+              ...application,
+              applicant: application.applicant ? sanitizeUser(application.applicant) : null,
+              profile,
+              matchScore: match.total,
+            };
+          }),
+        );
+
+        return res.json(enriched);
       } else {
         return res.status(400).json({ message: "applicantId, jobId, or employerId is required" });
       }
@@ -1308,17 +1798,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = {
         ...req.body,
-        applicantId: parseInt(req.session.userId)
+        applicantId: req.session.userId,
+        status: req.body.status ?? "applied",
       };
 
       const existingApplications = await storage.getApplicationsByJob(data.jobId).catch(() => []);
-      const alreadyApplied = existingApplications.some(app => app.applicantId === data.applicantId);
+      const alreadyApplied = existingApplications.some(
+        (app) => String(app.applicantId) === String(data.applicantId)
+      );
 
       if (alreadyApplied) {
         return res.status(400).json({ message: "You have already applied to this job" });
       }
 
       const application = await storage.createApplication(data);
+      const job = data.jobId ? await storage.getJob(String(data.jobId)).catch(() => null) : null;
+      await notifyApplicationSubmitted(storage, {
+        applicantId: String(data.applicantId),
+        applicationId: application.id,
+        jobTitle: (job as { title?: string } | null)?.title,
+      }).catch((err) => console.error("Submit notification failed:", err));
+
       res.json(application);
     } catch (error) {
       handleError(res, error, "Failed to create application");
@@ -1331,32 +1831,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!application) {
         return res.status(404).json({ message: "Application not found" });
       }
-      
-      // Check if user owns the application or the job
-      const job = await storage.getJob(application.jobId);
-      if (application.applicantId.toString() !== req.session.userId && 
-          job?.employerId?.toString() !== req.session.userId) {
+
+      const sessionUserId = String(req.session.userId ?? "");
+      const applicantId = application.applicantId != null ? String(application.applicantId) : "";
+      const job = application.jobId ? await storage.getJob(String(application.jobId)) : null;
+      const employerId = jobEmployerId(job);
+
+      if (applicantId !== sessionUserId && employerId !== sessionUserId) {
         return res.status(403).json({ message: "Not authorized to update this application" });
       }
-      
-      const updatedApplication = await storage.updateApplication(req.params.id, req.body);
+
+      const normalizedStatus = normalizeApplicationStatusInput(req.body?.status);
+      const updates: { status?: string } = {};
+      if (normalizedStatus != null) {
+        updates.status = normalizedStatus;
+      }
+
+      const oldStatus = application.status;
+      const updatedApplication = await storage.updateApplication(req.params.id, updates);
+
+      if (normalizedStatus && String(normalizedStatus) !== String(oldStatus ?? "")) {
+        await emitApplicationStatusNotification(
+          {
+            id: updatedApplication.id,
+            applicantId: String(updatedApplication.applicantId ?? applicantId),
+            jobId: updatedApplication.jobId ? String(updatedApplication.jobId) : null,
+            status: updatedApplication.status,
+          },
+          oldStatus,
+          normalizedStatus
+        );
+      }
+
       res.json(updatedApplication);
     } catch (error) {
       handleError(res, error, "Failed to update application");
     }
   });
 
-  // Message routes
+  // Message routes — pipeline-gated recruiter threads + optional platform support
+  authRouter.get("/messages/recruiter-threads", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      const currentUser = await storage.getUser(userId);
+      if (!isProfessionalUser(currentUser)) {
+        return res.status(403).json({ message: "Recruiter threads are for job seekers only" });
+      }
+      const threads = await storage.getRecruiterThreadsForApplicant(userId);
+      res.json(
+        threads.map((t) => ({
+          ...t,
+          messagingHint: employeeMessagingHint(t.status, t.employerHasMessaged),
+          statusLabel: normalizeApplicationStatus(t.status),
+        }))
+      );
+    } catch (error) {
+      handleError(res, error, "Failed to fetch recruiter threads");
+    }
+  });
+
+  authRouter.get("/messages/employer-threads", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      const currentUser = await storage.getUser(userId);
+      if (!isEmployerUser(currentUser)) {
+        return res.status(403).json({ message: "Employer threads are for company accounts only" });
+      }
+      const threads = await storage.getApplicantThreadsForEmployer(userId);
+      res.json(
+        threads.map((t) => ({
+          ...t,
+          statusLabel: normalizeApplicationStatus(t.status),
+        }))
+      );
+    } catch (error) {
+      handleError(res, error, "Failed to fetch employer threads");
+    }
+  });
+
+  authRouter.get("/messages/hr-contacts", requireAuth, async (req, res) => {
+    try {
+      const currentUser = await storage.getUser(req.session.userId);
+      if (!isProfessionalUser(currentUser)) {
+        return res.status(403).json({ message: "HR contacts are only available for job seekers" });
+      }
+      const contacts = await storage.getHrContactUsers();
+      res.json(contacts.map((u) => sanitizeUser(u)));
+    } catch (error) {
+      handleError(res, error, "Failed to fetch HR contacts");
+    }
+  });
+
   authRouter.get("/messages", requireAuth, async (req, res) => {
     try {
       const userId = req.session.userId;
       const otherUserId = req.query.otherUserId as string;
-      
+      const applicationIdRaw = req.query.applicationId as string | undefined;
+      const applicationId = applicationIdRaw ? Number(applicationIdRaw) : null;
+      const currentUser = await storage.getUser(userId);
+      const employeeMessaging = isProfessionalUser(currentUser);
+
+      if (applicationId != null && !Number.isNaN(applicationId)) {
+        const ctx = await storage.getApplicationMessagingContext(applicationId);
+        if (!ctx) {
+          return res.status(404).json({ message: "Application not found" });
+        }
+        const isApplicant = ctx.applicantId === String(userId);
+        const isRecruiter = ctx.employerId === String(userId);
+        if (!isApplicant && !isRecruiter) {
+          return res.status(403).json({ message: "Not authorized for this conversation" });
+        }
+        if (isApplicant && employeeMessaging) {
+          const access = resolveEmployeeMessagingAccess(ctx.status, ctx.employerHasMessaged);
+          const hasThread = await storage.getConversationByApplication(userId, applicationId);
+          if (!access.canSend && hasThread.length === 0) {
+            return res.status(403).json({
+              message: employeeMessagingHint(ctx.status, ctx.employerHasMessaged),
+            });
+          }
+        }
+        const messages = await storage.getConversationByApplication(userId, applicationId);
+        return res.json(messages);
+      }
+
       if (otherUserId) {
+        if (employeeMessaging) {
+          const peer = await storage.getUser(otherUserId);
+          if (!isHrUser(peer)) {
+            return res.status(403).json({
+              message: "Use recruiter threads for company conversations. Platform support is under HR contacts.",
+            });
+          }
+        }
         const messages = await storage.getConversation(userId, otherUserId);
         res.json(messages);
       } else {
-        const messages = await storage.getMessagesByUser(userId);
+        let messages = await storage.getMessagesByUser(userId);
+        if (employeeMessaging) {
+          messages = messages.filter((msg) => {
+            const isOutbound = String(msg.senderId) === String(userId);
+            const peerType = isOutbound
+              ? (msg as { receiverUserType?: unknown }).receiverUserType
+              : (msg as { senderUserType?: unknown }).senderUserType;
+            return isHrUserType(peerType);
+          });
+        }
         res.json(messages);
       }
     } catch (error) {
@@ -1367,21 +1986,173 @@ export async function registerRoutes(app: Express): Promise<Server> {
   authRouter.post("/messages", requireAuth, async (req, res) => {
     try {
       const data = insertMessageSchema.parse(req.body);
+      const applicationIdRaw = req.body?.applicationId;
+      const applicationId =
+        applicationIdRaw != null && !Number.isNaN(Number(applicationIdRaw))
+          ? Number(applicationIdRaw)
+          : null;
 
       if (data.senderId.toString() !== req.session.userId) {
         return res.status(403).json({ message: "Not authorized to send message as this user" });
       }
 
-      const messageInsert: any = {
+      const sender = await storage.getUser(req.session.userId);
+      const receiver = await storage.getUser(String(data.receiverId));
+
+      if (!receiver) {
+        return res.status(404).json({ message: "Recipient not found" });
+      }
+
+      let resolvedApplicationId = applicationId;
+
+      if (isProfessionalUser(sender)) {
+        if (isHrUser(receiver)) {
+          // Platform support — no application context required
+        } else if (isEmployerUser(receiver)) {
+          const ctx = await storage.findApplicationForMessagingPair(
+            String(req.session.userId),
+            String(data.receiverId),
+            applicationId
+          );
+          if (!ctx) {
+            return res.status(403).json({
+              message: "You can only message recruiters for jobs you've applied to.",
+            });
+          }
+          const access = resolveEmployeeMessagingAccess(ctx.status, ctx.employerHasMessaged);
+          if (!access.canSend) {
+            return res.status(403).json({
+              message: employeeMessagingHint(ctx.status, ctx.employerHasMessaged),
+            });
+          }
+          resolvedApplicationId = ctx.applicationId;
+        } else {
+          return res.status(403).json({ message: "Invalid message recipient" });
+        }
+      } else if (isEmployerUser(sender)) {
+        if (!isProfessionalUser(receiver)) {
+          return res.status(403).json({ message: "Employers can message applicants on their job postings" });
+        }
+        const ctx = await storage.findApplicationForMessagingPair(
+          String(data.receiverId),
+          String(req.session.userId),
+          applicationId
+        );
+        if (!ctx) {
+          return res.status(403).json({
+            message: "You can only message candidates who applied to your jobs.",
+          });
+        }
+        resolvedApplicationId = ctx.applicationId;
+      }
+
+      const messageInsert = {
         senderId: data.senderId,
         receiverId: data.receiverId,
-        content: data.content
+        content: data.content,
+        applicationId: resolvedApplicationId,
       };
 
       const message = await storage.createMessage(messageInsert);
+
+      if (String(data.receiverId) !== String(req.session.userId)) {
+        const senderUser = await storage.getUser(String(data.senderId)).catch(() => null);
+        const senderName = senderUser
+          ? `${senderUser.firstName} ${senderUser.lastName}`.trim()
+          : "Someone";
+        await notifyNewMessage(storage, {
+          receiverId: String(data.receiverId),
+          senderName,
+          preview: data.content,
+          applicationId: resolvedApplicationId,
+        }).catch((err) => console.error("Message notification failed:", err));
+      }
+
       res.json(message);
     } catch ( error) {
       handleError(res, error, "Failed to send message");
+    }
+  });
+
+  // Activity & notifications
+  authRouter.get("/notifications", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      const list = await storage.getNotificationsByUser(userId);
+      res.json(list);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch notifications");
+    }
+  });
+
+  authRouter.get("/notifications/unread-count", requireAuth, async (req, res) => {
+    try {
+      const count = await storage.getUnreadNotificationCount(req.session.userId);
+      res.json({ count });
+    } catch (error) {
+      handleError(res, error, "Failed to fetch unread count");
+    }
+  });
+
+  authRouter.patch("/notifications/:id/read", requireAuth, async (req, res) => {
+    try {
+      const updated = await storage.markNotificationRead(req.params.id, req.session.userId);
+      if (!updated) return res.status(404).json({ message: "Notification not found" });
+      res.json(updated);
+    } catch (error) {
+      handleError(res, error, "Failed to mark notification as read");
+    }
+  });
+
+  authRouter.post("/notifications/mark-all-read", requireAuth, async (req, res) => {
+    try {
+      await storage.markAllNotificationsRead(req.session.userId);
+      res.json({ success: true });
+    } catch (error) {
+      handleError(res, error, "Failed to mark all notifications as read");
+    }
+  });
+
+  authRouter.get("/activity/insights", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId;
+      const applications = await storage
+        .getApplicationsWithDetailsByApplicant(userId)
+        .catch(() => []);
+
+      let profileCompletion = 50;
+      const profile = await storage.getProfessionalProfileByUserId(userId).catch(() => null);
+      const user = await storage.getUser(userId).catch(() => null);
+      if (profile) {
+        let score = 20;
+        if (profile.headline) score += 20;
+        if (profile.bio) score += 20;
+        const skills = Array.isArray(profile.skills) ? profile.skills : [];
+        if (skills.length > 0) score += 20;
+        if (profile.resumeUrl) score += 20;
+        profileCompletion = Math.min(100, score);
+      }
+      if (user?.profilePhoto) profileCompletion = Math.min(100, profileCompletion + 10);
+
+      const base = buildRuleBasedInsight(applications, profileCompletion);
+      const enriched = await enrichInsightWithGemini(base, applications as any);
+      const pipeline = countPipeline(applications);
+
+      res.json({
+        ...enriched,
+        pipeline,
+        profileCompletion,
+        statusExplanations: {
+          applied: "In employer queue",
+          pending: "Under recruiter review",
+          reviewed: "Reviewed — awaiting next step",
+          interview: "Interview stage — check Messages",
+          accepted: "Offer received 🎉",
+          rejected: "Not selected this time",
+        },
+      });
+    } catch (error) {
+      handleError(res, error, "Failed to generate activity insights");
     }
   });
 
@@ -1485,78 +2256,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mount the admin stories route
   app.use("/api/admin/stories", adminStoriesRouter);
 
-  // Mount the applications routes with auth
-  const applicationRoutes = Router();
-  applicationRoutes.post("/quick-apply", (req, res) => {
-    upload.array('attachments', 5)(req, res, async (uploadErr: any) => {
-      if (uploadErr) {
-        const message = uploadErr?.message || 'Invalid attachment upload';
-        return res.status(400).json({
-          error: 'Attachment validation failed',
-          message,
-        });
-      }
+  const parseCompanyCulture = (raw: unknown): { tags: string[]; benefits: string[] } => {
+    if (!raw) return { tags: [], benefits: [] };
+    let parsed: unknown = raw;
+    if (typeof raw === "string") {
       try {
-        const userId = req.session.userId;
-
-        if (!userId) {
-          return res.status(401).json({ error: 'Authentication required' });
-        }
-
-        const { jobId, coverLetter } = req.body;
-        if (!jobId) {
-          return res.status(400).json({ error: 'jobId is required' });
-        }
-
-        // Get uploaded file details
-        const attachments = (req.files as Express.Multer.File[])?.map(file => ({
-          filename: file.filename,
-          originalName: file.originalname,
-          path: file.path,
-          size: file.size,
-          mimeType: file.mimetype
-        })) || [];
-
-        // Create application record using shared schema mapping
-        const [application] = await db
-          .insert(applications)
-          .values({
-            applicantId: userId, // userId is a string in shared schema
-            jobId: jobId,       // jobId is a string in shared schema
-            coverLetter,
-            resume: attachments.length > 0 ? JSON.stringify(attachments) : null,
-            status: 'review'
-          })
-          .returning();
-
-        res.status(201).json(application);
-      } catch (error) {
-        console.error('Error creating application:', error);
-
-        // Clean up any uploaded files if there was an error
-        if (req.files) {
-          const files = Array.isArray(req.files) ? req.files : Object.values(req.files);
-          await Promise.all(
-            files.map(file => {
-              const f = file as Express.Multer.File;
-              return fs.promises.unlink(f.path).catch(err =>
-                console.error(`Failed to delete file ${f.path}:`, err)
-              );
-            })
-          );
-        }
-
-        res.status(500).json({
-          error: 'Failed to submit application',
-          message: error instanceof Error ? error.message : 'Unknown error occurred'
-        });
+        parsed = JSON.parse(raw);
+      } catch {
+        return { tags: [], benefits: [] };
       }
-    });
+    }
+    if (typeof parsed !== "object" || parsed === null) return { tags: [], benefits: [] };
+    const o = parsed as { tags?: unknown; benefits?: unknown };
+    return {
+      tags: Array.isArray(o.tags) ? o.tags.map(String) : [],
+      benefits: Array.isArray(o.benefits) ? o.benefits.map(String) : [],
+    };
+  };
+
+  const toPublicCompanyPayload = (company: Record<string, unknown>, openRoles: number) => {
+    const culture = parseCompanyCulture(company.culture);
+    const cover =
+      (company.coverImage as string | undefined)
+      ?? (company.cover_image as string | undefined)
+      ?? "";
+    return {
+      id: String(company.id ?? ""),
+      name: String(company.name ?? ""),
+      industry: String(company.industry ?? ""),
+      size: String(company.size ?? ""),
+      website: String(company.website ?? ""),
+      description: String(company.description ?? ""),
+      location: String(company.location ?? ""),
+      logo: company.logo ? String(company.logo) : undefined,
+      coverImage: cover || undefined,
+      openRoles,
+      tags: culture.tags,
+      benefits: culture.benefits,
+    };
+  };
+
+  app.get("/api/companies/:id/public", async (req, res) => {
+    try {
+      const company = await storage.getCompany(req.params.id);
+      if (!company) {
+        return res.status(404).json({ message: "Company not found" });
+      }
+      const openRoles = await storage.countActiveJobsByCompany(req.params.id);
+      res.json(toPublicCompanyPayload(company as Record<string, unknown>, openRoles));
+    } catch (error) {
+      handleError(res, error, "Failed to fetch company profile");
+    }
   });
 
   // Mount the authenticated router
   app.use("/api", authRouter);
-  app.use("/api/applications", applicationRoutes);
+  app.use("/api/applications", applicationsRouter);
   
   // Log registered routes for debugging
   console.log('✅ Routes registered:');
@@ -1633,13 +2388,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
-        let profile = null;
+        let profile = await storage.getProfessionalProfileByUserId(user.id);
         let company = null;
 
         const userType = sanitized.userType || (user as any).user_type || '';
-        if (userType === 'Professional' || userType === 'job_seeker') {
-          profile = await storage.getProfessionalProfileByUserId(user.id);
-        } else if (userType === 'Employer') {
+        if (userType === 'Employer') {
           const companies = await storage.getCompaniesByOwner(user.id);
           company = companies.length > 0 ? companies[0] : null;
         }
@@ -1688,7 +2441,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         confirmPassword: z.string().optional(), // Added to allow frontend to send it without validation error
       });
 
-      console.log('AdminCreateUserSchema userType options at runtime:', adminCreateUserSchema.shape.userType._def.values);
       const data = adminCreateUserSchema.parse(req.body);
       
       const existingUser = await storage.getUserByEmail(data.email);
@@ -1748,15 +2500,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update user
   app.put("/api/admin/users/:id", requireAdmin, async (req, res) => {
     try {
-      const updates = updateUserSchema.parse(req.body);
+      const parsed = updateUserSchema.parse(req.body);
+      const { title, status, accountStatus, ...userFields } = parsed;
+      const nextStatus = accountStatus ?? status;
+
+      const updates: Record<string, unknown> = { ...userFields };
+      if (nextStatus !== undefined) {
+        updates.accountStatus = normalizeAccountStatus(nextStatus);
+      }
       
       // If updating password, hash it
-      if (updates.password) {
+      if (updates.password && typeof updates.password === 'string') {
         updates.password = await bcrypt.hash(updates.password, 10);
       }
 
       const user = await storage.updateUser(req.params.id, updates as any);
-      res.json(sanitizeUser(user));
+      
+      // Save designation/title into the professional profile for ALL users, including Employers!
+      if (title !== undefined) {
+        await storage.updateProfessionalProfile(req.params.id, { headline: title });
+      }
+      
+      // Fetch the updated profile to return it to the client immediately
+      const profile = await storage.getProfessionalProfileByUserId(req.params.id);
+
+      res.json({
+        ...sanitizeUser(user),
+        profile
+      });
     } catch (error) {
       handleError(res, error, "Failed to update user");
     }
@@ -1770,9 +2541,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Cannot delete admin user" });
       }
 
+      const existing = await storage.getUser(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
       await storage.deleteUser(req.params.id);
       res.json({ message: "User deleted successfully" });
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to delete user";
+      if (message === "User not found") {
+        return res.status(404).json({ message });
+      }
+      if (message.startsWith("Cannot delete user:")) {
+        return res.status(409).json({ message });
+      }
       handleError(res, error, "Failed to delete user");
     }
   });
@@ -1780,7 +2563,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: Get all jobs
   app.get("/api/admin/jobs", requireAdmin, async (req, res) => {
     try {
-      const { jobs } = await storage.getJobs();
+      const { jobs } = await storage.getJobs({ includeInactive: true });
       res.json(jobs);
     } catch (error) {
       handleError(res, error, "Failed to fetch jobs");
@@ -1885,11 +2668,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updates.ownerId = normalizeOptionalText(req.body?.ownerId);
       }
 
-      if (Object.keys(updates).length === 0) {
+      if (Object.keys(updates).length === 0 && !req.body.reason) {
         return res.status(400).json({ message: "No valid fields provided for update" });
       }
 
       const updatedCompany = await storage.updateCompany(req.params.id, updates as any);
+      
+      const reason = req.body.reason;
+      if (existingCompany.ownerId && reason) {
+        await storage.createNotification({
+          userId: existingCompany.ownerId as string,
+          type: "system_alert",
+          title: "Company Profile Updated",
+          body: `An administrator has updated your company profile ("${existingCompany.name}"). Reason: ${reason}`,
+          metadata: { companyId: existingCompany.id },
+          linkTab: "activity"
+        });
+      }
+
       res.json(updatedCompany);
     } catch (error) {
       handleError(res, error, "Failed to update company");
@@ -1904,7 +2700,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Company not found" });
       }
 
+      const reason = req.query.reason as string;
+
       await storage.deleteCompany(req.params.id);
+      
+      if (existingCompany.ownerId && reason) {
+        await storage.createNotification({
+          userId: existingCompany.ownerId as string,
+          type: "system_alert",
+          title: "Company Profile Deleted",
+          body: `An administrator has deleted your company profile ("${existingCompany.name}"). Reason: ${reason}`,
+          metadata: { companyId: existingCompany.id },
+          linkTab: "activity"
+        });
+      }
+
       res.json({ message: "Company deleted successfully" });
     } catch (error) {
       handleError(res, error, "Failed to delete company");
@@ -1981,6 +2791,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             applicant: applicant ? sanitizeUser(applicant) : null,
             company: company ? company : null,
             profile: profile,
+            // ── Smart multi-factor match score ──────────────────────────────────
+            matchScore: (() => {
+              const match = Storage.computeMatchScore({
+                candidateSkills: Array.isArray(profile?.skills) ? profile.skills : [],
+                jobSkills:       Array.isArray(job?.skills)     ? job.skills     : [],
+                candidateLocation: applicant?.location || null,
+                jobLocation:       (job as any)?.location || null,
+                candidateHeadline: profile?.headline || null,
+                jobTitle:          (job as any)?.title || null,
+                salaryMin:         (job as any)?.salaryMin || null,
+                salaryMax:         (job as any)?.salaryMax || null,
+              });
+              return match;
+            })(),
           };
         })
       );
@@ -2001,7 +2825,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Status is required" });
       }
       
+      const existing = await storage.getApplication(req.params.id);
       const updatedApplication = await storage.updateApplication(req.params.id, { status });
+
+      if (existing && String(status) !== String(existing.status)) {
+        await emitApplicationStatusNotification(
+          {
+            id: updatedApplication.id,
+            applicantId: String(updatedApplication.applicantId),
+            jobId: updatedApplication.jobId ? String(updatedApplication.jobId) : null,
+            status: updatedApplication.status,
+          },
+          existing.status,
+          String(status)
+        );
+      }
+
       res.json(updatedApplication);
     } catch (error) {
       handleError(res, error, "Failed to update application");
@@ -2105,9 +2944,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (approvalId.startsWith("application-")) {
         const applicationId = approvalId.replace("application-", "");
+        const existing = await storage.getApplication(applicationId);
         const updatedApplication = await storage.updateApplication(applicationId, {
           status: normalizedStatus,
         });
+        if (existing && String(normalizedStatus) !== String(existing.status)) {
+          await emitApplicationStatusNotification(
+            {
+              id: updatedApplication.id,
+              applicantId: String(updatedApplication.applicantId),
+              jobId: updatedApplication.jobId ? String(updatedApplication.jobId) : null,
+              status: updatedApplication.status,
+            },
+            existing.status,
+            normalizedStatus
+          );
+        }
         return res.json(updatedApplication);
       }
 
@@ -2127,6 +2979,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: Get analytics data (live DB-backed)
   app.get("/api/admin/analytics", requireAdmin, async (req, res) => {
     try {
+      const timeRange = (req.query.timeRange as string) || "1y";
+
       const [users, jobsResult, companies, applications] = await Promise.all([
         storage.getAllUsers(),
         storage.getJobs(),
@@ -2136,42 +2990,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const jobs = jobsResult.jobs || [];
 
-      const userGrowth = users
-        .map((user: any) => {
-          const created = user.createdAt || user.created_at;
-          const dateKey = created ? new Date(created).toISOString().slice(0, 10) : null;
-          return dateKey;
-        })
-        .filter(Boolean)
-        .reduce((acc: Record<string, number>, key: string) => {
-          acc[key] = (acc[key] || 0) + 1;
-          return acc;
-        }, {});
+      // Determine threshold date
+      const now = new Date();
+      let thresholdDate = new Date();
+      if (timeRange === "7d") thresholdDate.setDate(now.getDate() - 7);
+      else if (timeRange === "30d") thresholdDate.setDate(now.getDate() - 30);
+      else if (timeRange === "90d") thresholdDate.setDate(now.getDate() - 90);
+      else thresholdDate.setFullYear(now.getFullYear() - 1); // "1y" or default
 
-      const jobCategories = jobs.reduce((acc: Record<string, number>, job: any) => {
-        const key = job.jobType || job.job_type || "unknown";
-        acc[key] = (acc[key] || 0) + 1;
-        return acc;
-      }, {});
+      const isWithinRange = (dateStr: any) => {
+        if (!dateStr) return false;
+        return new Date(dateStr) >= thresholdDate;
+      };
+
+      const filteredUsers = users.filter((u: any) => isWithinRange(u.createdAt || u.created_at));
+      const filteredJobs = jobs.filter((j: any) => isWithinRange(j.createdAt || j.created_at));
+      const filteredApps = applications.filter((a: any) => isWithinRange(a.appliedAt || a.applied_at || a.createdAt));
+
+      // User Growth Data
+      const userGrowthMap: Record<string, { users: number, employees: number, employers: number }> = {};
+      
+      filteredUsers.forEach((u: any) => {
+        const d = new Date(u.createdAt || u.created_at || Date.now());
+        let label = "";
+        if (timeRange === "7d" || timeRange === "30d") {
+          label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        } else {
+          label = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        }
+        
+        if (!userGrowthMap[label]) {
+          userGrowthMap[label] = { users: 0, employees: 0, employers: 0 };
+        }
+        userGrowthMap[label].users++;
+        const t = u.userType || u.user_type;
+        if (t === "Employee") userGrowthMap[label].employees++;
+        if (t === "Employer") userGrowthMap[label].employers++;
+      });
+      
+      const userGrowth = Object.keys(userGrowthMap).map(month => ({
+        month,
+        users: userGrowthMap[month].users,
+        employees: userGrowthMap[month].employees,
+        employers: userGrowthMap[month].employers
+      }));
+
+      // Job Categories
+      const jobCatMap: Record<string, number> = {};
+      filteredJobs.forEach((j: any) => {
+        const cat = j.jobType || j.job_type || "Other";
+        jobCatMap[cat] = (jobCatMap[cat] || 0) + 1;
+      });
+      const jobCategories = Object.keys(jobCatMap).map(category => ({
+        name: category,
+        value: jobCatMap[category]
+      }));
 
       const recentActivities = [
-        ...users.slice(0, 5).map((user: any) => ({
+        ...filteredUsers.map((user: any) => ({
           type: "user",
           action: "User registered",
-          label: user.email,
+          user: user.email || user.firstName || "New User",
           createdAt: user.createdAt || user.created_at || null,
         })),
-        ...jobs.slice(0, 5).map((job: any) => ({
+        ...filteredJobs.map((job: any) => ({
           type: "job",
           action: "Job posted",
-          label: job.title,
+          user: job.title,
           createdAt: job.createdAt || job.created_at || null,
         })),
-        ...applications.slice(0, 5).map((application: any) => ({
+        ...filteredApps.map((application: any) => ({
           type: "application",
           action: "Application submitted",
-          label: String(application.status || "applied"),
-          createdAt: application.appliedAt || application.applied_at || null,
+          user: String(application.status || "applied"),
+          createdAt: application.appliedAt || application.applied_at || application.createdAt || null,
         })),
       ]
         .sort((a, b) => {
@@ -2179,24 +3071,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
           return bTime - aTime;
         })
-        .slice(0, 20);
+        .slice(0, 5);
 
-      res.json({
-        userGrowth: Object.entries(userGrowth).map(([date, count]) => ({ date, count })),
-        jobCategories: Object.entries(jobCategories).map(([category, count]) => ({ category, count })),
+      const successfulApps = filteredApps.filter((a: any) => 
+        ["hired", "accepted", "approved"].includes(String(a.status || "").toLowerCase())
+      ).length;
+      
+      const successRate = filteredApps.length > 0 
+        ? Math.round((successfulApps / filteredApps.length) * 100) 
+        : 0;
+        
+      const avgAppsPerJob = filteredJobs.length > 0 ? filteredApps.length / filteredJobs.length : 0;
+      const employerSatisfaction = Math.min(100, Math.round(50 + (avgAppsPerJob * 10)));
+      const employeeSatisfaction = Math.min(100, Math.round(50 + (filteredJobs.length * 2)));
+
+      return res.json({
+        userGrowth,
+        jobCategories,
         recentActivities,
-        performanceMetrics: {
-          totalUsers: users.length,
-          activeJobs: jobs.filter((job: any) => job.isActive || job.is_active).length,
-          totalCompanies: companies.length,
-          totalApplications: applications.length,
-        },
         stats: {
-          users: users.length,
-          jobs: jobs.length,
-          companies: companies.length,
-          applications: applications.length,
+          users: filteredUsers.length,
+          jobs: filteredJobs.length,
+          companies: companies.filter((c: any) => isWithinRange(c.createdAt || c.created_at)).length,
+          applications: filteredApps.length,
+          successRate: successRate,
         },
+        performanceMetrics: {
+          employeeSatisfaction,
+          employerSatisfaction,
+          placementRate: successRate,
+          avgTimeToHire: 14,
+          timeToHireChange: -2
+        }
       });
     } catch (error) {
       handleError(res, error, "Failed to fetch analytics");
