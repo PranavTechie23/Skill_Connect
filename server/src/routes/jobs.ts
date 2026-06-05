@@ -73,15 +73,16 @@ router.get("/", async (req: CustomRequest, res: Response) => {
     // Enrich job data
     const enrichedJobs = await Promise.all(result.jobs.map(async (job) => {
       try {
-        const [company, employer] = await Promise.all([
+        const [company, employer, jobApplications] = await Promise.all([
           job.companyId ? storage.getCompany(job.companyId).catch(() => null) : null,
-          job.employerId ? storage.getUser(job.employerId).catch(() => null) : null
+          job.employerId ? storage.getUser(job.employerId).catch(() => null) : null,
+          storage.getApplicationsByJob(String(job.id)).catch(() => []),
         ]);
 
         return {
           ...job,
           isActive: job.isActive ?? true,
-          applicationCount: Math.floor(Math.random() * 20),
+          applicationCount: Array.isArray(jobApplications) ? jobApplications.length : 0,
           company,
           employer: employer ? { ...employer, password: undefined } : null
         };
@@ -90,7 +91,7 @@ router.get("/", async (req: CustomRequest, res: Response) => {
         return {
           ...job,
           isActive: job.isActive ?? true,
-          applicationCount: Math.floor(Math.random() * 20),
+          applicationCount: 0,
           company: null,
           employer: null
         };
