@@ -1,8 +1,73 @@
+import { startGlobalLoading, stopGlobalLoading } from "./loading-store";
+
 // API configuration
 // In development, use relative paths to let Vite's dev-server proxy handle requests
 // API_BASE_URL: only use when explicitly provided via VITE_API_URL
 // In production, API_BASE_URL should be set to the actual API server URL
 export const API_BASE_URL = import.meta.env.DEV ? "" : (import.meta.env.VITE_API_URL ?? "");
+
+/** Set on a request to opt out of the global overlay loader (e.g. polling). */
+export const SKIP_GLOBAL_LOADER_HEADER = "X-Skip-Global-Loader";
+
+/** Set on a GET request to show the global overlay (exports, heavy reads). */
+export const SHOW_GLOBAL_LOADER_HEADER = "X-Show-Global-Loader";
+
+/** Employee dashboard reads — pages use inline skeletons instead. */
+const SILENT_LOADER_PATHS = [
+	"/api/auth/me",
+	"/api/auth/logout",
+	"/api/auth/login",
+	"/api/auth/register",
+	"/api/dashboard",
+	"/api/applications",
+	"/api/jobs",
+	"/api/messages",
+	"/api/notifications",
+	"/api/activity/insights",
+];
+
+function requestPath(url: string): string {
+	if (url.startsWith("http")) {
+		try {
+			return new URL(url).pathname;
+		} catch {
+			return url.split("?")[0] ?? url;
+		}
+	}
+	return url.split("?")[0] ?? url;
+}
+
+function shouldSkipGlobalLoader(url: string, options?: RequestInit): boolean {
+	const headers = new Headers(options?.headers as HeadersInit);
+	if (headers.get(SKIP_GLOBAL_LOADER_HEADER) === "true") return true;
+
+	const path = requestPath(url);
+	if (SILENT_LOADER_PATHS.some((silent) => path === silent || path.endsWith(silent))) {
+		return true;
+	}
+
+	const method = (options?.method ?? "GET").toUpperCase();
+	// Reads use inline/skeleton loaders on pages; polling and parallel GETs stay quiet.
+	if (method === "GET" || method === "HEAD") {
+		return headers.get(SHOW_GLOBAL_LOADER_HEADER) !== "true";
+	}
+
+	return false;
+}
+
+/** Merge options with the skip-global-loader header (for polling, auth checks, etc.). */
+export function withSkipGlobalLoader(options: RequestInit = {}): RequestInit {
+	const headers = new Headers(options.headers as HeadersInit);
+	headers.set(SKIP_GLOBAL_LOADER_HEADER, "true");
+	return { ...options, headers };
+}
+
+/** Opt in to the global overlay for a slow GET (e.g. export). */
+export function withShowGlobalLoader(options: RequestInit = {}): RequestInit {
+	const headers = new Headers(options.headers as HeadersInit);
+	headers.set(SHOW_GLOBAL_LOADER_HEADER, "true");
+	return { ...options, headers };
+}
 
 export const apiFetch = async (url: string, options?: RequestInit) => {
 	// Build URL: if absolute already provided, use it. Otherwise prefer relative path
@@ -13,32 +78,29 @@ export const apiFetch = async (url: string, options?: RequestInit) => {
 		? `${API_BASE_URL}${url}`
 		: url; // relative
 
-	// Use session-based authentication (cookies) instead of Bearer token
-	let headers: Record<string, string> = {};
+	const skipLoader = shouldSkipGlobalLoader(fullUrl, options);
+	if (!skipLoader) startGlobalLoading();
 
 	try {
 		const response = await fetch(fullUrl, {
 			...options,
-			// Merge caller-provided headers with our defaults (currently none).
-			headers: { ...(options && (options as any).headers), ...headers },
-			credentials: options?.credentials ?? "include", // Allow overriding default 'include'
+			headers: options?.headers,
+			credentials: options?.credentials ?? "include",
 		});
-		
-		// Check if response is ok (status in the range 200-299)
+
 		if (!response.ok) {
 			console.warn(`API request failed: ${fullUrl}`, response.status, response.statusText);
-			// Still return the response so the caller can handle it
 		}
-		
+
 		return response;
-	} catch (error: any) {
-		// Ignore AbortError logs to avoid noise from React StrictMode double-effects
-		if (error?.name === "AbortError") {
+	} catch (error: unknown) {
+		if ((error as { name?: string })?.name === "AbortError") {
 			throw error;
 		}
 		console.error(`API fetch error for ${fullUrl}:`, error);
-		// Re-throw the error for the caller to handle
 		throw error;
+	} finally {
+		if (!skipLoader) stopGlobalLoading();
 	}
 };
 
