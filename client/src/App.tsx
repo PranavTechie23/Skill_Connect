@@ -28,6 +28,8 @@ import Login from "./pages/login";
 import Signup from "./pages/signup";
 import Onboarding from "./pages/onboarding";
 import Dashboards from "./pages/dashboards";
+import PrivacyPolicy from "./pages/privacy-policy";
+import TermsOfService from "./pages/terms-of-service";
 import EmployeeDashboard from "./pages/employee/employeeDashboard";
 import EmployerDashboard from "./pages/employer/EmployerDashboard";
 import EmployeeApplications from "./pages/employee/applications";
@@ -59,6 +61,8 @@ const ROUTES = {
     DASHBOARDS: "/dashboards",
     APPLICATIONS: "/applications",
     ONBOARDING: "/onboarding",
+    PRIVACY_POLICY: "/privacy-policy",
+    TERMS_OF_SERVICE: "/terms-of-service",
     NOT_FOUND: "/404",
   },
   EMPLOYEE: {
@@ -143,6 +147,8 @@ const routeConfig = {
     { path: ROUTES.PUBLIC.DASHBOARDS, element: <Dashboards /> },
     { path: ROUTES.PUBLIC.APPLICATIONS, element: <EmployeeApplications /> },
     { path: ROUTES.PUBLIC.ONBOARDING, element: <Onboarding /> },
+    { path: ROUTES.PUBLIC.PRIVACY_POLICY, element: <PrivacyPolicy /> },
+    { path: ROUTES.PUBLIC.TERMS_OF_SERVICE, element: <TermsOfService /> },
   ],
   employee: [
     { path: ROUTES.EMPLOYEE.DASHBOARD, element: <EmployeeDashboard /> },

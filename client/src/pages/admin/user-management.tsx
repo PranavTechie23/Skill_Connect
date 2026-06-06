@@ -1,13 +1,34 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Users, Search, Eye, Edit, Trash2, Ban,
   CheckCircle, Plus, RefreshCw, AlertTriangle,
-  Shield, Activity, Clock, Zap, TrendingUp, X, Save
+  Shield, Activity, Clock, Zap, TrendingUp, X, Save, Loader2,
+  ChevronLeft, ChevronRight, ChevronDown
 } from 'lucide-react';
-import { adminService } from '@/lib/admin-service';
+import { Skeleton } from '@/components/ui/skeleton';
+import { adminService, type UserAccountStatus } from '@/lib/admin-service';
 import { useToast } from '@/hooks/use-toast';
+import { scrollDashboardToTop } from '@/lib/scroll-to-top';
 import AdminBackButton, { useAdminEmbedded } from '@/components/AdminBackButton';
 import { useTheme } from '@/components/theme-provider';
+import {
+  adminFormInputClass,
+  adminFormLabelClass,
+  adminFormModalBodyScrollClass,
+  adminFormModalCancelBtnClass,
+  adminFormModalCloseBtnClass,
+  adminFormModalFooterClass,
+  adminFormModalFormClass,
+  adminFormModalHeaderClass,
+  adminFormModalHeaderGradientClass,
+  adminFormModalIconWrapClass,
+  adminFormModalOverlayClass,
+  adminFormModalPanelClass,
+  adminFormModalSectionClass,
+  adminFormModalSubmitBtnClass,
+  adminFormModalSubtitleClass,
+  adminFormModalTitleClass,
+} from '@/components/admin/admin-form-modal-styles';
 
 // Types
 interface User {
@@ -31,7 +52,8 @@ interface User {
 }
 
 interface DisplayUser extends User {
-  status: 'active' | 'suspended' | 'pending';
+  status: UserAccountStatus;
+  accountStatus?: UserAccountStatus;
   stats?: {
     applications?: number;
     interviews?: number;
@@ -39,6 +61,21 @@ interface DisplayUser extends User {
     hires?: number;
   };
 }
+
+type ApiUserType = 'Professional' | 'Employer' | 'admin';
+
+const normalizeUserTypeForDisplay = (userType: string | undefined | null): ApiUserType => {
+  if (!userType) return 'Professional';
+  const normalized = userType.trim().toLowerCase();
+  if (normalized === 'employer') return 'Employer';
+  if (normalized === 'admin') return 'admin';
+  if (normalized === 'professional' || normalized === 'job_seeker') return 'Professional';
+  if (userType === 'Employer' || userType === 'Professional' || userType === 'admin') return userType;
+  return 'Professional';
+};
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
 
 // Helper Functions
 const formatDate = (date: string | undefined | null) => {
@@ -124,7 +161,7 @@ const UserCard = ({
   return (
     <div
       className={`${
-        darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'
+        darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'
       } rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all relative group border-2`}
     >
       <div className="flex items-start gap-4">
@@ -151,7 +188,7 @@ const UserCard = ({
           </div>
 
           {/* Stats and Info */}
-          <div className="mt-4 grid grid-cols-2 gap-4">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
               <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                 Designation
@@ -279,7 +316,7 @@ const ViewUserModal = ({
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div 
-        className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'} rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-2`}
+        className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white'} rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-2`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-8">
@@ -312,7 +349,7 @@ const ViewUserModal = ({
             </div>
 
             {/* Details Grid */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
                 <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Designation</p>
                 <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{designation}</p>
@@ -432,130 +469,150 @@ const AddUserModal = ({
     }
   };
 
+  const labelClass = adminFormLabelClass(darkMode);
+  const inputClass = adminFormInputClass(darkMode);
+
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onCancel}>
+    <div className={adminFormModalOverlayClass(darkMode)} onClick={onCancel}>
       <div 
-        className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'} rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-2`}
+        className={adminFormModalPanelClass(darkMode)}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>Add New User</h2>
+        <div className={`relative overflow-hidden border-b px-8 py-7 ${
+          darkMode ? 'border-white/10 bg-slate-900/40' : 'border-violet-200/70 bg-white/75'
+        }`}>
+          <div className={`pointer-events-none absolute inset-0 ${
+            darkMode
+              ? 'bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.28),transparent_32%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_28%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.78))]'
+              : 'bg-[radial-gradient(circle_at_top_left,rgba(192,132,252,0.18),transparent_30%),radial-gradient(circle_at_top_right,rgba(96,165,250,0.1),transparent_26%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(245,243,255,0.92))]'
+          }`} />
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="flex items-start gap-5">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-br from-fuchsia-500 via-violet-500 to-indigo-500 text-white shadow-[0_18px_45px_rgba(139,92,246,0.45)] ring-1 ring-white/20">
+                <Users className="h-7 w-7" />
+              </div>
+              <div>
+                <h2 className="text-4xl font-black tracking-tight">Add New User</h2>
+                <p className={`mt-2 text-base font-medium ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                  Create a new platform account with role, contact, and skill details.
+                </p>
+              </div>
+            </div>
             <button
               onClick={onCancel}
-              className={`p-2 rounded-lg transition-all ${
-                darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+              className={`grid h-10 w-10 place-items-center rounded-xl transition-all ${
+                darkMode ? 'text-slate-400 hover:bg-white/10 hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
               <X className="w-6 h-6" />
             </button>
           </div>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="max-h-[calc(92vh-150px)] overflow-y-auto">
+          <form onSubmit={handleSubmit} className="space-y-6 px-8 py-7">
+            <div className={`rounded-[1.5rem] border p-6 ${
+              darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-white/80 bg-white/90 shadow-[0_18px_50px_rgba(148,163,184,0.12)]'
+            }`}>
+              <div className="mb-6">
+                <p className={`text-xs font-semibold uppercase tracking-[0.24em] ${darkMode ? 'text-violet-200/80' : 'text-violet-700/80'}`}>
+                  User Details
+                </p>
+                <p className={`mt-1 text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Keep the information accurate and easy to review.
+                </p>
+              </div>
+              <div className="space-y-5">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                <label className={labelClass}>
                   First Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.firstName}
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  className={`w-full px-4 py-3 rounded-xl border-2 ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                  } focus:border-blue-500 outline-none`}
+                  className={inputClass}
                   required
                 />
               </div>
               <div>
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                <label className={labelClass}>
                   Last Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.lastName}
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  className={`w-full px-4 py-3 rounded-xl border-2 ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                  } focus:border-blue-500 outline-none`}
+                  className={inputClass}
                   required
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                <label className={labelClass}>
                   Email <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className={`w-full px-4 py-3 rounded-xl border-2 ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                  } focus:border-blue-500 outline-none`}
+                  className={inputClass}
                   required
                 />
               </div>
               <div>
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                <label className={labelClass}>
                   Password <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className={`w-full px-4 py-3 rounded-xl border-2 ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                  } focus:border-blue-500 outline-none`}
+                  className={inputClass}
                   required
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                <label className={labelClass}>
                   Designation (Optional)
                 </label>
                 <input
                   type="text"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className={`w-full px-4 py-3 rounded-xl border-2 ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                  } focus:border-blue-500 outline-none`}
+                  className={inputClass}
                   placeholder="e.g., Software Engineer"
                 />
               </div>
               <div>
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                <label className={labelClass}>
                   Location (Optional)
                 </label>
                 <input
                   type="text"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className={`w-full px-4 py-3 rounded-xl border-2 ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                  } focus:border-blue-500 outline-none`}
+                  className={inputClass}
                   placeholder="e.g., Pune, India"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                <label className={labelClass}>
                   User Type <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formData.userType}
                   onChange={(e) => setFormData({ ...formData, userType: e.target.value as any })}
-                  className={`w-full px-4 py-3 rounded-xl border-2 ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                  } focus:border-blue-500 outline-none`}
+                  className={inputClass}
                 >
                   <option value="Professional">Professional</option>
                   <option value="Employer">Employer</option>
@@ -563,23 +620,21 @@ const AddUserModal = ({
                 </select>
               </div>
               <div>
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                <label className={labelClass}>
                   Phone Number (Optional)
                 </label>
                 <input
                   type="tel"
                   value={formData.telephoneNumber}
                   onChange={(e) => setFormData({ ...formData, telephoneNumber: e.target.value })}
-                  className={`w-full px-4 py-3 rounded-xl border-2 ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                  } focus:border-blue-500 outline-none`}
+                  className={inputClass}
                   placeholder="e.g., +91 9876543210"
                 />
               </div>
             </div>
 
             <div>
-              <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              <label className={labelClass}>
                 Skills (Optional)
               </label>
               <div className="flex gap-2 mb-2">
@@ -588,15 +643,13 @@ const AddUserModal = ({
                   value={skillInput}
                   onChange={(e) => setSkillInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
-                  className={`flex-1 px-4 py-3 rounded-xl border-2 ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                  } focus:border-blue-500 outline-none`}
+                  className={inputClass}
                   placeholder="Type a skill and press Enter"
                 />
                 <button
                   type="button"
                   onClick={addSkill}
-                  className="px-6 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all"
+                  className="px-8 rounded-2xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all"
                 >
                   Add
                 </button>
@@ -620,21 +673,17 @@ const AddUserModal = ({
                 ))}
               </div>
             </div>
+              </div>
+            </div>
 
-            <div className="flex gap-4 pt-6">
-              <button
-                type="button"
-                onClick={onCancel}
-                className={`flex-1 px-6 py-4 rounded-xl font-bold transition-all ${
-                  darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                }`}
-              >
+            <div className={`${adminFormModalFooterClass(darkMode)} flex-col-reverse sm:flex-row`}>
+              <button type="button" onClick={onCancel} className={adminFormModalCancelBtnClass(darkMode)}>
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-blue-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className={`${adminFormModalSubmitBtnClass()} flex items-center justify-center gap-2 disabled:cursor-not-allowed`}
               >
                 {saving ? (
                   <>
@@ -656,7 +705,7 @@ const AddUserModal = ({
   );
 };
 
-// Confirmation Modal
+// Edit User Modal
 const EditUserModal = ({ 
   user, 
   onSave, 
@@ -668,15 +717,35 @@ const EditUserModal = ({
   onCancel: () => void; 
   darkMode: boolean; 
 }) => {
-  const [formData, setFormData] = useState({
-    firstName: user.firstName || (user as any).first_name || '',
-    lastName: user.lastName || (user as any).last_name || '',
-    email: user.email || '',
-    title: (user as any).title || (user as any).designation || '',
-    location: user.location || '',
-    userType: user.userType || (user as any).user_type || 'Professional'
+  const readAccountStatus = (source: DisplayUser): UserAccountStatus => {
+    const raw = source.accountStatus ?? source.status ?? (source as { account_status?: string }).account_status;
+    const normalized = String(raw ?? 'active').toLowerCase();
+    if (normalized === 'flagged' || normalized === 'suspended' || normalized === 'pending') {
+      return normalized;
+    }
+    return 'active';
+  };
+
+  const buildFormData = (source: DisplayUser) => ({
+    firstName: source.firstName || (source as any).first_name || '',
+    lastName: source.lastName || (source as any).last_name || '',
+    email: source.email || '',
+    title:
+      (source as any).title ||
+      (source as any).designation ||
+      (source as any).profile?.headline ||
+      '',
+    location: source.location || '',
+    userType: normalizeUserTypeForDisplay(source.userType || (source as any).user_type),
+    accountStatus: readAccountStatus(source),
   });
+
+  const [formData, setFormData] = useState(() => buildFormData(user));
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setFormData(buildFormData(user));
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -688,135 +757,178 @@ const EditUserModal = ({
     }
   };
 
+  const labelClass = adminFormLabelClass(darkMode);
+  const inputClass = adminFormInputClass(darkMode);
+
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onCancel}>
+    <div className={adminFormModalOverlayClass(darkMode)} onClick={onCancel}>
       <div 
-        className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'} rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-2`}
+        className={adminFormModalPanelClass(darkMode)}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-8">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h2 className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>Edit User</h2>
+        <div className={`relative overflow-hidden border-b px-8 py-7 ${
+          darkMode ? 'border-white/10 bg-slate-900/40' : 'border-violet-200/70 bg-white/75'
+        }`}>
+          <div className={`pointer-events-none absolute inset-0 ${
+            darkMode
+              ? 'bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.28),transparent_32%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_28%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.78))]'
+              : 'bg-[radial-gradient(circle_at_top_left,rgba(192,132,252,0.18),transparent_30%),radial-gradient(circle_at_top_right,rgba(96,165,250,0.1),transparent_26%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(245,243,255,0.92))]'
+          }`} />
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="flex items-start gap-5">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-br from-blue-500 via-indigo-500 to-violet-500 text-white shadow-[0_18px_45px_rgba(99,102,241,0.45)] ring-1 ring-white/20">
+                <Edit className="h-7 w-7" />
+              </div>
+              <div>
+                <h2 className="text-4xl font-black tracking-tight">Edit User</h2>
+                <p className={`mt-2 text-base font-medium ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                  Update the user's profile information, roles, and status.
+                </p>
+              </div>
+            </div>
             <button
               onClick={onCancel}
-              className={`p-2 rounded-lg transition-all ${
-                darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+              className={`grid h-10 w-10 place-items-center rounded-xl transition-all ${
+                darkMode ? 'text-slate-400 hover:bg-white/10 hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
               }`}
             >
               <X className="w-6 h-6" />
             </button>
           </div>
+        </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  First Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  className={`w-full px-4 py-3 rounded-xl border-2 ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                  } focus:border-blue-500 outline-none`}
-                  required
-                />
+        <div className="max-h-[calc(92vh-150px)] overflow-y-auto">
+          <form onSubmit={handleSubmit} className="space-y-6 px-8 py-7">
+            <div className={`rounded-[1.5rem] border p-6 ${
+              darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-white/80 bg-white/90 shadow-[0_18px_50px_rgba(148,163,184,0.12)]'
+            }`}>
+              <div className="mb-6">
+                <p className={`text-xs font-semibold uppercase tracking-[0.24em] ${darkMode ? 'text-violet-200/80' : 'text-violet-700/80'}`}>
+                  Profile & Role
+                </p>
+                <p className={`mt-1 text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Manage identifying details and account status.
+                </p>
               </div>
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  className={`w-full px-4 py-3 rounded-xl border-2 ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                  } focus:border-blue-500 outline-none`}
-                  required
-                />
+              
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className={labelClass}>
+                      First Name
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.firstName}
+                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                      className={inputClass}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>
+                      Last Name
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.lastName}
+                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                      className={inputClass}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={labelClass}>
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className={inputClass}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClass}>
+                    Designation/Title
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    className={inputClass}
+                    placeholder="e.g., Software Engineer, HR Manager"
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClass}>
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    className={inputClass}
+                    placeholder="e.g., Pune, India"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className={labelClass}>
+                      Account status
+                    </label>
+                    <select
+                      value={formData.accountStatus}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          accountStatus: e.target.value as UserAccountStatus,
+                        })
+                      }
+                      className={inputClass}
+                    >
+                      <option value="active">Active</option>
+                      <option value="pending">Pending review</option>
+                      <option value="flagged">Flagged (AI / moderation)</option>
+                      <option value="suspended">Suspended</option>
+                    </select>
+                    <p className={`mt-1.5 text-[11px] font-medium ${darkMode ? 'text-red-400/80' : 'text-red-500/80'}`}>
+                      Flagged/suspended users cannot sign in.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>
+                      User Type
+                    </label>
+                    <select
+                      value={formData.userType}
+                      onChange={(e) => setFormData({ ...formData, userType: e.target.value as ApiUserType })}
+                      className={inputClass}
+                    >
+                      <option value="Professional">Professional</option>
+                      <option value="Employer">Employer</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div>
-              <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Email
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className={`w-full px-4 py-3 rounded-xl border-2 ${
-                  darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                } focus:border-blue-500 outline-none`}
-                required
-              />
-            </div>
-
-            <div>
-              <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Designation/Title
-              </label>
-              <input
-                type="text"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className={`w-full px-4 py-3 rounded-xl border-2 ${
-                  darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                } focus:border-blue-500 outline-none`}
-                placeholder="e.g., Software Engineer, HR Manager"
-              />
-            </div>
-
-            <div>
-              <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Location
-              </label>
-              <input
-                type="text"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                className={`w-full px-4 py-3 rounded-xl border-2 ${
-                  darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                } focus:border-blue-500 outline-none`}
-              />
-            </div>
-
-            <div>
-              <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                User Type
-              </label>
-              <select
-                value={formData.userType}
-                onChange={(e) => setFormData({ ...formData, userType: e.target.value })}
-                className={`w-full px-4 py-3 rounded-xl border-2 ${
-                  darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                } focus:border-blue-500 outline-none`}
-              >
-                <option value="Professional">Professional</option>
-                <option value="Employer">Employer</option>
-                <option value="Admin">Admin</option>
-              </select>
-            </div>
-
-            {/* Buttons */}
-            <div className="flex gap-4 pt-4">
-              <button
-                type="button"
-                onClick={onCancel}
-                className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all ${
-                  darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                }`}
-              >
+            <div className={`${adminFormModalFooterClass(darkMode)} flex-col-reverse sm:flex-row mt-6 pt-6`}>
+              <button type="button" onClick={onCancel} className={adminFormModalCancelBtnClass(darkMode)}>
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className={`${adminFormModalSubmitBtnClass()} flex items-center justify-center gap-2`}
               >
                 {saving ? (
                   <>
@@ -851,7 +963,7 @@ const ConfirmationModal = ({
   darkMode: boolean; 
 }) => (
   <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-    <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'} rounded-3xl shadow-2xl max-w-md w-full p-8 border-2`}>
+    <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white'} rounded-3xl shadow-2xl max-w-md w-full p-8 border-2`}>
       <div className="text-center">
         <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-gradient-to-br ${
           darkMode ? 'from-red-500/20 to-red-900/20' : 'from-red-100 to-red-200'
@@ -887,8 +999,13 @@ const ConfirmationModal = ({
   </div>
 );
 
+type UserManagementProps = {
+  quickActionIntent?: string | null;
+  onQuickActionConsumed?: () => void;
+};
+
   // Main Component
-const UserManagement = () => {
+const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: UserManagementProps = {}) => {
   const { theme } = useTheme();
   const { embedded } = useAdminEmbedded();
   const darkMode = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
@@ -901,12 +1018,32 @@ const UserManagement = () => {
   const [showAddUser, setShowAddUser] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'Professional' | 'Employer'>('all');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'pending' | 'suspended'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | UserAccountStatus>('all');
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const { toast } = useToast();
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target as Node)) {
+        setStatusDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     loadUsers();
   }, []);
+
+  useEffect(() => {
+    if (quickActionIntent !== 'add-user') return;
+    setShowAddUser(true);
+    onQuickActionConsumed?.();
+  }, [quickActionIntent, onQuickActionConsumed]);
 
   const loadUsers = async () => {
     try {
@@ -933,33 +1070,37 @@ const UserManagement = () => {
         // Map both camelCase and snake_case fields
         const firstName = user.firstName || (user as any).first_name || '';
         const lastName = user.lastName || (user as any).last_name || '';
-        const userType = user.userType || (user as any).user_type || 'Professional';
         const createdAt = user.createdAt || (user as any).created_at;
+        const validUserType = normalizeUserTypeForDisplay(user.userType || (user as any).user_type);
         
-        const validUserType = ['Professional', 'Employer', 'Admin', 'job_seeker', 'professional'].includes(userType) 
-          ? (userType === 'job_seeker' || userType === 'professional' ? 'Professional' : userType) as 'Professional' | 'Employer' | 'Admin'
-          : 'Professional';
-        
+        const accountStatus = (user.accountStatus ??
+          user.status ??
+          (user as { account_status?: string }).account_status ??
+          'active') as UserAccountStatus;
+
         return {
           ...user,
           firstName: firstName,
           lastName: lastName,
           userType: validUserType,
           createdAt: createdAt,
-          status: 'active',
+          accountStatus,
+          status: accountStatus,
           stats: validUserType === 'Professional' 
             ? { applications: 0, interviews: 0 }
             : { jobs: 0, hires: 0 }
         };
       });
       setUsers(displayUsers);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load users:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load users. Please try again.',
-        variant: 'destructive',
-      });
+      if (!error?.message?.includes("401")) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load users. Please try again.',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -970,7 +1111,8 @@ const UserManagement = () => {
       await adminService.createUser(data);
       toast({
         title: 'Success',
-        description: 'User created successfully'
+        description: 'User created successfully',
+        variant: 'success',
       });
       setShowAddUser(false);
       loadUsers();
@@ -978,48 +1120,52 @@ const UserManagement = () => {
       console.error('Failed to create user:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create user. Please check if email already exists.',
+        description: getErrorMessage(error, 'Failed to create user. Please check if the email already exists.'),
         variant: 'destructive',
       });
+      throw error;
     }
   };
 
   const handleUpdateUser = async (data: any): Promise<void> => {
     if (!userToEdit) return;
-    
+
     try {
-      const updateData: any = {
+      await adminService.updateUser(userToEdit.id, {
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
-        title: data.title,
+        title: data.title?.trim() || undefined,
         location: data.location,
-        userType: data.userType
-      };
-      
-      await adminService.updateUser(userToEdit.id, updateData);
+        userType: normalizeUserTypeForDisplay(data.userType),
+        accountStatus: data.accountStatus,
+      });
+
       toast({
         title: 'Success',
-        description: 'User updated successfully'
+        description: 'User updated successfully',
+        variant: 'success',
       });
       setUserToEdit(null);
       loadUsers();
     } catch (error) {
       console.error('Failed to update user:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to update user. Please try again.',
+        title: 'Update failed',
+        description: getErrorMessage(error, 'Failed to update user. Please try again.'),
         variant: 'destructive',
       });
+      throw error;
     }
   };
 
-  const handleDeleteUser = async (id: string): Promise<void> => {
+  const handleDeleteUser = async (userId: string): Promise<void> => {
     try {
-      await adminService.deleteUser(id);
+      await adminService.deleteUser(userId);
       toast({
         title: 'Success',
-        description: 'User deleted successfully'
+        description: 'User deleted successfully',
+        variant: 'success',
       });
       loadUsers();
       setUserToDelete(null);
@@ -1027,7 +1173,7 @@ const UserManagement = () => {
       console.error('Failed to delete user:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete user. Please try again.',
+        description: getErrorMessage(error, 'Failed to delete user. Please try again.'),
         variant: 'destructive',
       });
     }
@@ -1044,18 +1190,27 @@ const UserManagement = () => {
     return matchesSearch && matchesType && matchesStatus;
   });
 
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterType, filterStatus]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    scrollDashboardToTop();
+  };
+
   const totalUsers = users.length;
   const activeUsers = users.filter(u => u.status === 'active').length;
   const pendingUsers = users.filter(u => u.status === 'pending').length;
   const suspendedUsers = users.filter(u => u.status === 'suspended').length;
+  const flaggedUsers = users.filter(u => u.status === 'flagged').length;
 
-  if (loading) {
-    return (
-      <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-        <div className={`animate-pulse-slow ${darkMode ? 'text-white' : 'text-gray-900'}`}>Loading...</div>
-      </div>
-    );
-  }
+  const skeletonTone = darkMode ? 'bg-gray-700' : 'bg-gray-200';
+  const statLabels = ['Total Users', 'Active', 'Pending', 'Suspended', 'Flagged'];
 
   return (
     <>
@@ -1129,9 +1284,27 @@ const UserManagement = () => {
             </button>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} rounded-3xl p-6 shadow-lg border-2 hover:shadow-xl transition-all`}>
+          {/* Stats Cards — Responsive 2-col/3-col/5-col flow */}
+          <div className="mb-8" aria-busy={loading}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-6 [&>div]:min-w-0">
+            {loading
+              ? statLabels.map((label, index) => (
+                  <div
+                    key={index}
+                    className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl p-4 md:p-5 lg:p-6 shadow-lg border-2 min-w-0`}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <Skeleton className={`h-12 w-12 rounded-2xl ${skeletonTone}`} />
+                      <Skeleton className={`h-5 w-5 rounded-full ${skeletonTone}`} />
+                    </div>
+                    <Skeleton className={`h-4 w-24 mb-3 ${skeletonTone}`} />
+                    <Skeleton className={`h-10 w-16 ${skeletonTone}`} />
+                    <span className="sr-only">Loading {label}</span>
+                  </div>
+                ))
+              : (
+                <>
+            <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl p-4 md:p-5 lg:p-6 shadow-lg border-2 hover:shadow-xl transition-all min-w-0`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg">
                   <Users className="w-6 h-6 text-white" />
@@ -1142,7 +1315,7 @@ const UserManagement = () => {
               <p className={`text-4xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{totalUsers}</p>
             </div>
 
-            <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} rounded-3xl p-6 shadow-lg border-2 hover:shadow-xl transition-all`}>
+            <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl p-4 md:p-5 lg:p-6 shadow-lg border-2 hover:shadow-xl transition-all min-w-0`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg">
                   <CheckCircle className="w-6 h-6 text-white" />
@@ -1153,7 +1326,7 @@ const UserManagement = () => {
               <p className={`text-4xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{activeUsers}</p>
             </div>
 
-            <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} rounded-3xl p-6 shadow-lg border-2 hover:shadow-xl transition-all`}>
+            <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl p-4 md:p-5 lg:p-6 shadow-lg border-2 hover:shadow-xl transition-all min-w-0`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl shadow-lg">
                   <Clock className="w-6 h-6 text-white" />
@@ -1164,7 +1337,7 @@ const UserManagement = () => {
               <p className={`text-4xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{pendingUsers}</p>
             </div>
 
-            <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} rounded-3xl p-6 shadow-lg border-2 hover:shadow-xl transition-all`}>
+            <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl p-4 md:p-5 lg:p-6 shadow-lg border-2 hover:shadow-xl transition-all min-w-0`}>
               <div className="flex items-center justify-between mb-4">
                 <div className="p-3 bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl shadow-lg">
                   <Ban className="w-6 h-6 text-white" />
@@ -1174,10 +1347,24 @@ const UserManagement = () => {
               <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm font-semibold mb-1`}>Suspended</p>
               <p className={`text-4xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{suspendedUsers}</p>
             </div>
+
+            <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl p-4 md:p-5 lg:p-6 shadow-lg border-2 hover:shadow-xl transition-all min-w-0`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl shadow-lg">
+                  <AlertTriangle className="w-6 h-6 text-white" />
+                </div>
+                <Shield className={`w-5 h-5 ${darkMode ? 'text-violet-400' : 'text-violet-500'}`} />
+              </div>
+              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm font-semibold mb-1`}>Flagged</p>
+              <p className={`text-4xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{flaggedUsers}</p>
+            </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Filters & Search */}
-          <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} rounded-3xl shadow-xl p-6 mb-8 border-2`}>
+          <div data-floating-menu="true" className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl shadow-xl p-6 mb-8 border-2`}>
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Search */}
               <div className="flex-1 relative">
@@ -1228,18 +1415,42 @@ const UserManagement = () => {
               </div>
 
               {/* Status Filter */}
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as any)}
-                className={`px-6 py-4 ${
-                  darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                } border-2 rounded-xl font-semibold cursor-pointer focus:border-blue-500 outline-none`}
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="pending">Pending</option>
-                <option value="suspended">Suspended</option>
-              </select>
+                <div className="relative shrink-0 z-10" ref={statusDropdownRef}>
+                  <button
+                    onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+                    className={`px-6 py-4 flex items-center justify-between min-w-[160px] ${
+                      darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
+                    } border-2 rounded-xl font-semibold cursor-pointer transition-all hover:shadow-md`}
+                  >
+                    <span className="capitalize">{filterStatus === 'all' ? 'All Status' : filterStatus}</span>
+                    <ChevronDown className={`w-5 h-5 ml-2 transition-transform duration-200 ${statusDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {statusDropdownOpen && (
+                    <div className={`absolute top-full right-0 mt-2 w-full min-w-[160px] rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200 border-2 ${
+                      darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'
+                    }`}>
+                      <div className="py-1">
+                        {['all', 'active', 'pending', 'flagged', 'suspended'].map((status) => (
+                          <button
+                            key={status}
+                            onClick={() => {
+                              setFilterStatus(status as typeof filterStatus);
+                              setStatusDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-5 py-3 text-sm font-bold transition-colors ${
+                              filterStatus === status 
+                                ? (darkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-700')
+                                : (darkMode ? 'text-gray-300 hover:bg-gray-700/50' : 'text-gray-700 hover:bg-gray-50')
+                            }`}
+                          >
+                            {status === 'all' ? 'All Status' : status.charAt(0).toUpperCase() + status.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
               {/* Action Buttons */}
               <div className="flex gap-2">
@@ -1257,8 +1468,56 @@ const UserManagement = () => {
           </div>
 
           {/* Users Grid */}
+          {loading ? (
+            <div
+              className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+              aria-live="polite"
+              aria-busy="true"
+              role="status"
+            >
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div
+                  key={index}
+                  className={`${
+                    darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'
+                  } rounded-3xl p-6 shadow-lg border-2`}
+                >
+                  <div className="flex items-start gap-4">
+                    <Skeleton className={`h-16 w-16 shrink-0 rounded-2xl ${skeletonTone}`} />
+                    <div className="min-w-0 flex-1 space-y-4">
+                      <div className="space-y-2">
+                        <Skeleton className={`h-5 w-3/4 max-w-xs ${skeletonTone}`} />
+                        <Skeleton className={`h-4 w-1/2 max-w-[220px] ${skeletonTone}`} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Skeleton className={`h-16 w-full rounded-xl ${skeletonTone}`} />
+                        <Skeleton className={`h-16 w-full rounded-xl ${skeletonTone}`} />
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        <Skeleton className={`h-7 w-28 rounded-lg ${skeletonTone}`} />
+                        <Skeleton className={`h-7 w-24 rounded-lg ${skeletonTone}`} />
+                      </div>
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <Skeleton className={`h-7 w-20 rounded-full ${skeletonTone}`} />
+                        <div className="flex gap-2">
+                          <Skeleton className={`h-9 w-9 rounded-lg ${skeletonTone}`} />
+                          <Skeleton className={`h-9 w-9 rounded-lg ${skeletonTone}`} />
+                          <Skeleton className={`h-9 w-9 rounded-lg ${skeletonTone}`} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <p className={`col-span-full flex items-center justify-center gap-2 pb-2 text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Loading users...
+              </p>
+              <span className="sr-only">Loading user list</span>
+            </div>
+          ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredUsers.map((user) => (
+            {paginatedUsers.map((user) => (
               <UserCard
                 key={user.id}
                 user={user}
@@ -1269,11 +1528,80 @@ const UserManagement = () => {
               />
             ))}
           </div>
+          )}
+
+          {/* Pagination Controls */}
+          {!loading && totalPages > 1 && (
+            <div className={`mt-8 ${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl shadow-xl p-6 border-2`}>
+              <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <p className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Showing <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{(currentPage - 1) * itemsPerPage + 1}</span> to <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{filteredUsers.length}</span> users
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handlePageChange(Math.max(currentPage - 1, 1))}
+                    disabled={currentPage === 1}
+                    className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold transition-all ${
+                      currentPage === 1
+                        ? (darkMode ? 'bg-gray-700/50 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-400 cursor-not-allowed')
+                        : (darkMode ? 'bg-gray-700 text-white hover:bg-gray-600 hover:shadow-md' : 'bg-white border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 text-gray-700')
+                    }`}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Previous
+                  </button>
+                  <div className="items-center gap-1.5 hidden sm:flex">
+                    {(() => {
+                      const getVisiblePages = (current: number, total: number) => {
+                        if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+                        if (current <= 3) return [1, 2, 3, 4, '...', total];
+                        if (current >= total - 2) return [1, '...', total - 3, total - 2, total - 1, total];
+                        return [1, '...', current - 1, current, current + 1, '...', total];
+                      };
+                      return getVisiblePages(currentPage, totalPages).map((page, index) => (
+                        page === '...' ? (
+                          <span key={`ellipsis-${index}`} className={`px-2 font-bold ${darkMode ? 'text-gray-600' : 'text-gray-400'}`}>…</span>
+                        ) : (
+                          <button
+                            key={`page-${page}`}
+                            onClick={() => handlePageChange(page as number)}
+                            className={`w-10 h-10 rounded-xl font-bold text-sm transition-all ${
+                              currentPage === page
+                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 scale-105'
+                                : (darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white' : 'bg-white border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300')
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        )
+                      ));
+                    })()}
+                  </div>
+                  {/* Mobile page indicator */}
+                  <span className={`sm:hidden text-sm font-bold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    {currentPage} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => handlePageChange(Math.min(currentPage + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold transition-all ${
+                      currentPage === totalPages
+                        ? (darkMode ? 'bg-gray-700/50 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-400 cursor-not-allowed')
+                        : (darkMode ? 'bg-gray-700 text-white hover:bg-gray-600 hover:shadow-md' : 'bg-white border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 text-gray-700')
+                    }`}
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Empty State */}
-          {filteredUsers.length === 0 && (
+          {!loading && filteredUsers.length === 0 && (
             <div className={`${
-              darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'
+              darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'
             } rounded-3xl shadow-xl p-12 text-center border-2`}>
               <div className={`w-24 h-24 ${
                 darkMode ? 'bg-gradient-to-br from-gray-700 to-gray-600' : 'bg-gradient-to-br from-gray-100 to-gray-200'
@@ -1287,19 +1615,10 @@ const UserManagement = () => {
         </div>
       </div>
 
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          @keyframes pulse-slow {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-          }
-          .animate-pulse-slow {
-            animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-          }
-        `
-      }} />
     </>
   );
 };
 
 export default UserManagement;
+
+

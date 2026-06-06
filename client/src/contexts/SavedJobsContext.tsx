@@ -1,23 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { Job, savedJobsUtils } from '@/pages/employee/savedJobsUtils';
 
-// Define the Job interface
-interface Job {
-  id: string;
-  title: string;
-  company: string;
-  location: string;
-  type: string;
-  salary: string;
-  postedTime: string;
-  applicants: number;
-  matchPercentage: number;
-  skills: string[];
-  isNew: boolean;
-  isFeatured?: boolean;
-  isRemote?: boolean;
-}
-
-// Define the context value type
 interface SavedJobsContextType {
   savedJobs: Job[];
   addJob: (job: Job) => void;
@@ -26,85 +9,58 @@ interface SavedJobsContextType {
   clearAllJobs: () => void;
 }
 
-// Create the context
 const SavedJobsContext = createContext<SavedJobsContextType | undefined>(undefined);
 
-// localStorage utility functions
-const savedJobsUtils = {
-  getSavedJobs: (): Job[] => {
-    try {
-      const saved = localStorage.getItem('savedJobs');
-      return saved ? JSON.parse(saved) : [];
-    } catch (error) {
-      console.error('Error getting saved jobs:', error);
-      return [];
-    }
-  },
-
-  setSavedJobs: (jobs: Job[]): void => {
-    try {
-      localStorage.setItem('savedJobs', JSON.stringify(jobs));
-      window.dispatchEvent(new Event('savedJobsUpdated'));
-    } catch (error) {
-      console.error('Error saving jobs:', error);
-    }
-  }
-};
-
-// Create the provider component
 export function SavedJobsProvider({ children }: { children: React.ReactNode }) {
   const [savedJobs, setSavedJobs] = useState<Job[]>([]);
 
-  // Load saved jobs from localStorage on mount
-  useEffect(() => {
-    const jobs = savedJobsUtils.getSavedJobs();
-    setSavedJobs(jobs);
-
-    // Listen for storage events to sync across tabs
-    const handleStorageChange = () => {
-      const jobs = savedJobsUtils.getSavedJobs();
-      setSavedJobs(jobs);
-    };
-
-    window.addEventListener('savedJobsUpdated', handleStorageChange);
-    return () => window.removeEventListener('savedJobsUpdated', handleStorageChange);
+  const syncFromStorage = useCallback(() => {
+    setSavedJobs(savedJobsUtils.getSavedJobs());
   }, []);
 
-  // Add a job to saved jobs
-  const addJob = (job: Job) => {
-    if (!isJobSaved(job.id)) {
-      const newJobs = [...savedJobs, job];
-      setSavedJobs(newJobs);
-      savedJobsUtils.setSavedJobs(newJobs);
-    }
-  };
+  useEffect(() => {
+    syncFromStorage();
 
-  // Remove a job from saved jobs
-  const removeJob = (jobId: string) => {
-    const newJobs = savedJobs.filter(job => job.id !== jobId);
-    setSavedJobs(newJobs);
-    savedJobsUtils.setSavedJobs(newJobs);
-  };
+    const handleUpdate = () => syncFromStorage();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'savedJobs') syncFromStorage();
+    };
 
-  // Check if a job is saved
-  const isJobSaved = (jobId: string) => {
-    return savedJobs.some(job => job.id === jobId);
-  };
+    window.addEventListener('savedJobsUpdated', handleUpdate);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('savedJobsUpdated', handleUpdate);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [syncFromStorage]);
 
-  // Clear all saved jobs
-  const clearAllJobs = () => {
-    setSavedJobs([]);
-    savedJobsUtils.setSavedJobs([]);
-  };
+  const addJob = useCallback((job: Job) => {
+    savedJobsUtils.saveJob({ ...job, id: String(job.id) });
+    syncFromStorage();
+  }, [syncFromStorage]);
+
+  const removeJob = useCallback((jobId: string) => {
+    savedJobsUtils.removeSavedJob(jobId);
+    syncFromStorage();
+  }, [syncFromStorage]);
+
+  const isJobSaved = useCallback((jobId: string) => {
+    return savedJobsUtils.isJobSaved(jobId);
+  }, []);
+
+  const clearAllJobs = useCallback(() => {
+    savedJobsUtils.clearAllSavedJobs();
+    syncFromStorage();
+  }, [syncFromStorage]);
 
   return (
-    <SavedJobsContext.Provider 
+    <SavedJobsContext.Provider
       value={{
         savedJobs,
         addJob,
         removeJob,
         isJobSaved,
-        clearAllJobs
+        clearAllJobs,
       }}
     >
       {children}
@@ -112,7 +68,6 @@ export function SavedJobsProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Create a custom hook to use the saved jobs context
 export function useSavedJobs() {
   const context = useContext(SavedJobsContext);
   if (context === undefined) {
@@ -120,3 +75,5 @@ export function useSavedJobs() {
   }
   return context;
 }
+
+export type { Job };

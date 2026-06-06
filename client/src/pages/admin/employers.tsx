@@ -50,6 +50,21 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  adminFormDialogBodyScrollClass,
+  adminFormDialogContentClass,
+  adminFormDialogFooterClass,
+  adminFormDialogHeaderClass,
+  adminFormInputClass,
+  adminFormInputWithIconClass,
+  adminFormLabelClass,
+  adminFormModalIconWrapClass,
+  adminFormModalSectionClass,
+  adminFormModalSubtitleClass,
+  adminFormModalTitleClass,
+  adminFormModalHeaderGradientClass,
+  adminFormTextareaClass,
+} from '@/components/admin/admin-form-modal-styles';
 
 interface CompanyApiResponse {
   id: string;
@@ -149,6 +164,15 @@ const toStatus = (status?: string | null, ownerId?: string | null): Company['sta
   return ownerId ? 'approved' : 'pending';
 };
 
+const toJobPostingsCount = (company: CompanyApiResponse): number => {
+  const raw =
+    company.jobPostings ??
+    (company as CompanyApiResponse & { job_postings?: number | string | null }).job_postings;
+  if (raw == null) return 0;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 const mapCompany = (company: CompanyApiResponse, index: number): Company => {
   const status = toStatus(company.status, company.ownerId);
   const ownerName = [company.ownerFirstName, company.ownerLastName]
@@ -165,7 +189,7 @@ const mapCompany = (company: CompanyApiResponse, index: number): Company => {
     industry: toDisplayValue(company.industry),
     size: toDisplayValue(company.size),
     description: toDisplayValue(company.description, 'No company description provided yet.'),
-    jobPostings: Number(company.jobPostings ?? 0),
+    jobPostings: toJobPostingsCount(company),
     employees: 0,
     founded: toFoundedYear(company.createdAt),
     website: toDisplayValue(company.website),
@@ -208,9 +232,11 @@ export default function CompaniesManagement() {
         ? data.map((company: CompanyApiResponse, index: number) => mapCompany(company, index))
         : [];
       setCompanies(normalizedCompanies);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch companies:', error);
-      toast({ title: 'Error', description: 'Could not fetch company data.', variant: 'destructive' });
+      if (!error?.message?.includes("401")) {
+        toast({ title: 'Error', description: 'Could not fetch company data.', variant: 'destructive' });
+      }
     } finally {
       setLoading(false);
     }
@@ -378,13 +404,13 @@ export default function CompaniesManagement() {
   const stats = [
     { label: 'Total Companies', value: totalCompanies.toLocaleString(), change: 'All registered companies', icon: Building2, color: 'bg-purple-500', bgLight: 'bg-purple-50' },
     { label: 'Active Companies', value: activeCompanies.toLocaleString(), change: `${totalCompanies > 0 ? Math.round((activeCompanies / totalCompanies) * 100) : 0}% active`, icon: Users, color: 'bg-blue-500', bgLight: 'bg-blue-50' },
-    { label: 'Job Postings', value: totalJobPostings.toLocaleString(), change: 'From all companies', icon: Briefcase, color: 'bg-orange-500', bgLight: 'bg-orange-50' },
+    { label: 'Linked Job Posts', value: totalJobPostings.toLocaleString(), change: 'Attached to company profiles', icon: Briefcase, color: 'bg-orange-500', bgLight: 'bg-orange-50' },
     { label: 'Total Employees', value: 'N/A', change: 'Across all companies', icon: TrendingUp, color: 'bg-green-500', bgLight: 'bg-green-50' },
   ];
 
   return (
     <div className={`${embedded ? '' : `min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}`}>
-      <div className={`${embedded ? 'mb-6' : `${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b`}`}>
+      <div className={`${embedded ? 'mb-6' : `${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-200'} border-b`}`}>
         <div className={`${embedded ? 'px-0 py-0' : 'max-w-7xl mx-auto px-6 py-6'}`}>
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-4">
@@ -414,7 +440,7 @@ export default function CompaniesManagement() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {stats.map((stat, index) => (
-            <div key={index} className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-xl shadow-sm border p-6 hover:shadow-md transition-all`}>
+            <div key={index} className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-200'} rounded-xl shadow-sm border p-6 hover:shadow-md transition-all`}>
               <div className="flex items-center justify-between mb-4">
                 <div className={`${darkMode ? stat.color + '/20' : stat.bgLight} p-3 rounded-lg`}>
                   <stat.icon className={`w-6 h-6 ${stat.color.replace('bg-', 'text-')}`} />
@@ -430,7 +456,7 @@ export default function CompaniesManagement() {
           ))}
         </div>
 
-        <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} rounded-3xl shadow-lg border-2`}>
+        <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl shadow-lg border-2`}>
           <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1 relative">
@@ -486,7 +512,7 @@ export default function CompaniesManagement() {
                     <div
                       key={company.id}
                       className={`${
-                        darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'
+                        darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'
                       } rounded-3xl p-6 shadow-lg hover:shadow-xl transition-all relative group border-2`}
                     >
                       <div className="flex items-start justify-between gap-4">
@@ -640,34 +666,18 @@ export default function CompaniesManagement() {
           setIsFormOpen(open);
         }}
       >
-        <DialogContent
-          className={`max-h-[90vh] overflow-y-auto border-0 p-0 sm:max-w-[560px] ${
-            darkMode
-              ? 'bg-[#0f1728] text-white shadow-[0_30px_120px_rgba(5,10,25,0.75)]'
-              : 'bg-[#fbf8ff] text-slate-900 shadow-[0_30px_120px_rgba(88,28,135,0.18)]'
-          }`}
-        >
-          <DialogHeader
-            className={`relative overflow-hidden border-b px-5 py-5 sm:px-6 sm:py-6 ${
-              darkMode ? 'border-white/10 bg-slate-900/40' : 'border-violet-200/70 bg-white/75'
-            }`}
-          >
-            <div
-              className={`pointer-events-none absolute inset-0 ${
-                darkMode
-                  ? 'bg-[radial-gradient(circle_at_top_left,rgba(168,85,247,0.28),transparent_32%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_28%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.78))]'
-                  : 'bg-[radial-gradient(circle_at_top_left,rgba(192,132,252,0.18),transparent_30%),radial-gradient(circle_at_top_right,rgba(96,165,250,0.1),transparent_26%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(245,243,255,0.92))]'
-              }`}
-            />
-            <div className="relative flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 via-violet-500 to-indigo-500 text-white shadow-[0_12px_32px_rgba(139,92,246,0.38)] ring-1 ring-white/20">
-                <Building2 className="h-5 w-5" />
+        <DialogContent className={adminFormDialogContentClass(darkMode)}>
+          <DialogHeader className={adminFormDialogHeaderClass(darkMode)}>
+            <div className={adminFormModalHeaderGradientClass(darkMode)} aria-hidden />
+            <div className="relative flex items-start gap-5 pr-10">
+              <div className={adminFormModalIconWrapClass()}>
+                <Building2 className="h-7 w-7" />
               </div>
               <div className="min-w-0">
-                <DialogTitle className="text-xl font-black tracking-tight sm:text-2xl">
+                <DialogTitle className={adminFormModalTitleClass(darkMode)}>
                   {editingCompany ? 'Edit Company' : 'Add New Company'}
                 </DialogTitle>
-                <DialogDescription className={`mt-1 text-sm leading-6 ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                <DialogDescription className={adminFormModalSubtitleClass(darkMode)}>
                   {editingCompany
                     ? 'Update the core company details below.'
                     : 'Add the essential company details in a clean, simple profile.'}
@@ -680,7 +690,7 @@ export default function CompaniesManagement() {
               event.preventDefault();
               handleSaveCompany();
             }}
-            className="grid gap-5 px-5 py-5 sm:px-6 sm:py-6"
+            className={`grid gap-4 ${adminFormDialogBodyScrollClass()} px-8 py-5`}
           >
             {formError && (
               <div
@@ -692,12 +702,8 @@ export default function CompaniesManagement() {
               </div>
             )}
 
-            <div
-              className={`rounded-[1.5rem] border p-4 sm:p-5 ${
-                darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-white/80 bg-white/90 shadow-[0_18px_50px_rgba(148,163,184,0.12)]'
-              }`}
-            >
-              <div className="mb-5">
+            <div className={adminFormModalSectionClass(darkMode)}>
+              <div className="mb-3">
                 <p className={`text-xs font-semibold uppercase tracking-[0.24em] ${darkMode ? 'text-violet-200/80' : 'text-violet-700/80'}`}>
                   Company Details
                 </p>
@@ -706,9 +712,9 @@ export default function CompaniesManagement() {
                 </p>
               </div>
 
-              <div className="grid gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name" className={`text-[13px] font-semibold uppercase tracking-[0.16em] ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+              <div className="grid gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="name" className={adminFormLabelClass(darkMode)}>
                     Company Name
                   </Label>
                   <Input
@@ -716,17 +722,13 @@ export default function CompaniesManagement() {
                     value={companyForm.name}
                     onChange={handleInputChange}
                     placeholder="Enter company name"
-                    className={`h-12 rounded-2xl border px-4 text-base shadow-none transition-all ${
-                      darkMode
-                        ? 'border-violet-400/40 bg-[#071122] text-white placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-violet-400/70'
-                        : 'border-violet-200 bg-white text-slate-900 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-violet-400/60'
-                    }`}
+                    className={adminFormInputClass(darkMode, 'shadow-none')}
                   />
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="grid gap-2">
-                    <Label htmlFor="industry" className={`text-[13px] font-semibold uppercase tracking-[0.16em] ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="industry" className={adminFormLabelClass(darkMode)}>
                       Industry
                     </Label>
                     <Input
@@ -734,15 +736,11 @@ export default function CompaniesManagement() {
                       value={companyForm.industry}
                       onChange={handleInputChange}
                       placeholder="Technology"
-                      className={`h-12 rounded-2xl border px-4 text-base shadow-none transition-all ${
-                        darkMode
-                          ? 'border-white/10 bg-[#091426] text-white placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-violet-400/60'
-                          : 'border-slate-200 bg-white/90 text-slate-900 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-violet-400/50'
-                      }`}
+                      className={adminFormInputClass(darkMode, 'shadow-none')}
                     />
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="size" className={`text-[13px] font-semibold uppercase tracking-[0.16em] ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="size" className={adminFormLabelClass(darkMode)}>
                       Company Size
                     </Label>
                     <Input
@@ -750,77 +748,61 @@ export default function CompaniesManagement() {
                       value={companyForm.size}
                       onChange={handleInputChange}
                       placeholder="e.g. 50-200"
-                      className={`h-12 rounded-2xl border px-4 text-base shadow-none transition-all ${
-                        darkMode
-                          ? 'border-white/10 bg-[#091426] text-white placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-violet-400/60'
-                          : 'border-slate-200 bg-white/90 text-slate-900 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-violet-400/50'
-                      }`}
+                      className={adminFormInputClass(darkMode, 'shadow-none')}
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="grid gap-2">
-                    <Label htmlFor="location" className={`text-[13px] font-semibold uppercase tracking-[0.16em] ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="location" className={adminFormLabelClass(darkMode)}>
                       Location
                     </Label>
                     <div className="relative">
-                      <MapPin className={`pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+                      <MapPin className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`} />
                       <Input
                         id="location"
                         value={companyForm.location}
                         onChange={handleInputChange}
                         placeholder="Mumbai, Pune"
-                        className={`h-12 rounded-2xl border pl-11 pr-4 text-base shadow-none transition-all ${
-                          darkMode
-                            ? 'border-white/10 bg-[#091426] text-white placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-blue-400/50'
-                            : 'border-slate-200 bg-white/90 text-slate-900 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-blue-400/40'
-                        }`}
+                        className={adminFormInputWithIconClass(darkMode, 'shadow-none')}
                       />
                     </div>
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="website" className={`text-[13px] font-semibold uppercase tracking-[0.16em] ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="website" className={adminFormLabelClass(darkMode)}>
                       Website
                     </Label>
                     <div className="relative">
-                      <Globe className={`pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`} />
+                      <Globe className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`} />
                       <Input
                         id="website"
                         value={companyForm.website}
                         onChange={handleInputChange}
                         placeholder="company.com"
-                        className={`h-12 rounded-2xl border pl-11 pr-4 text-base shadow-none transition-all ${
-                          darkMode
-                            ? 'border-white/10 bg-[#091426] text-white placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-blue-400/50'
-                            : 'border-slate-200 bg-white/90 text-slate-900 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-blue-400/40'
-                        }`}
+                        className={adminFormInputWithIconClass(darkMode, 'shadow-none')}
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="description" className={`text-[13px] font-semibold uppercase tracking-[0.16em] ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="description" className={adminFormLabelClass(darkMode)}>
                     Description
                   </Label>
                   <Textarea
                     id="description"
                     value={companyForm.description}
                     onChange={handleInputChange}
-                    rows={5}
+                    rows={4}
                     placeholder="Write a short description about the company."
-                    className={`min-h-[140px] rounded-[1.4rem] border px-4 py-4 text-base leading-7 shadow-none transition-all ${
-                      darkMode
-                        ? 'border-white/10 bg-[#091426] text-white placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-emerald-400/50'
-                        : 'border-slate-200 bg-white/90 text-slate-900 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-emerald-400/40'
-                    }`}
+                    className={adminFormTextareaClass(darkMode, 'shadow-none')}
                   />
                 </div>
               </div>
             </div>
 
-            <DialogFooter className="flex flex-col-reverse gap-3 border-t px-0 pt-1 sm:flex-row sm:items-center sm:justify-end">
+            <DialogFooter className={adminFormDialogFooterClass(darkMode)}>
               <button
                 type="button"
                 onClick={() => {
@@ -858,7 +840,7 @@ export default function CompaniesManagement() {
           if (!open) setSelectedCompany(null);
         }}
       >
-        <DialogContent className={`sm:max-w-[720px] ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white'}`}>
+        <DialogContent className={`sm:max-w-[720px] ${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)] text-white' : 'bg-white'}`}>
           {selectedCompany && (
             <>
               <DialogHeader>
@@ -975,7 +957,7 @@ export default function CompaniesManagement() {
           }
         }}
       >
-        <AlertDialogContent className={darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white'}>
+        <AlertDialogContent className={darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)] text-white' : 'bg-white'}>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete company?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1001,3 +983,5 @@ export default function CompaniesManagement() {
     </div>
   );
 }
+
+

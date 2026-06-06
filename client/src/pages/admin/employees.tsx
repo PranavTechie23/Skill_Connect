@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import AdminBackButton, { useAdminEmbedded } from '@/components/AdminBackButton';
 import { useTheme } from '@/components/theme-provider';
-import { Users, Search, Plus, Edit, Trash2, MoreVertical, Mail, Calendar, MapPin, Briefcase, Award, TrendingUp, Clock, Filter, Eye, CheckCircle, XCircle } from 'lucide-react';
+import { Users, Search, Plus, Edit, Trash2, Mail, MapPin, Briefcase, Eye, CheckCircle, Building2, X, AlertTriangle, Save, Copy, RefreshCw } from 'lucide-react';
 import { adminService, User, CreateUserData, AdminStats } from '@/lib/admin-service';
 import { useToast } from '@/hooks/use-toast';
+import { scrollDashboardToTop } from '@/lib/scroll-to-top';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,28 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  adminFormDialogBodyScrollClass,
+  adminFormDialogContentClass,
+  adminFormDialogFooterClass,
+  adminFormDialogHeaderClass,
+  adminFormModalGridClass,
+  adminFormModalHeaderGradientClass,
+  adminFormModalIconWrapClass,
+  adminFormModalSectionClass,
+  adminFormModalSubtitleClass,
+  adminFormModalTitleClass,
+  adminFormDialogFieldClass,
+  adminFormLabelClass,
+} from '@/components/admin/admin-form-modal-styles';
+
+interface EditEmployeeFormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  title: string;
+  location: string;
+}
 
 export default function AdminEmployees() {
   const { theme } = useTheme();
@@ -23,10 +46,25 @@ export default function AdminEmployees() {
   const [employees, setEmployees] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<User | null>(null);
+  const [employeeToEdit, setEmployeeToEdit] = useState<User | null>(null);
+  const [employeeToDelete, setEmployeeToDelete] = useState<User | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [editFormData, setEditFormData] = useState<EditEmployeeFormData>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    title: '',
+    location: ''
+  });
   const [newEmployee, setNewEmployee] = useState<Omit<CreateUserData, 'userType'>>({
     email: '',
     password: '',
@@ -64,6 +102,112 @@ export default function AdminEmployees() {
       setFormError(errorMessage);
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  const getEmployeeFirstName = (employee: User) => employee.firstName || (employee as any).first_name || '';
+  const getEmployeeLastName = (employee: User) => employee.lastName || (employee as any).last_name || '';
+  const getEmployeeName = (employee: User) => {
+    const firstName = getEmployeeFirstName(employee);
+    const lastName = getEmployeeLastName(employee);
+    return firstName && lastName ? `${firstName} ${lastName}`.trim() : employee.email || 'Unknown User';
+  };
+
+  const getEmployeeInitials = (employee: User) => {
+    const firstName = getEmployeeFirstName(employee);
+    const lastName = getEmployeeLastName(employee);
+    if (firstName && lastName) return `${firstName[0].toUpperCase()}${lastName[0].toUpperCase()}`;
+    if (firstName) return `${firstName[0].toUpperCase()}${firstName[1]?.toUpperCase() || ''}`;
+    if (lastName) return `${lastName[0].toUpperCase()}${lastName[1]?.toUpperCase() || ''}`;
+    return (employee.email?.[0] || 'U').toUpperCase();
+  };
+
+  const handleOpenEditModal = (employee: User) => {
+    setEmployeeToEdit(employee);
+    setEditFormData({
+      firstName: getEmployeeFirstName(employee),
+      lastName: getEmployeeLastName(employee),
+      email: employee.email || '',
+      title: employee.title || (employee as any).designation || '',
+      location: employee.location || ''
+    });
+  };
+
+  const handleSaveEmployee = async () => {
+    if (!employeeToEdit) return;
+    if (!editFormData.firstName || !editFormData.lastName || !editFormData.email) {
+      toast({
+        title: 'Missing fields',
+        description: 'First name, last name, and email are required.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setEditLoading(true);
+    try {
+      const updatedEmployee = await adminService.updateUser(employeeToEdit.id, {
+        firstName: editFormData.firstName,
+        lastName: editFormData.lastName,
+        email: editFormData.email,
+        title: editFormData.title,
+        location: editFormData.location
+      });
+      setEmployees(prev => prev.map(user => (user.id === employeeToEdit.id ? { ...user, ...updatedEmployee } : user)));
+      setEmployeeToEdit(null);
+      toast({
+        title: 'Success',
+        description: 'Employee updated successfully.'
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update employee.';
+      toast({
+        title: 'Update failed',
+        description: message,
+        variant: 'destructive'
+      });
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDeleteEmployee = async () => {
+    if (!employeeToDelete) return;
+    setDeleteLoading(true);
+    try {
+      await adminService.deleteUser(employeeToDelete.id);
+      setEmployees(prev => prev.filter(user => user.id !== employeeToDelete.id));
+      setEmployeeToDelete(null);
+      toast({
+        title: 'Deleted',
+        description: 'Employee removed successfully.'
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete employee.';
+      toast({
+        title: 'Delete failed',
+        description: message,
+        variant: 'destructive'
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleCopyEmployeeEmail = async (employee: User) => {
+    if (!employee.email) return;
+    try {
+      await navigator.clipboard.writeText(employee.email);
+      toast({
+        title: 'Copied',
+        description: `${employee.email} copied to clipboard.`
+      });
+    } catch {
+      toast({
+        title: 'Copy failed',
+        description: 'Unable to copy email.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -131,15 +275,17 @@ export default function AdminEmployees() {
       } else {
         setEmployees(professionals);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Failed to fetch employees:", error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error("Error details:", errorMessage);
-      toast({ 
-        title: "Error", 
-        description: `Could not fetch employee data: ${errorMessage}`, 
-        variant: "destructive" 
-      });
+      if (!error?.message?.includes("401")) {
+        toast({ 
+          title: "Error", 
+          description: `Could not fetch employee data: ${errorMessage}`, 
+          variant: "destructive" 
+        });
+      }
       setEmployees([]); // Set empty array on error
     } finally {
       setLoading(false);
@@ -150,9 +296,11 @@ export default function AdminEmployees() {
     try {
       const data = await adminService.getStats();
       setStatsData(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to fetch stats:", error);
-      toast({ title: "Error", description: "Could not fetch statistics.", variant: "destructive" });
+      if (!error?.message?.includes("401")) {
+        toast({ title: "Error", description: "Could not fetch statistics.", variant: "destructive" });
+      }
     }
   };
 
@@ -180,64 +328,196 @@ export default function AdminEmployees() {
   ];
 
   const filteredEmployees = useMemo(() => {
-    if (!searchTerm.trim()) {
-      console.log('✅ No search term, showing all', employees.length, 'employees');
-      return employees;
-    }
-    
-    const filtered = employees.filter(employee => {
-      const firstName = employee.firstName || (employee as any).first_name || '';
-      const lastName = employee.lastName || (employee as any).last_name || '';
-      const name = `${firstName} ${lastName}`.trim();
-      const email = employee.email || '';
-      const location = employee.location || '';
-      const title = employee.title || (employee as any).designation || '';
-      
-      const matches = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-             email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-             location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-             title.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      return matches;
-    });
-    
-    console.log('🔍 Search filter:', {
-      searchTerm,
-      totalEmployees: employees.length,
-      filteredCount: filtered.length
-    });
-    
-    return filtered;
-  }, [employees, searchTerm]);
-  
-  // Debug logging
-  useEffect(() => {
-    console.log('📊 Employees state update:', {
-      totalEmployees: employees.length,
-      filteredCount: filteredEmployees.length,
-      searchTerm: searchTerm,
-      loading: loading
-    });
-    if (employees.length > 0) {
-      console.log('👥 First employee sample:', {
-        id: employees[0].id,
-        firstName: employees[0].firstName,
-        lastName: employees[0].lastName,
-        email: employees[0].email,
-        userType: employees[0].userType
+    let filtered = employees;
+
+    if (searchTerm.trim()) {
+      filtered = filtered.filter(employee => {
+        const firstName = employee.firstName || (employee as any).first_name || '';
+        const lastName = employee.lastName || (employee as any).last_name || '';
+        const name = `${firstName} ${lastName}`.trim();
+        const email = employee.email || '';
+        const location = employee.location || '';
+        const title = employee.title || (employee as any).designation || '';
+        
+        return name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+               email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+               location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+               title.toLowerCase().includes(searchTerm.toLowerCase());
       });
     }
-  }, [employees, filteredEmployees, searchTerm, loading]);
+
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(employee => (employee.status || 'active') === filterStatus);
+    }
+    
+    return filtered;
+  }, [employees, searchTerm, filterStatus]);
+  
+  const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / itemsPerPage));
+  const paginatedEmployees = filteredEmployees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    scrollDashboardToTop();
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterStatus]);
 
   return (
+    <>
+      {selectedEmployee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setSelectedEmployee(null)}>
+          <div
+            className={`w-full max-w-2xl rounded-3xl border-2 p-8 shadow-2xl ${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-200'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-6 flex items-start justify-between">
+              <div>
+                <h2 className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>Employee Details</h2>
+                <p className={`mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Quick profile overview</p>
+              </div>
+              <button
+                onClick={() => setSelectedEmployee(null)}
+                className={`rounded-lg p-2 transition-colors ${darkMode ? 'text-gray-400 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'}`}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mb-6 flex items-center gap-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-500 text-xl font-bold text-white shadow-lg">
+                {getEmployeeInitials(selectedEmployee)}
+              </div>
+              <div>
+                <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{getEmployeeName(selectedEmployee)}</h3>
+                <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{selectedEmployee.email || 'No email'}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className={`rounded-xl p-4 ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Title</p>
+                <p className={`mt-1 text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{selectedEmployee.title || (selectedEmployee as any).designation || 'N/A'}</p>
+              </div>
+              <div className={`rounded-xl p-4 ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Location</p>
+                <p className={`mt-1 text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{selectedEmployee.location || 'N/A'}</p>
+              </div>
+              <div className={`rounded-xl p-4 ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>User Type</p>
+                <p className={`mt-1 text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{selectedEmployee.userType || (selectedEmployee as any).user_type || 'Professional'}</p>
+              </div>
+              <div className={`rounded-xl p-4 ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
+                <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Joined</p>
+                <p className={`mt-1 text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {selectedEmployee.createdAt ? new Date(selectedEmployee.createdAt).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {employeeToEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setEmployeeToEdit(null)}>
+          <div
+            className={`w-full max-w-2xl rounded-3xl border-2 p-8 shadow-2xl ${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-200'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-6 flex items-start justify-between">
+              <h2 className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>Edit Employee</h2>
+              <button
+                onClick={() => setEmployeeToEdit(null)}
+                className={`rounded-lg p-2 transition-colors ${darkMode ? 'text-gray-400 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'}`}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="editFirstName" className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>First Name</Label>
+                <Input id="editFirstName" value={editFormData.firstName} onChange={(e) => setEditFormData(prev => ({ ...prev, firstName: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editLastName" className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Last Name</Label>
+                <Input id="editLastName" value={editFormData.lastName} onChange={(e) => setEditFormData(prev => ({ ...prev, lastName: e.target.value }))} />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="editEmail" className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Email</Label>
+                <Input id="editEmail" type="email" value={editFormData.email} onChange={(e) => setEditFormData(prev => ({ ...prev, email: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editTitle" className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Title</Label>
+                <Input id="editTitle" value={editFormData.title} onChange={(e) => setEditFormData(prev => ({ ...prev, title: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editLocation" className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Location</Label>
+                <Input id="editLocation" value={editFormData.location} onChange={(e) => setEditFormData(prev => ({ ...prev, location: e.target.value }))} />
+              </div>
+            </div>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setEmployeeToEdit(null)}
+                className={`rounded-xl px-5 py-2.5 font-semibold transition-colors ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEmployee}
+                disabled={editLoading}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-2.5 font-semibold text-white transition-all hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {editLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {editLoading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {employeeToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className={`w-full max-w-md rounded-3xl border-2 p-7 shadow-2xl ${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-200'}`}>
+            <div className="mb-4 flex items-center gap-3">
+              <div className={`rounded-full p-2 ${darkMode ? 'bg-red-500/20' : 'bg-red-50'}`}>
+                <AlertTriangle className="h-5 w-5 text-red-500" />
+              </div>
+              <h3 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>Delete Employee?</h3>
+            </div>
+            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              This will permanently remove <span className="font-semibold">{getEmployeeName(employeeToDelete)}</span>.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setEmployeeToDelete(null)}
+                className={`rounded-xl px-5 py-2.5 font-semibold transition-colors ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteEmployee}
+                disabled={deleteLoading}
+                className="rounded-xl bg-gradient-to-r from-red-600 to-rose-600 px-5 py-2.5 font-semibold text-white transition-all hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {deleteLoading ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     <div className={`${embedded ? '' : `min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-50 via-white to-purple-50'} p-8`}`}>
-      {/* Header */}
-      <div className={`${embedded ? 'mb-6' : `${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b`}`}>
-        <div className={`${embedded ? '' : 'max-w-7xl mx-auto px-6 py-6'}`}>
-          <div className="flex items-center justify-between">
+      <div className={`${embedded ? 'space-y-6' : 'max-w-7xl mx-auto'}`}>
+        <div className={`${embedded ? 'mb-6' : 'mb-8'}`}>
+          <div className="mb-4"><AdminBackButton /></div>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-4">
-              <div className="mr-4"><AdminBackButton /></div>
-              <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-4 rounded-2xl shadow-lg shadow-green-500/40">
+              <div className="p-4 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg shadow-green-500/40">
                 <Users className="w-8 h-8 text-white" />
               </div>
               <div>
@@ -253,80 +533,144 @@ export default function AdminEmployees() {
                 </button>
               </DialogTrigger>
               <DialogContent 
-                className={`sm:max-w-[425px] ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}
+                className={adminFormDialogContentClass(darkMode)}
                 onInteractOutside={(e) => e.preventDefault()}
               >
-                <DialogHeader>
-                  <DialogTitle>Add New Employee</DialogTitle>
-                  <DialogDescription>
-                    Create a new employee account. They will be able to log in with these credentials.
-                  </DialogDescription>
+                <DialogHeader className={adminFormDialogHeaderClass(darkMode)}>
+                  <div className={adminFormModalHeaderGradientClass(darkMode)} aria-hidden />
+                  <div className="relative flex items-start gap-5 pr-10">
+                    <div className={adminFormModalIconWrapClass()}>
+                      <Users className="h-7 w-7" />
+                    </div>
+                    <div className="space-y-1">
+                      <DialogTitle className={adminFormModalTitleClass(darkMode)}>Add New Employee</DialogTitle>
+                      <DialogDescription className={adminFormModalSubtitleClass(darkMode)}>
+                        Create a clean, complete profile for your employee.
+                      </DialogDescription>
+                    </div>
+                  </div>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  {formError && <p className="text-red-500 text-sm">{formError}</p>}
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="firstName" className="text-right">
-                      First Name
-                    </Label>
-                    <Input id="firstName" value={newEmployee.firstName} onChange={handleInputChange} className="col-span-3" />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="lastName" className="text-right">
-                      Last Name
-                    </Label>
-                    <Input id="lastName" value={newEmployee.lastName} onChange={handleInputChange} className="col-span-3" />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="email" className="text-right">
-                      Email
-                    </Label>
-                    <Input id="email" type="email" value={newEmployee.email} onChange={handleInputChange} className="col-span-3" />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="password" className="text-right">
-                      Password
-                    </Label>
-                    <Input id="password" type="password" value={newEmployee.password} onChange={handleInputChange} className="col-span-3" />
+                <div className={adminFormDialogBodyScrollClass()}>
+                  <div className={adminFormModalSectionClass(darkMode)}>
+                    <div className="mb-4">
+                      <p className={`text-sm font-semibold tracking-[0.35em] uppercase ${darkMode ? 'text-indigo-200/75' : 'text-gray-500'}`}>
+                        Employee Details
+                      </p>
+                      <p className={`mt-1 text-base ${darkMode ? 'text-indigo-100/80' : 'text-gray-600'}`}>
+                        Keep it concise and accurate.
+                      </p>
+                    </div>
+                    <div className={adminFormModalGridClass()}>
+                      {formError && (
+                        <p className={`col-span-full text-sm font-medium ${darkMode ? 'text-rose-300' : 'text-red-600'}`}>{formError}</p>
+                      )}
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="firstName" className={adminFormLabelClass(darkMode)}>
+                          First Name
+                        </Label>
+                        <Input
+                          id="firstName"
+                          value={newEmployee.firstName}
+                          onChange={handleInputChange}
+                          placeholder="Enter first name"
+                          className={adminFormDialogFieldClass(darkMode)}
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="lastName" className={adminFormLabelClass(darkMode)}>
+                          Last Name
+                        </Label>
+                        <Input
+                          id="lastName"
+                          value={newEmployee.lastName}
+                          onChange={handleInputChange}
+                          placeholder="Enter last name"
+                          className={adminFormDialogFieldClass(darkMode)}
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="email" className={adminFormLabelClass(darkMode)}>
+                          Email
+                        </Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={newEmployee.email}
+                          onChange={handleInputChange}
+                          placeholder="name@company.com"
+                          className={adminFormDialogFieldClass(darkMode)}
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="password" className={adminFormLabelClass(darkMode)}>
+                          Password
+                        </Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          value={newEmployee.password}
+                          onChange={handleInputChange}
+                          placeholder="Set a strong password"
+                          className={adminFormDialogFieldClass(darkMode)}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <DialogFooter>
-                  <button type="submit" onClick={handleAddEmployee} disabled={formLoading} className={`px-4 py-2 rounded-md text-white transition-colors ${
-                    formLoading ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
-                  }`}>
+                <DialogFooter className={adminFormDialogFooterClass(darkMode)}>
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className={`min-w-[120px] rounded-xl px-4 py-2.5 text-base font-semibold transition-colors ${darkMode ? 'text-indigo-100 hover:bg-[#223560]' : 'text-gray-600 hover:bg-gray-100'}`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    onClick={handleAddEmployee}
+                    disabled={formLoading}
+                    className={`min-w-[190px] rounded-xl px-5 py-2.5 text-base font-semibold text-white transition-all ${
+                      formLoading
+                        ? 'cursor-not-allowed bg-violet-400/70'
+                        : 'bg-gradient-to-r from-fuchsia-500 to-indigo-500 hover:from-fuchsia-400 hover:to-indigo-400 hover:shadow-lg hover:shadow-violet-900/40'
+                    }`}
+                  >
                     {formLoading ? 'Creating...' : 'Create Employee'}
                   </button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
-        </div>
-      </div>
 
-        <div className={`${embedded ? '' : 'max-w-7xl mx-auto px-6 py-8'}`}>
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
-            <div key={index} className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} rounded-3xl shadow-lg border-2 p-6 hover:shadow-xl transition-all`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className={`${darkMode ? stat.color + '/20' : stat.bgLight} p-3 rounded-lg`}>
-                  <stat.icon className={`w-6 h-6 ${darkMode ? stat.color.replace('bg-', 'text-') + '/80' : stat.color.replace('bg-', 'text-')}`} />
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+            {stats.map((stat, index) => (
+              <div key={index} className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl shadow-lg border-2 p-6 hover:shadow-xl transition-all`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`${darkMode ? stat.color + '/20' : stat.bgLight} p-3 rounded-lg`}>
+                    <stat.icon className={`w-6 h-6 ${darkMode ? stat.color.replace('bg-', 'text-') + '/80' : stat.color.replace('bg-', 'text-')}`} />
+                  </div>
+                  <div className={`w-2 h-2 rounded-full ${stat.color} animate-pulse`}></div>
                 </div>
-                <div className={`w-2 h-2 rounded-full ${stat.color} animate-pulse`}></div>
+                <div>
+                  <h3 className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} text-sm font-medium mb-1`}>{stat.label}</h3>
+                  <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>{stat.value}</p>
+                  <p className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{stat.change}</p>
+                </div>
               </div>
-              <div>
-                <h3 className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} text-sm font-medium mb-1`}>{stat.label}</h3>
-                <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>{stat.value}</p>
-                <p className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{stat.change}</p>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         {/* Main Content Card */}
-        <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'} rounded-3xl shadow-xl border-2`}>
+        <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl shadow-xl border-2 w-full`}>
           {/* Search and Filter Bar */}
           <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col lg:flex-row gap-4">
               <div className="flex-1 relative">
                 <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${darkMode ? 'text-gray-500' : 'text-gray-400'} w-5 h-5`} />
                 <input
@@ -334,10 +678,34 @@ export default function AdminEmployees() {
                   placeholder="Search employees by name, email, or location..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full pl-11 pr-4 py-4 border-2 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all ${
+                  className={`w-full pl-11 pr-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all ${
                     darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-900'
                   }`}
                 />
+              </div>
+              <div className="flex flex-wrap gap-3 items-center">
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className={`px-5 py-3 border-2 rounded-xl font-semibold text-sm cursor-pointer focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none ${
+                    darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
+                  }`}
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="pending">Pending</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="flagged">Flagged</option>
+                </select>
+                <button
+                  onClick={fetchEmployees}
+                  className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all ${
+                    darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
               </div>
             </div>
           </div>
@@ -348,12 +716,11 @@ export default function AdminEmployees() {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
               <p className={`text-lg font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Loading employees...</p>
             </div>
-          ) : filteredEmployees.length > 0 ? (
+          ) : paginatedEmployees.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
-            {filteredEmployees.map((employee) => {
-              console.log('🎨 Rendering employee:', employee.id, employee.email);
+            {paginatedEmployees.map((employee) => {
               return (
-              <div key={employee.id} className={`border rounded-xl p-6 transition-all ${
+              <div key={employee.id} className={`border rounded-xl p-6 transition-all flex flex-col ${
                 darkMode 
                   ? 'border-gray-700 hover:border-green-500/50 bg-gray-800/50'
                   : 'border-gray-200 hover:border-green-300 bg-white' 
@@ -380,26 +747,48 @@ export default function AdminEmployees() {
                       </p>
                     </div>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-700'
-                  }`}>
-                    Active
-                  </span>
+                  {(() => {
+                    const status = employee.status || 'active';
+                    let statusClasses = '';
+                    let statusLabel = '';
+                    if (status === 'active') {
+                      statusClasses = darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-700';
+                      statusLabel = 'Active';
+                    } else if (status === 'pending') {
+                      statusClasses = darkMode ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700';
+                      statusLabel = 'Pending';
+                    } else if (status === 'suspended') {
+                      statusClasses = darkMode ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-700';
+                      statusLabel = 'Suspended';
+                    } else {
+                      statusClasses = darkMode ? 'bg-gray-500/20 text-gray-400' : 'bg-gray-100 text-gray-700';
+                      statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+                    }
+                    return (
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusClasses}`}>
+                        {statusLabel}
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 {/* Skills */}
-                <div className="mb-4">
+                <div className="mb-4 min-h-[3rem]">
                   <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-2 font-medium`}>Skills</p>
                   <div className="flex flex-wrap gap-2">
-                    {employee.skills?.map((skill, idx) => (
-                      <span key={idx} className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        darkMode 
-                          ? 'bg-gray-700 text-gray-300'
-                          : 'bg-gray-100 text-gray-700'
-                      }`}>
-                        {skill}
-                      </span>
-                    ))}
+                    {employee.skills && employee.skills.length > 0 ? (
+                      employee.skills.map((skill, idx) => (
+                        <span key={idx} className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          darkMode 
+                            ? 'bg-gray-700 text-gray-300'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {skill}
+                        </span>
+                      ))
+                    ) : (
+                      <span className={`text-xs italic ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>No skills listed</span>
+                    )}
                   </div>
                 </div>
 
@@ -434,35 +823,49 @@ export default function AdminEmployees() {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-2">
-                  <button className={`flex-1 flex items-center justify-center gap-2 py-2 border rounded-lg transition-colors text-sm font-medium ${
+                <div className={`flex items-center gap-2 rounded-xl border p-2 ${
+                  darkMode ? 'border-gray-600 bg-gray-700/40' : 'border-gray-200 bg-gray-50'
+                }`}>
+                  <button
+                    onClick={() => setSelectedEmployee(employee)}
+                    title="View profile"
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 border rounded-lg transition-colors text-sm font-medium ${
                     darkMode
                       ? 'border-gray-600 hover:bg-gray-700 text-gray-300'
-                      : 'border-gray-300 hover:bg-gray-50 text-gray-700'
+                      : 'border-gray-300 hover:bg-white text-gray-700'
                   }`}>
                     <Eye className="w-4 h-4" />
                     View Profile
                   </button>
                   <button className={`p-2 rounded-lg transition-colors ${
                     darkMode
-                      ? 'hover:bg-gray-700 text-gray-400'
-                      : 'hover:bg-gray-100 text-gray-600'
-                  }`}>
+                      ? 'hover:bg-blue-500/15 text-blue-400'
+                      : 'hover:bg-blue-50 text-blue-600'
+                  }`}
+                  onClick={() => handleOpenEditModal(employee)}
+                  title="Edit employee"
+                  >
                     <Edit className="w-5 h-5" />
                   </button>
                   <button className={`p-2 rounded-lg transition-colors ${
                     darkMode
                       ? 'hover:bg-red-500/10 text-red-400'
                       : 'hover:bg-red-50 text-red-600'
-                  }`}>
+                  }`}
+                  onClick={() => setEmployeeToDelete(employee)}
+                  title="Delete employee"
+                  >
                     <Trash2 className="w-5 h-5" />
                   </button>
                   <button className={`p-2 rounded-lg transition-colors ${
                     darkMode
-                      ? 'hover:bg-gray-700 text-gray-400'
-                      : 'hover:bg-gray-100 text-gray-600'
-                  }`}>
-                    <MoreVertical className="w-5 h-5" />
+                      ? 'hover:bg-emerald-500/10 text-emerald-300'
+                      : 'hover:bg-emerald-50 text-emerald-600'
+                  }`}
+                  onClick={() => handleCopyEmployeeEmail(employee)}
+                  title="Copy email"
+                  >
+                    <Copy className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -473,17 +876,79 @@ export default function AdminEmployees() {
             <div className="p-12 text-center">
               <Users className={`w-16 h-16 mx-auto mb-4 ${darkMode ? 'text-gray-600' : 'text-gray-300'}`} />
               <p className={`text-lg font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>
-                {employees.length === 0 ? 'No employees found' : `No employees match "${searchTerm}"`}
+                {employees.length === 0 ? 'No employees found' : `No employees match your filters`}
               </p>
               <p className={`text-sm mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                 {employees.length === 0 
                   ? 'Try adding an employee or check your database' 
-                  : `Found ${employees.length} total employees. Try adjusting your search.`}
+                  : `Found ${employees.length} total employees. Try adjusting your search or filters.`}
               </p>
+            </div>
+          )}
+          {/* Pagination Controls */}
+          {!loading && totalPages > 1 && (
+            <div className={`p-6 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+              <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <p className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Showing <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{(currentPage - 1) * itemsPerPage + 1}</span> to <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{Math.min(currentPage * itemsPerPage, filteredEmployees.length)}</span> of <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{filteredEmployees.length}</span> employees
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`p-2 rounded-lg font-medium transition-colors ${
+                      currentPage === 1
+                        ? darkMode ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 cursor-not-allowed'
+                        : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    Previous
+                  </button>
+                  <div className="flex gap-1">
+                    {(() => {
+                      const getVisiblePages = (current: number, total: number) => {
+                        if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+                        if (current <= 3) return [1, 2, 3, 4, '...', total];
+                        if (current >= total - 2) return [1, '...', total - 3, total - 2, total - 1, total];
+                        return [1, '...', current - 1, current, current + 1, '...', total];
+                      };
+                      return getVisiblePages(currentPage, totalPages).map((page, index) => (
+                        page === '...' ? (
+                          <span key={`ellipsis-${index}`} className={`px-2 font-bold flex items-center justify-center ${darkMode ? 'text-gray-600' : 'text-gray-400'}`}>…</span>
+                        ) : (
+                          <button
+                            key={`page-${page}`}
+                            onClick={() => handlePageChange(page as number)}
+                            className={`w-10 h-10 rounded-lg font-bold transition-colors ${
+                              currentPage === page
+                                ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg'
+                                : darkMode ? 'text-gray-400 hover:bg-gray-700 hover:text-gray-200' : 'text-gray-600 hover:bg-gray-100'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        )
+                      ));
+                    })()}
+                  </div>
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className={`p-2 rounded-lg font-medium transition-colors ${
+                      currentPage === totalPages
+                        ? darkMode ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 cursor-not-allowed'
+                        : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
       </div>
     </div>
+    </>
   );
 }
