@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import AdminBackButton from '@/components/AdminBackButton';
+import AdminBackButton, { useAdminEmbedded } from '@/components/AdminBackButton';
 import { useTheme } from '@/components/theme-provider';
 import { Briefcase, Search, Plus, Edit, Trash2, MoreVertical, DollarSign, MapPin, Building2, Users, CheckCircle, XCircle, Clock, Filter, Pause, Play } from 'lucide-react';
 import { adminService } from '@/lib/admin-service';
@@ -17,6 +17,7 @@ interface Job {
 }
 
 export default function AdminJobs() {
+  const { embedded } = useAdminEmbedded();
   const { theme } = useTheme();
   const darkMode = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -72,7 +73,7 @@ export default function AdminJobs() {
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-50 via-white to-green-50'}`}>
       {/* Header */}
-      <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b`}>
+      <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-200'} border-b`}>
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -95,7 +96,7 @@ export default function AdminJobs() {
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Main Content Card */}
-        <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-xl shadow-sm border`}>
+        <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-200'} rounded-xl shadow-sm border`}>
           {/* Search and Filter Bar */}
           <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
             <div className="flex flex-col sm:flex-row gap-4">
@@ -132,7 +133,7 @@ export default function AdminJobs() {
                   const statusConfig = getStatusConfig(job.status);
                   const StatusIcon = statusConfig.icon;
                   return (
-                    <tr key={job.id} className={`border-b ${darkMode ? 'bg-gray-800 border-gray-700 hover:bg-gray-600/50' : 'bg-white hover:bg-gray-50'}`}>
+                    <tr key={job.id} className={`border-b ${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)] hover:bg-gray-600/50' : 'bg-white hover:bg-gray-50'}`}>
                       <th scope="row" className={`px-6 py-4 font-medium whitespace-nowrap ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                         {job.title}
                       </th>

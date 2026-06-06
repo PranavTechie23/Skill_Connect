@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { storiesApi, type Story } from '@/lib/api';
+import { api, type Story } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Check, X, Eye } from 'lucide-react';
 
-export function AdminStoryReview() {
+export default function AdminStoryReview() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -19,7 +19,7 @@ export function AdminStoryReview() {
   const loadPendingStories = async () => {
     try {
       setLoading(true);
-      const response = await storiesApi.getPendingStories();
+      const response = await api.stories.getPending();
       setStories(response.stories || []);
     } catch (error) {
       console.error('Failed to load stories:', error);
@@ -35,7 +35,7 @@ export function AdminStoryReview() {
 
   const handleUpdateStatus = async (storyId: string, status: Story['status']) => {
     try {
-      await storiesApi.updateStoryStatus(storyId, status);
+      await api.stories.updateStatus(storyId, status);
       
       // Update local state
       setStories(stories.filter(story => story.id !== storyId));
@@ -55,7 +55,7 @@ export function AdminStoryReview() {
     }
   };
 
-  if (!user?.isAdmin) {
+  if (user?.userType !== 'admin') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -102,7 +102,7 @@ export function AdminStoryReview() {
               <div className="flex justify-between items-start">
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    {story.title}
+                    {story.title.replace(/\s*-\s*[^\s@]+@[^\s@]+\.[^\s@]+$/, '')}
                   </h2>
                   <p className="mt-2 text-gray-600 dark:text-gray-400">
                     {story.content}

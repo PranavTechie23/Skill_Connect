@@ -1,7 +1,8 @@
 import express, { Request, Response, NextFunction } from "express";
 import { db } from "../../db";
-import { stories } from "../../schema";
+import { stories } from "../../../../shared/schema";
 import { desc, eq } from "drizzle-orm";
+import { storage } from "../../storage";
 
 // Extend the session type to include our custom fields
 declare module "express-session" {
@@ -17,33 +18,52 @@ const router = express.Router();
  */
 const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
   if (!req.session || !req.session.userId) {
-    return res.status(401).json({ message: "Unauthorized: Please log in first." });
+    return res.status(401).json({ message: "Not authenticated" });
   }
 
-  // For now, we're using a hardcoded check. Replace with proper admin check later.
-  if (req.session.userId !== 'admin-001') {
-    return res.status(403).json({ message: "Forbidden: Admin access required" });
+  // Keep parity with the main admin middleware in `server/src/routes.ts`.
+  // - Allow the hardcoded admin user
+  // - Otherwise, check the user's `userType` in DB
+  if (req.session.userId === "admin-001" || req.session.userId === "dev-admin") return next();
+
+  const user = await storage.getUser(String(req.session.userId)).catch(() => null);
+  const rawUserType =
+    ((user as any)?.userType || (user as any)?.user_type || "")?.toString?.() ?? "";
+  const normalizedUserType = rawUserType.toLowerCase().trim();
+
+  if (req.path === "/" || String(req.originalUrl || "").includes("/api/admin/stories")) {
+    console.log("🔐 requireAdmin(router admin/stories):", {
+      sessionUserId: req.session.userId,
+      resolvedUserTypeRaw: (user as any)?.userType || (user as any)?.user_type,
+      resolvedUserTypeNormalized: normalizedUserType,
+      userFound: !!user,
+    });
   }
 
-  next();
+  if (normalizedUserType === "admin") return next();
+
+  const payload: any = { message: "Forbidden: Admin access required" };
+  // Provide extra diagnostics in dev to help debug session/userType mismatches.
+  if (process.env.NODE_ENV !== "production") {
+    payload.debug = {
+      sessionUserId: req.session.userId,
+      userFound: !!user,
+      resolvedUserTypeRaw: rawUserType,
+      resolvedUserTypeNormalized: normalizedUserType,
+    };
+  }
+
+  return res.status(403).json(payload);
 };
 
 /**
  * Route to fetch all stories for admin
  */
-router.get("/", requireAdmin, async (_req: Request, res: Response) => {
-  try {
-    const allStories = await db
-      .select()
-      .from(stories)
-      .orderBy(desc(stories.createdAt))
-      .execute();
-
-    res.status(200).json(allStories);
-  } catch (error: any) {
-    console.error("❌ Error fetching stories:", error);
-    res.status(500).json({ error: "Failed to fetch stories" });
-  }
+router.get("/", (_req: Request, _res: Response, next: NextFunction) => {
+  // Important: this route is mounted from `server/src/routes.ts` under `/api/admin/stories`.
+  // `server/src/routes.ts` also defines its own `app.get("/api/admin/stories", requireAdmin, ...)`.
+  // By intentionally skipping here (`next()`), we ensure the centralized handler runs.
+  next();
 });
 
 /**

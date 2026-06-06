@@ -30,7 +30,7 @@ interface Story {
   createdAt: string;
 }
 
-export function AdminStories() {
+export default function AdminStories() {
   const { user } = useAuth();
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
@@ -161,7 +161,7 @@ export function AdminStories() {
             <TableBody>
               {stories.map((story) => (
                 <TableRow key={story.id}>
-                  <TableCell className="font-medium">{story.title}</TableCell>
+                  <TableCell className="font-medium">{story.title.replace(/\s*-\s*[^\s@]+@[^\s@]+\.[^\s@]+$/, '')}</TableCell>
                   <TableCell>{story.name}</TableCell>
                   <TableCell>
                     {new Date(story.createdAt).toLocaleDateString()}
