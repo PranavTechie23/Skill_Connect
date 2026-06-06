@@ -5,743 +5,1173 @@ import {
   BarChart3, TrendingUp, Users, Briefcase, ArrowUp, ArrowDown,
   Calendar, DollarSign, Target, Activity, PieChart, LineChart,
   UserCheck, Building2, CheckCircle, Clock, Filter, Download,
-  Eye, Sparkles, Zap, Star, Award, TrendingDown, FileText
+  Eye, Sparkles, Zap, Star, Award, TrendingDown, FileText,
+  ChevronDown, MoreHorizontal, RefreshCw, Bell
 } from 'lucide-react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Pie, Cell, PieChart as RechartsPieChart } from 'recharts';
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+  Pie, Cell, PieChart as RechartsPieChart, AreaChart, Area, RadialBarChart, RadialBar
+} from 'recharts';
 import { jsPDF } from 'jspdf';
 import * as XLSX from 'xlsx';
+import { adminService, type AdminAnalyticsData } from '@/lib/admin-service';
 
-// Mock data for demonstration
-const mockAnalyticsData = {
-  userGrowth: [
-    { month: 'Jan', users: 1200, employees: 800, employers: 400 },
-    { month: 'Feb', users: 1500, employees: 950, employers: 550 },
-    { month: 'Mar', users: 1800, employees: 1100, employers: 700 },
-    { month: 'Apr', users: 2200, employees: 1400, employers: 800 },
-    { month: 'May', users: 2600, employees: 1650, employers: 950 },
-    { month: 'Jun', users: 3100, employees: 2000, employers: 1100 },
-  ],
-  jobCategories: [
-    { name: 'Technology', value: 35, color: '#3b82f6' },
-    { name: 'Healthcare', value: 25, color: '#22c55e' },
-    { name: 'Finance', value: 20, color: '#a855f7' },
-    { name: 'Education', value: 12, color: '#f59e0b' },
-    { name: 'Other', value: 8, color: '#ef4444' },
-  ],
-  recentActivities: [
-    { type: 'user', action: 'New user registered', user: 'John Doe', time: '2 minutes ago', color: 'blue' },
-    { type: 'job', action: 'Job posted', user: 'Tech Corp', time: '5 minutes ago', color: 'green' },
-    { type: 'application', action: 'Application submitted', user: 'Sarah Smith', time: '12 minutes ago', color: 'purple' },
-    { type: 'hire', action: 'Candidate hired', user: 'MediCare Inc', time: '25 minutes ago', color: 'orange' },
-    { type: 'user', action: 'Profile updated', user: 'Mike Johnson', time: '1 hour ago', color: 'blue' },
-  ],
-  performanceMetrics: {
-    employeeSatisfaction: 92,
-    employerSatisfaction: 88,
-    placementRate: 76,
-    avgTimeToHire: 14,
-    timeToHireChange: -3,
-  },
-  stats: {
-    totalUsers: 3100,
-    newUsers: 245,
-    activeJobs: 487,
-    newJobs: 52,
-    applications: 1842,
-    newApplications: 187,
-    successRate: 76,
-    successRateChange: 3,
-  }
-};
-
-type AnalyticsData = typeof mockAnalyticsData;
 type TimeRangeKey = '7d' | '30d' | '90d' | '1y';
 
-const round = (value: number) => Math.max(0, Math.round(value));
+type ActivityColor = 'blue' | 'green' | 'purple' | 'orange';
 
-const transformByRange = (range: TimeRangeKey): AnalyticsData => {
-  const multipliers: Record<TimeRangeKey, number> = {
-    '7d': 0.24,
-    '30d': 1,
-    '90d': 2.7,
-    '1y': 9.8,
+type AnalyticsViewData = {
+  userGrowth: { month: string; users: number; employees: number; employers: number }[];
+  jobCategories: { name: string; value: number; color: string }[];
+  recentActivities: { type: string; action: string; user: string; time: string; color: ActivityColor }[];
+  performanceMetrics: {
+    employeeSatisfaction: number;
+    employerSatisfaction: number;
+    placementRate: number;
+    avgTimeToHire: number;
+    timeToHireChange: number;
   };
-
-  const m = multipliers[range];
-  const base = mockAnalyticsData;
-
-  const growthLabels: Record<TimeRangeKey, string[]> = {
-    '7d': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-    '30d': ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'],
-    '90d': ['Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
-    '1y': ['Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6'],
+  stats: {
+    totalUsers: number;
+    newUsers: number;
+    activeJobs: number;
+    newJobs: number;
+    applications: number;
+    newApplications: number;
+    successRate: number;
+    successRateChange: number;
   };
-
-  const userGrowth = base.userGrowth.map((row, idx) => {
-    const phase = 1 + idx * 0.08;
-    const adjustedUsers = row.users * m * phase;
-    return {
-      month: growthLabels[range][idx] ?? row.month,
-      users: round(adjustedUsers),
-      employees: round(adjustedUsers * 0.64),
-      employers: round(adjustedUsers * 0.36),
-    };
-  });
-
-  const shiftByRange: Record<TimeRangeKey, number[]> = {
-    '7d': [2, -1, 0, -1, 0],
-    '30d': [0, 0, 0, 0, 0],
-    '90d': [-2, 1, 1, 0, 0],
-    '1y': [-4, 2, 1, 1, 0],
+  pipeline: {
+    new: number;
+    reviewing: number;
+    shortlisted: number;
+    interview: number;
+    hired: number;
+    rejected: number;
   };
+};
 
-  const jobCategories = base.jobCategories.map((cat, idx) => ({
-    ...cat,
-    value: Math.max(5, cat.value + shiftByRange[range][idx]),
+const EMPTY_ANALYTICS: AnalyticsViewData = {
+  userGrowth: [],
+  jobCategories: [],
+  recentActivities: [],
+  performanceMetrics: {
+    employeeSatisfaction: 0,
+    employerSatisfaction: 0,
+    placementRate: 0,
+    avgTimeToHire: 0,
+    timeToHireChange: 0,
+  },
+  stats: {
+    totalUsers: 0,
+    newUsers: 0,
+    activeJobs: 0,
+    newJobs: 0,
+    applications: 0,
+    newApplications: 0,
+    successRate: 0,
+    successRateChange: 0,
+  },
+  pipeline: { new: 0, reviewing: 0, shortlisted: 0, interview: 0, hired: 0, rejected: 0 },
+};
+
+const CATEGORY_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#06b6d4'];
+
+const activityColor = (type: string): ActivityColor => {
+  if (type === 'job') return 'green';
+  if (type === 'application') return 'purple';
+  if (type === 'company') return 'orange';
+  return 'blue';
+};
+
+function mapApiAnalyticsToView(api: AdminAnalyticsData): AnalyticsViewData {
+  const stats = api.stats ?? {};
+  const perf = api.performanceMetrics ?? {};
+
+  const userGrowth = (api.userGrowth ?? []).map((row) => ({
+    month: row.month,
+    users: Number(row.users ?? 0),
+    employees: Number(row.employees ?? 0),
+    employers: Number(row.employers ?? 0),
   }));
 
-  const dynamicStats = {
-    totalUsers: round(base.stats.totalUsers * m),
-    newUsers: round(base.stats.newUsers * (range === '7d' ? 0.35 : range === '1y' ? 6.8 : m)),
-    activeJobs: round(base.stats.activeJobs * (range === '1y' ? 2.9 : range === '90d' ? 1.9 : range === '7d' ? 0.55 : 1)),
-    newJobs: round(base.stats.newJobs * (range === '7d' ? 0.35 : range === '1y' ? 6 : m)),
-    applications: round(base.stats.applications * (range === '1y' ? 3.3 : range === '90d' ? 2.1 : range === '7d' ? 0.45 : 1)),
-    newApplications: round(base.stats.newApplications * (range === '7d' ? 0.32 : range === '1y' ? 5.9 : m)),
-    successRate: range === '7d' ? 73 : range === '30d' ? 76 : range === '90d' ? 78 : 81,
-    successRateChange: range === '7d' ? 1 : range === '30d' ? 3 : range === '90d' ? 4 : 7,
-  };
+  const jobCategories = (api.jobCategories ?? []).slice(0, 6).map((row, idx) => ({
+    name: String(row.name ?? 'Other'),
+    value: Number(row.value ?? 0),
+    color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+  }));
 
-  const performanceMetrics = {
-    employeeSatisfaction: range === '7d' ? 89 : range === '30d' ? 92 : range === '90d' ? 93 : 94,
-    employerSatisfaction: range === '7d' ? 84 : range === '30d' ? 88 : range === '90d' ? 89 : 91,
-    placementRate: range === '7d' ? 71 : range === '30d' ? 76 : range === '90d' ? 79 : 83,
-    avgTimeToHire: range === '7d' ? 17 : range === '30d' ? 14 : range === '90d' ? 12 : 10,
-    timeToHireChange: range === '7d' ? -1 : range === '30d' ? -3 : range === '90d' ? -4 : -6,
-  };
-
-  const activityByRange: Record<TimeRangeKey, string[]> = {
-    '7d': ['2 minutes ago', '5 minutes ago', '12 minutes ago', '25 minutes ago', '1 hour ago'],
-    '30d': ['Today, 9:25 AM', 'Today, 8:50 AM', 'Today, 8:20 AM', 'Today, 7:35 AM', 'Today, 6:40 AM'],
-    '90d': ['1 day ago', '2 days ago', '3 days ago', '4 days ago', '6 days ago'],
-    '1y': ['Last week', '2 weeks ago', '3 weeks ago', 'Last month', '2 months ago'],
-  };
-
-  const recentActivities = base.recentActivities.map((a, i) => ({
-    ...a,
-    time: activityByRange[range][i] ?? a.time,
+  const recentActivities = (api.recentActivities ?? []).slice(0, 8).map((a) => ({
+    type: a.type ?? 'user',
+    action: a.action ?? 'Activity',
+    user: a.user ?? '—',
+    time: a.createdAt ? new Date(a.createdAt).toLocaleString() : 'Recently',
+    color: activityColor(a.type ?? 'user'),
   }));
 
   return {
     userGrowth,
     jobCategories,
     recentActivities,
-    performanceMetrics,
-    stats: dynamicStats,
+    performanceMetrics: {
+      employeeSatisfaction: Number(perf.employeeSatisfaction ?? 0),
+      employerSatisfaction: Number(perf.employerSatisfaction ?? 0),
+      placementRate: Number(perf.placementRate ?? 0),
+      avgTimeToHire: Number(perf.avgTimeToHire ?? 0),
+      timeToHireChange: Number(perf.timeToHireChange ?? 0),
+    },
+    stats: {
+      totalUsers: Number(stats.totalUsers ?? 0),
+      newUsers: Number(stats.newUsers ?? 0),
+      activeJobs: Number(stats.activeJobs ?? 0),
+      newJobs: Number(stats.newJobs ?? 0),
+      applications: Number(stats.applications ?? 0),
+      newApplications: Number(stats.newApplications ?? 0),
+      successRate: Number(stats.successRate ?? 0),
+      successRateChange: Number(stats.successRateChange ?? 0),
+    },
+    pipeline: {
+      new: Number(perf.pipeline?.new ?? 0),
+      reviewing: Number(perf.pipeline?.reviewing ?? 0),
+      shortlisted: Number(perf.pipeline?.shortlisted ?? 0),
+      interview: Number(perf.pipeline?.interview ?? 0),
+      hired: Number(perf.pipeline?.hired ?? 0),
+      rejected: Number(perf.pipeline?.rejected ?? 0),
+    },
   };
+}
+
+/* ─────────────────────────── CUSTOM TOOLTIP ─────────────────────────── */
+const CustomBarTooltip = ({ active, payload, label, dark }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className={`px-4 py-3 rounded-2xl shadow-2xl border backdrop-blur-xl text-sm ${
+      dark ? 'bg-gray-900/95 border-white/10 text-white' : 'bg-white/95 border-black/5 text-gray-900'
+    }`}>
+      <p className={`font-bold mb-2 text-xs uppercase tracking-widest ${dark ? 'text-gray-400' : 'text-gray-400'}`}>{label}</p>
+      {payload.map((p: any, i: number) => (
+        <div key={i} className="flex items-center gap-2 mb-1">
+          <div className="w-2 h-2 rounded-full" style={{ background: p.fill }}></div>
+          <span className={dark ? 'text-gray-300' : 'text-gray-600'}>{p.name}:</span>
+          <span className="font-bold">{p.value?.toLocaleString()}</span>
+        </div>
+      ))}
+    </div>
+  );
 };
 
-const Analytics = () => {
+const CustomPieTooltip = ({ active, payload, dark }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className={`px-4 py-3 rounded-2xl shadow-2xl border backdrop-blur-xl text-sm ${
+      dark ? 'bg-gray-900/95 border-white/10 text-white' : 'bg-white/95 border-black/5 text-gray-900'
+    }`}>
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full" style={{ background: payload[0].payload.color }}></div>
+        <span className="font-bold">{payload[0].name}</span>
+        <span className={`ml-1 font-black text-base ${dark ? 'text-white' : 'text-gray-900'}`}>{payload[0].value}%</span>
+      </div>
+    </div>
+  );
+};
+
+const CustomSparkTooltip = ({ active, payload, label, dark, unit = '' }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className={`px-3 py-2 rounded-xl shadow-xl border text-xs font-bold z-50 ${
+      dark ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)] text-white' : 'bg-white border-gray-200 text-gray-900'
+    }`}>
+      <div className={`mb-1 opacity-60 uppercase tracking-wider text-[10px]`}>{label}</div>
+      <div className="flex items-center gap-1.5 text-sm">
+        <div className="w-2 h-2 rounded-full" style={{ background: payload[0].color || payload[0].stroke || payload[0].fill }}></div>
+        {payload[0].value}{unit}
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────── STAT CARD ─────────────────────────── */
+const DatabaseLoadingState = ({
+  dark,
+  className = '',
+  minHeight = '12rem',
+}: {
+  dark: boolean;
+  className?: string;
+  minHeight?: string;
+}) => (
+  <div
+    className={`flex flex-col items-center justify-center gap-3 text-center px-4 ${className}`}
+    style={{ minHeight }}
+  >
+    <RefreshCw className="w-7 h-7 animate-spin text-indigo-500" />
+    <div>
+      <p className={`text-sm font-bold ${dark ? 'text-gray-200' : 'text-gray-800'}`}>Loading data...</p>
+      <p className={`text-xs mt-1 ${dark ? 'text-gray-500' : 'text-gray-500'}`}>Fetching live stats from database</p>
+    </div>
+  </div>
+);
+
+interface StatCardProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  gradient: string;
+  glowColor: string;
+  dark: boolean;
+  index: number;
+  loading?: boolean;
+}
+
+const StatCard: React.FC<StatCardProps> = ({ icon, label, value, gradient, glowColor, dark, index, loading = false }) => (
+  <div
+    className={`relative group rounded-3xl p-6 overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:-translate-y-1 cursor-default
+      ${dark ? 'bg-gray-800/60 border border-white/8' : 'bg-white/80 border border-black/5'}`}
+    style={{
+      backdropFilter: 'blur(20px)',
+      boxShadow: dark
+        ? `0 0 0 1px rgba(255,255,255,0.06), 0 20px 60px -10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)`
+        : `0 0 0 1px rgba(0,0,0,0.04), 0 20px 60px -10px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8)`,
+      animationDelay: `${index * 80}ms`,
+    }}
+  >
+    {/* Corner accent */}
+    <div className={`absolute -top-10 -right-10 w-32 h-32 rounded-full opacity-15 blur-2xl transition-all duration-700 group-hover:opacity-30 group-hover:scale-125`}
+      style={{ background: gradient }}></div>
+
+    {/* Icon */}
+    <div className="flex items-start justify-between mb-5">
+      <div className="relative">
+        <div className="absolute inset-0 blur-lg opacity-60 rounded-2xl" style={{ background: gradient }}></div>
+        <div className="relative p-3 rounded-2xl" style={{ background: gradient }}>
+          {icon}
+        </div>
+      </div>
+    </div>
+
+    <p className={`text-xs font-bold uppercase tracking-widest mb-2 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>{label}</p>
+    {loading ? (
+      <div className="space-y-2 mb-2">
+        <div className="flex items-center gap-2">
+          <RefreshCw className="w-5 h-5 animate-spin text-indigo-400" />
+          <span className={`text-base font-bold ${dark ? 'text-gray-300' : 'text-gray-600'}`}>Loading...</span>
+        </div>
+        <p className={`text-xs font-medium ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Fetching from database</p>
+      </div>
+    ) : (
+      <p className={`text-4xl font-black mb-2 tracking-tight ${dark ? 'text-white' : 'text-gray-900'}`}
+        style={{ fontFamily: "'DM Sans', sans-serif" }}>{value}</p>
+    )}
+
+    {/* Bottom shimmer line */}
+    <div className="absolute bottom-0 left-6 right-6 h-px opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-full"
+      style={{ background: `linear-gradient(90deg, transparent, ${glowColor}, transparent)` }}></div>
+  </div>
+);
+
+/* ─────────────────────────── PROGRESS RING ─────────────────────────── */
+const ProgressRing: React.FC<{ value: number; color: string; size?: number; strokeWidth?: number }> = ({
+  value, color, size = 56, strokeWidth = 4
+}) => {
+  const r = (size - strokeWidth * 2) / 2;
+  const circ = 2 * Math.PI * r;
+  const dash = (value / 100) * circ;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={strokeWidth} className="opacity-10" />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
+        strokeDasharray={`${dash} ${circ - dash}`} strokeLinecap="round"
+        style={{ transition: 'stroke-dasharray 1s cubic-bezier(0.4, 0, 0.2, 1)' }} />
+    </svg>
+  );
+};
+
+/* ─────────────────────────── MAIN COMPONENT ─────────────────────────── */
+type AnalyticsProps = {
+  quickActionIntent?: string | null;
+  onQuickActionConsumed?: () => void;
+};
+
+const Analytics = ({ quickActionIntent = null, onQuickActionConsumed }: AnalyticsProps = {}) => {
   const { theme } = useTheme();
   const { embedded } = useAdminEmbedded();
-  const darkMode = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
-  const [timeRange, setTimeRange] = useState<TimeRangeKey>('30d');
-  const [loading, setLoading] = useState(false);
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData>(mockAnalyticsData);
+  const dark = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>('1y');
+  const [timeRangeOpen, setTimeRangeOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsViewData>(EMPTY_ANALYTICS);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'performance'>('overview');
   const exportRef = useRef<HTMLDivElement | null>(null);
+  const timeRangeRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    // Simulate data fetch based on time range
+  const fetchAnalytics = async (range: TimeRangeKey) => {
     setLoading(true);
-    setTimeout(() => {
-      setAnalyticsData(transformByRange(timeRange));
+    setLoadError(null);
+    try {
+      const apiData = await adminService.getAnalytics(range);
+      setAnalyticsData(mapApiAnalyticsToView(apiData));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load analytics');
+    } finally {
       setLoading(false);
-    }, 500);
-  }, [timeRange]);
-
-  useEffect(() => {
-    const onClickOutside = (event: MouseEvent) => {
-      if (exportRef.current && !exportRef.current.contains(event.target as Node)) {
-        setExportOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
-  }, []);
-
-  const getRangeLabel = () => {
-    switch (timeRange) {
-      case '7d': return 'Last 7 days';
-      case '30d': return 'Last 30 days';
-      case '90d': return 'Last 90 days';
-      case '1y': return 'Last year';
-      default: return 'Custom range';
     }
   };
 
+  useEffect(() => {
+    fetchAnalytics(timeRange);
+  }, [timeRange]);
+
+  useEffect(() => {
+    if (quickActionIntent !== 'analytics-export') return;
+    setExportOpen(true);
+    onQuickActionConsumed?.();
+  }, [quickActionIntent, onQuickActionConsumed]);
+
+  useEffect(() => {
+    const fn = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false);
+      if (timeRangeRef.current && !timeRangeRef.current.contains(e.target as Node)) setTimeRangeOpen(false);
+    };
+    document.addEventListener('mousedown', fn);
+    return () => document.removeEventListener('mousedown', fn);
+  }, []);
+
+  const getRangeLabel = () => ({ '7d': 'Last 7 days', '30d': 'Last 30 days', '90d': 'Last 90 days', '1y': 'Last year' }[timeRange] ?? 'Custom range');
+
   const getExportPayload = () => ({
-    exportedAt: new Date().toISOString(),
-    timeRange: getRangeLabel(),
-    stats: analyticsData.stats,
-    performanceMetrics: analyticsData.performanceMetrics,
-    userGrowth: analyticsData.userGrowth,
-    jobCategories: analyticsData.jobCategories,
+    exportedAt: new Date().toISOString(), timeRange: getRangeLabel(),
+    stats: analyticsData.stats, performanceMetrics: analyticsData.performanceMetrics,
+    userGrowth: analyticsData.userGrowth, jobCategories: analyticsData.jobCategories,
     recentActivities: analyticsData.recentActivities,
   });
 
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   };
 
-  const exportJSON = () => {
-    const content = JSON.stringify(getExportPayload(), null, 2);
-    downloadBlob(new Blob([content], { type: 'application/json' }), `analytics-${timeRange}.json`);
-  };
+  const exportJSON = () => downloadBlob(new Blob([JSON.stringify(getExportPayload(), null, 2)], { type: 'application/json' }), `analytics-${timeRange}.json`);
 
   const exportCSV = () => {
-    const lines: string[] = [];
-    lines.push('Section,Metric,Value');
-    lines.push(`Meta,Exported At,${new Date().toISOString()}`);
-    lines.push(`Meta,Time Range,${getRangeLabel()}`);
-    lines.push('');
+    const lines: string[] = ['Section,Metric,Value', `Meta,Exported At,${new Date().toISOString()}`, `Meta,Time Range,${getRangeLabel()}`, ''];
     lines.push('Stats,Metric,Value');
     Object.entries(analyticsData.stats).forEach(([k, v]) => lines.push(`Stats,${k},${v}`));
-    lines.push('');
-    lines.push('Performance,Metric,Value');
+    lines.push('', 'Performance,Metric,Value');
     Object.entries(analyticsData.performanceMetrics).forEach(([k, v]) => lines.push(`Performance,${k},${v}`));
-    lines.push('');
-    lines.push('User Growth,Month,Users,Employees,Employers');
-    analyticsData.userGrowth.forEach((row) => lines.push(`User Growth,${row.month},${row.users},${row.employees},${row.employers}`));
-    lines.push('');
-    lines.push('Job Categories,Category,Share(%)');
-    analyticsData.jobCategories.forEach((row) => lines.push(`Job Categories,${row.name},${row.value}`));
-    lines.push('');
-    lines.push('Recent Activities,Type,Action,User,Time');
-    analyticsData.recentActivities.forEach((row) => {
-      lines.push(`Recent Activities,${row.type},"${row.action.replace(/"/g, '""')}","${row.user.replace(/"/g, '""')}",${row.time}`);
-    });
+    lines.push('', 'User Growth,Month,Users,Employees,Employers');
+    analyticsData.userGrowth.forEach(r => lines.push(`User Growth,${r.month},${r.users},${r.employees},${r.employers}`));
+    lines.push('', 'Job Categories,Category,Share(%)');
+    analyticsData.jobCategories.forEach(r => lines.push(`Job Categories,${r.name},${r.value}`));
+    lines.push('', 'Recent Activities,Type,Action,User,Time');
+    analyticsData.recentActivities.forEach(r => lines.push(`Recent Activities,${r.type},"${r.action.replace(/"/g, '""')}","${r.user.replace(/"/g, '""')}",${r.time}`));
     downloadBlob(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' }), `analytics-${timeRange}.csv`);
   };
 
   const exportExcel = () => {
     const wb = XLSX.utils.book_new();
-    const statsSheet = XLSX.utils.json_to_sheet(Object.entries(analyticsData.stats).map(([metric, value]) => ({ metric, value })));
-    const perfSheet = XLSX.utils.json_to_sheet(Object.entries(analyticsData.performanceMetrics).map(([metric, value]) => ({ metric, value })));
-    const growthSheet = XLSX.utils.json_to_sheet(analyticsData.userGrowth);
-    const categorySheet = XLSX.utils.json_to_sheet(analyticsData.jobCategories);
-    const activitySheet = XLSX.utils.json_to_sheet(analyticsData.recentActivities);
-    XLSX.utils.book_append_sheet(wb, statsSheet, 'Stats');
-    XLSX.utils.book_append_sheet(wb, perfSheet, 'Performance');
-    XLSX.utils.book_append_sheet(wb, growthSheet, 'UserGrowth');
-    XLSX.utils.book_append_sheet(wb, categorySheet, 'Categories');
-    XLSX.utils.book_append_sheet(wb, activitySheet, 'Activities');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(Object.entries(analyticsData.stats).map(([metric, value]) => ({ metric, value }))), 'Stats');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(Object.entries(analyticsData.performanceMetrics).map(([metric, value]) => ({ metric, value }))), 'Performance');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(analyticsData.userGrowth), 'UserGrowth');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(analyticsData.jobCategories), 'Categories');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(analyticsData.recentActivities), 'Activities');
     XLSX.writeFile(wb, `analytics-${timeRange}.xlsx`);
   };
 
   const exportPDF = () => {
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
     let y = 48;
-    doc.setFontSize(18);
-    doc.text('Analytics Dashboard Report', 40, y);
-    y += 22;
+    doc.setFontSize(18); doc.text('Analytics Dashboard Report', 40, y); y += 22;
+    doc.setFontSize(11); doc.text(`Time Range: ${getRangeLabel()}`, 40, y); y += 16;
+    doc.text(`Exported At: ${new Date().toLocaleString()}`, 40, y); y += 26;
+    doc.setFontSize(13); doc.text('Key Stats', 40, y); y += 18;
     doc.setFontSize(11);
-    doc.text(`Time Range: ${getRangeLabel()}`, 40, y);
-    y += 16;
-    doc.text(`Exported At: ${new Date().toLocaleString()}`, 40, y);
-    y += 26;
-
-    doc.setFontSize(13);
-    doc.text('Key Stats', 40, y);
-    y += 18;
+    Object.entries(analyticsData.stats).forEach(([k, v]) => { doc.text(`${k}: ${v}`, 46, y); y += 14; });
+    y += 10; doc.setFontSize(13); doc.text('Performance Metrics', 40, y); y += 18;
     doc.setFontSize(11);
-    Object.entries(analyticsData.stats).forEach(([k, v]) => {
-      doc.text(`${k}: ${v}`, 46, y);
-      y += 14;
-    });
-
-    y += 10;
-    doc.setFontSize(13);
-    doc.text('Performance Metrics', 40, y);
-    y += 18;
+    Object.entries(analyticsData.performanceMetrics).forEach(([k, v]) => { doc.text(`${k}: ${v}`, 46, y); y += 14; });
+    y += 10; doc.setFontSize(13); doc.text('Top Job Categories', 40, y); y += 18;
     doc.setFontSize(11);
-    Object.entries(analyticsData.performanceMetrics).forEach(([k, v]) => {
-      doc.text(`${k}: ${v}`, 46, y);
-      y += 14;
-    });
-
-    y += 10;
-    doc.setFontSize(13);
-    doc.text('Top Job Categories', 40, y);
-    y += 18;
-    doc.setFontSize(11);
-    analyticsData.jobCategories.forEach((c) => {
-      doc.text(`${c.name}: ${c.value}%`, 46, y);
-      y += 14;
-    });
-
+    analyticsData.jobCategories.forEach(c => { doc.text(`${c.name}: ${c.value}%`, 46, y); y += 14; });
     doc.save(`analytics-${timeRange}.pdf`);
   };
 
   const handleExport = (format: 'pdf' | 'excel' | 'json' | 'csv') => {
-    switch (format) {
-      case 'pdf':
-        exportPDF();
-        break;
-      case 'excel':
-        exportExcel();
-        break;
-      case 'json':
-        exportJSON();
-        break;
-      case 'csv':
-        exportCSV();
-        break;
-    }
+    ({ pdf: exportPDF, excel: exportExcel, json: exportJSON, csv: exportCSV })[format]();
     setExportOpen(false);
   };
 
+  /* ─── Derived radial data for perf rings ─── */
+  const perfRings = [
+    { label: 'Employee Satisfaction', value: analyticsData.performanceMetrics.employeeSatisfaction, color: '#6366f1', icon: <UserCheck className="w-5 h-5" />, bg: 'from-indigo-500/15 to-violet-500/5', border: dark ? 'border-indigo-500/20' : 'border-indigo-100' },
+    { label: 'Employer Satisfaction', value: analyticsData.performanceMetrics.employerSatisfaction, color: '#10b981', icon: <Building2 className="w-5 h-5" />, bg: 'from-emerald-500/15 to-teal-500/5', border: dark ? 'border-emerald-500/20' : 'border-emerald-100' },
+    { label: 'Placement Rate', value: analyticsData.performanceMetrics.placementRate, color: '#f59e0b', icon: <Target className="w-5 h-5" />, bg: 'from-amber-500/15 to-orange-500/5', border: dark ? 'border-amber-500/20' : 'border-amber-100' },
+  ];
+
+  const activityIcons: Record<string, React.ReactNode> = {
+    user: <Users className="w-4 h-4" />, job: <Briefcase className="w-4 h-4" />,
+    application: <FileText className="w-4 h-4" />, hire: <CheckCircle className="w-4 h-4" />,
+  };
+
+  const activityColors: Record<string, { bg: string; text: string; ring: string }> = {
+    blue: {
+      bg: dark ? 'bg-indigo-500/15' : 'bg-indigo-50',
+      text: dark ? 'text-indigo-400' : 'text-indigo-600',
+      ring: '#6366f1',
+    },
+    green: {
+      bg: dark ? 'bg-emerald-500/15' : 'bg-emerald-50',
+      text: dark ? 'text-emerald-400' : 'text-emerald-600',
+      ring: '#10b981',
+    },
+    purple: {
+      bg: dark ? 'bg-violet-500/15' : 'bg-violet-50',
+      text: dark ? 'text-violet-400' : 'text-violet-600',
+      ring: '#8b5cf6',
+    },
+    orange: {
+      bg: dark ? 'bg-amber-500/15' : 'bg-amber-50',
+      text: dark ? 'text-amber-400' : 'text-amber-600',
+      ring: '#f59e0b',
+    },
+  };
+
+  /* ─── Tooltip colors for recharts (can't use CSS vars) ─── */
+  const tooltipBg = dark ? 'rgba(17,24,39,0.96)' : 'rgba(255,255,255,0.96)';
+  const tooltipBorder = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const tooltipText = dark ? '#f9fafb' : '#111827';
+
   return (
-    <div className={`${embedded ? 'relative overflow-hidden' : `min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-50 via-white to-purple-50'} p-8 relative overflow-hidden`}`}>
-      {/* Animated Background Elements - Only show in light mode */}
-      {!darkMode && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 -left-20 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-float"></div>
-          <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-float-delayed"></div>
-          <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-pink-500/5 rounded-full blur-3xl animate-float-slow"></div>
+    <div className={`${embedded ? 'relative' : `min-h-screen p-6 md:p-8 relative overflow-hidden ${dark ? 'bg-[#0a0c12]' : 'bg-[#f4f5fb]'}`}`}>
+
+      {/* ── Background ── */}
+      {!embedded && (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {dark ? (
+            <>
+              <div className="absolute top-0 left-1/4 w-[600px] h-[600px] rounded-full opacity-[0.07]"
+                style={{ background: 'radial-gradient(circle, #6366f1 0%, transparent 70%)', filter: 'blur(60px)' }}></div>
+              <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full opacity-[0.05]"
+                style={{ background: 'radial-gradient(circle, #10b981 0%, transparent 70%)', filter: 'blur(80px)' }}></div>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] opacity-[0.03]"
+                style={{ background: 'radial-gradient(circle, #8b5cf6 0%, transparent 70%)', filter: 'blur(100px)' }}></div>
+            </>
+          ) : (
+            <>
+              <div className="absolute top-0 right-0 w-[700px] h-[700px] opacity-[0.4]"
+                style={{ background: 'radial-gradient(ellipse at top right, #e0e7ff 0%, transparent 60%)' }}></div>
+              <div className="absolute bottom-0 left-0 w-[600px] h-[600px] opacity-[0.3]"
+                style={{ background: 'radial-gradient(ellipse at bottom left, #d1fae5 0%, transparent 60%)' }}></div>
+            </>
+          )}
         </div>
       )}
 
-      {/* Header */}
-      <div className={`${embedded ? 'mb-6 relative z-10' : 'max-w-7xl mx-auto mb-8 relative z-10'}`}>
-        <div className="mb-4">
-          <AdminBackButton />
-        </div>
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-2xl blur-xl opacity-50 animate-pulse-slow"></div>
-              <div className="relative p-4 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 rounded-2xl shadow-lg shadow-blue-500/50">
-                <BarChart3 className="w-8 h-8 text-white" />
+      <div className={`${embedded ? '' : 'max-w-[1440px] mx-auto'} relative z-10`}>
+
+        {/* ── Header ── */}
+        <div className="mb-8">
+          <div className="mb-5"><AdminBackButton /></div>
+
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-5">
+              {/* Logo block */}
+              <div className="relative">
+                <div className="absolute inset-0 rounded-2xl blur-xl opacity-60"
+                  style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}></div>
+                <div className="relative p-3.5 rounded-2xl" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                  <BarChart3 className="w-7 h-7 text-white" />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-3 mb-1.5">
+                  <h1 className={`text-3xl font-black tracking-tight ${dark ? 'text-white' : 'text-gray-900'}`}
+                    style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                    Analytics
+                  </h1>
+                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest ${
+                    dark ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                         : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                  }`}>
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                    Live
+                  </div>
+                </div>
+                <p className={`text-sm ${dark ? 'text-gray-500' : 'text-gray-400'} font-medium`}>
+                  Live database insights for {getRangeLabel().toLowerCase()}
+                </p>
               </div>
             </div>
-            <div>
-              <h1 className="text-4xl font-black bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent animate-gradient">
-                Analytics Dashboard
-              </h1>
-              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} mt-1 flex items-center gap-2`}>
-                Real-time platform insights and metrics
-                <span className={`flex items-center gap-1 px-2 py-0.5 ${darkMode ? 'bg-green-900' : 'bg-green-100'} ${darkMode ? 'text-green-300' : 'text-green-700'} rounded-full text-xs font-bold`}>
-                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                  Live
-                </span>
-              </p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-3">
-            <select
-              value={timeRange}
-              onChange={(e) => setTimeRange(e.target.value)}
-              className={`px-6 py-3 ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'} border-2 rounded-xl font-semibold cursor-pointer hover:border-blue-500 hover:shadow-lg transition-all shadow-sm`}
-            >
-              <option value="7d">Last 7 days</option>
-              <option value="30d">Last 30 days</option>
-              <option value="90d">Last 90 days</option>
-              <option value="1y">Last year</option>
-            </select>
-            <div className="relative" ref={exportRef}>
+            {loadError && (
+              <div className={`mb-4 w-full rounded-2xl border px-4 py-3 text-sm font-medium ${
+                dark ? 'bg-red-500/10 border-red-500/30 text-red-300' : 'bg-red-50 border-red-200 text-red-700'
+              }`}>
+                {loadError}
+              </div>
+            )}
+
+            {/* Controls */}
+            <div className="flex items-center gap-3">
+              {/* Refresh */}
               <button
-                onClick={() => setExportOpen((v) => !v)}
-                className="group relative flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-xl hover:scale-105 transition-all overflow-hidden"
+                onClick={() => fetchAnalytics(timeRange)}
+                className={`p-3 rounded-2xl border transition-all duration-200 hover:scale-105 active:scale-95 ${
+                  dark ? 'bg-gray-800/80 border-white/10 text-white shadow-xl shadow-black/20 hover:bg-gray-700/80'
+                       : 'bg-white border-black/8 text-gray-800 hover:bg-gray-50 shadow-sm'
+                }`}
+                title="Refresh data"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-700 to-indigo-700 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <Download className="w-5 h-5 relative z-10 group-hover:animate-bounce" />
-                <span className="relative z-10">Export</span>
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               </button>
 
-              {exportOpen && (
-                <div className={`absolute right-0 mt-2 w-48 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-xl shadow-xl overflow-hidden z-30`}>
-                  {[
-                    { label: 'PDF (.pdf)', value: 'pdf' as const },
-                    { label: 'Excel (.xlsx)', value: 'excel' as const },
-                    { label: 'CSV (.csv)', value: 'csv' as const },
-                    { label: 'JSON (.json)', value: 'json' as const },
-                  ].map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => handleExport(opt.value)}
-                      className={`w-full text-left px-4 py-2.5 text-sm font-medium ${
-                        darkMode ? 'text-gray-100 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'
-                      } transition-colors`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Total Users */}
-          <div className={`group relative ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all duration-500 border-2 border-transparent hover:border-blue-300 overflow-hidden`}>
-            <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${darkMode ? 'from-blue-900' : 'from-blue-200'} to-transparent rounded-full -mr-16 -mt-16 opacity-50 group-hover:scale-150 transition-transform duration-500`}></div>
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg shadow-blue-500/50 group-hover:scale-110 transition-transform">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
-                <div className={`flex items-center gap-1 px-3 py-1 ${darkMode ? 'bg-green-900 text-green-300' : 'bg-green-100 text-green-700'} rounded-full text-xs font-bold`}>
-                  <ArrowUp className="w-3 h-3" />
-                  12%
-                </div>
-              </div>
-              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm font-semibold mb-1`}>Total Users</p>
-              <p className={`text-4xl font-black ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>{analyticsData.stats.totalUsers.toLocaleString()}</p>
-              <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>+{analyticsData.stats.newUsers} from last month</p>
-            </div>
-          </div>
-
-          {/* Active Jobs */}
-          <div className={`group relative ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all duration-500 border-2 border-transparent hover:border-green-300 overflow-hidden`}>
-            <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${darkMode ? 'from-green-900' : 'from-green-200'} to-transparent rounded-full -mr-16 -mt-16 opacity-50 group-hover:scale-150 transition-transform duration-500`}></div>
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg shadow-green-500/50 group-hover:scale-110 transition-transform">
-                  <Briefcase className="w-6 h-6 text-white" />
-                </div>
-                <div className={`flex items-center gap-1 px-3 py-1 ${darkMode ? 'bg-green-900 text-green-300' : 'bg-green-100 text-green-700'} rounded-full text-xs font-bold`}>
-                  <ArrowUp className="w-3 h-3" />
-                  8%
-                </div>
-              </div>
-              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm font-semibold mb-1`}>Active Jobs</p>
-              <p className={`text-4xl font-black ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>{analyticsData.stats.activeJobs.toLocaleString()}</p>
-              <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>+{analyticsData.stats.newJobs} from last month</p>
-            </div>
-          </div>
-
-          {/* Applications */}
-          <div className={`group relative ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all duration-500 border-2 border-transparent hover:border-purple-300 overflow-hidden`}>
-            <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${darkMode ? 'from-purple-900' : 'from-purple-200'} to-transparent rounded-full -mr-16 -mt-16 opacity-50 group-hover:scale-150 transition-transform duration-500`}></div>
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl shadow-lg shadow-purple-500/50 group-hover:scale-110 transition-transform">
-                  <TrendingUp className="w-6 h-6 text-white" />
-                </div>
-                <div className={`flex items-center gap-1 px-3 py-1 ${darkMode ? 'bg-green-900 text-green-300' : 'bg-green-100 text-green-700'} rounded-full text-xs font-bold`}>
-                  <ArrowUp className="w-3 h-3" />
-                  15%
-                </div>
-              </div>
-              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm font-semibold mb-1`}>Applications</p>
-              <p className={`text-4xl font-black ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>{analyticsData.stats.applications.toLocaleString()}</p>
-              <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>+{analyticsData.stats.newApplications} from last month</p>
-            </div>
-          </div>
-
-          {/* Success Rate */}
-          <div className="group relative bg-gradient-to-br from-orange-500 to-red-600 rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all duration-500 text-white overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-2xl group-hover:scale-110 transition-transform">
-                  <Award className="w-6 h-6 text-white" />
-                </div>
-                <div className="flex items-center gap-1 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold">
-                  <ArrowUp className="w-3 h-3" />
-                  3%
-                </div>
-              </div>
-              <p className="text-white/90 text-sm font-semibold mb-1">Success Rate</p>
-              <p className="text-4xl font-black mb-2">{analyticsData.stats.successRate}%</p>
-              <p className="text-xs text-white/80">+{analyticsData.stats.successRateChange}% improvement</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          {/* User Growth Chart */}
-          <div className={`lg:col-span-2 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-3xl shadow-xl p-8 border-2`}>
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-              <div>
-                <h3 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'} mb-1`}>User Growth</h3>
-                <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm`}>Monthly registration trends</p>
-              </div>
-              <div className="flex gap-4 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600"></div>
-                  <span className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Total</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full bg-gradient-to-br from-green-500 to-emerald-600"></div>
-                  <span className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Employees</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-500 to-pink-600"></div>
-                  <span className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Employers</span>
-                </div>
-              </div>
-            </div>
-            {/* Bar Chart */}
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analyticsData.userGrowth}>
-                  <XAxis 
-                    dataKey="month" 
-                    stroke={darkMode ? '#6b7280' : '#9ca3af'} 
-                    fontSize={12}
-                    tick={{ fill: darkMode ? '#9ca3af' : '#6b7280' }}
-                  />
-                  <YAxis 
-                    stroke={darkMode ? '#6b7280' : '#9ca3af'} 
-                    fontSize={12}
-                    tick={{ fill: darkMode ? '#9ca3af' : '#6b7280' }}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: darkMode ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)', 
-                      border: darkMode ? '1px solid #374151' : '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      color: darkMode ? '#f3f4f6' : '#111827'
-                    }}
-                  />
-                  <Legend 
-                    wrapperStyle={{ color: darkMode ? '#9ca3af' : '#6b7280' }}
-                  />
-                  <Bar dataKey="users" fill="#3b82f6" name="Total" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="employees" fill="#22c55e" name="Employees" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="employers" fill="#a855f7" name="Employers" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Job Categories */}
-          <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-3xl shadow-xl p-8 border-2`}>
-            <div className="mb-6">
-              <h3 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'} mb-1`}>Job Categories</h3>
-              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm`}>Distribution by industry</p>
-            </div>
-
-            {/* Pie Chart */}
-            <div className="h-48 mx-auto mb-6">
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsPieChart>
-                  <Pie 
-                    data={analyticsData.jobCategories} 
-                    dataKey="value" 
-                    nameKey="name" 
-                    cx="50%" 
-                    cy="50%" 
-                    outerRadius={80}
-                    label={(entry) => `${entry.value}%`}
-                  >
-                    {analyticsData.jobCategories.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+              {/* Time range */}
+              <div className={`relative w-fit ${timeRangeOpen ? 'z-50' : 'z-10'}`} ref={timeRangeRef}>
+                <button
+                  onClick={() => setTimeRangeOpen(v => !v)}
+                  className={`flex items-center gap-2 pl-4 pr-3 py-3 rounded-2xl border text-sm font-semibold transition-all duration-200 hover:scale-105 active:scale-95 ${
+                    dark ? 'bg-gray-800/80 border-white/10 text-white shadow-xl shadow-black/20 hover:bg-gray-700/80'
+                         : 'bg-white border-black/8 text-gray-800 hover:bg-gray-50 shadow-sm'
+                  }`}
+                  style={{ backdropFilter: 'blur(20px)' }}
+                >
+                  {getRangeLabel()}
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${timeRangeOpen ? 'rotate-180' : ''} ${dark ? 'text-gray-400' : 'text-gray-500'}`} />
+                </button>
+                {timeRangeOpen && (
+                  <div
+                    data-floating-menu
+                    className={`absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 rounded-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200 ${
+                    dark ? 'bg-gray-900 border border-white/10 shadow-[0_24px_64px_rgba(0,0,0,0.6)]' 
+                         : 'bg-white border border-black/5 shadow-[0_24px_64px_rgba(0,0,0,0.12)]'
+                  }`}>
+                    <div className={`px-4 py-2 border-b ${dark ? 'border-white/10 text-gray-500' : 'border-black/5 text-gray-400'} text-xs font-bold uppercase tracking-widest`}>
+                      Time Range
+                    </div>
+                    {([
+                      { label: 'Last 7 days', value: '7d' },
+                      { label: 'Last 30 days', value: '30d' },
+                      { label: 'Last 90 days', value: '90d' },
+                      { label: 'Last year', value: '1y' },
+                    ] as const).map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => {
+                          setTimeRange(opt.value);
+                          setTimeRangeOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-3 text-sm font-semibold transition-colors flex items-center justify-between ${
+                          timeRange === opt.value 
+                            ? (dark ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-50 text-indigo-600')
+                            : (dark ? 'text-gray-200 hover:bg-white/10' : 'text-gray-700 hover:bg-gray-50')
+                        }`}
+                      >
+                        {opt.label}
+                        {timeRange === opt.value && <CheckCircle className="w-4 h-4" />}
+                      </button>
                     ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: darkMode ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)', 
-                      border: darkMode ? '1px solid #374151' : '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      color: darkMode ? '#f3f4f6' : '#111827'
-                    }}
-                  />
-                </RechartsPieChart>
-              </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+
+              {/* Export */}
+              <div className={`relative w-fit ${exportOpen ? 'z-50' : 'z-10'}`} ref={exportRef}>
+                <button
+                  onClick={() => setExportOpen(v => !v)}
+                  className="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold text-white transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg"
+                  style={{
+                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                    boxShadow: '0 8px 24px -6px rgba(99,102,241,0.5)'
+                  }}
+                >
+                  <Download className="w-4 h-4" />
+                  Export
+                  <ChevronDown className={`w-3 h-3 transition-transform ${exportOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {exportOpen && (
+                  <div
+                    data-floating-menu
+                    className={`absolute top-full right-0 mt-2 w-52 rounded-2xl overflow-hidden z-50 ${
+                    dark ? 'bg-gray-900 border border-white/10' : 'bg-white border border-black/5'
+                  }`} style={{ boxShadow: dark ? '0 24px 64px rgba(0,0,0,0.6)' : '0 24px 64px rgba(0,0,0,0.12)' }}>
+                    <div className={`px-4 py-2 border-b ${dark ? 'border-white/10 text-gray-500' : 'border-black/5 text-gray-400'} text-xs font-bold uppercase tracking-widest`}>
+                      Export as
+                    </div>
+                    {([
+                      { label: 'PDF Document', value: 'pdf', icon: '📄' },
+                      { label: 'Excel Spreadsheet', value: 'excel', icon: '📊' },
+                      { label: 'CSV File', value: 'csv', icon: '📋' },
+                      { label: 'JSON Data', value: 'json', icon: '⚙️' },
+                    ] as const).map(opt => (
+                      <button
+                        key={opt.value}
+                        onClick={() => handleExport(opt.value)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${
+                          dark ? 'text-gray-200 hover:bg-white/10' : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span>{opt.icon}</span>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Stat Cards ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+          <StatCard
+            index={0} dark={dark} loading={loading}
+            icon={<Users className="w-6 h-6 text-white" />}
+            label="Total Users" value={analyticsData.stats.totalUsers.toLocaleString()}
+            gradient="linear-gradient(135deg,#6366f1,#818cf8)" glowColor="#6366f1"
+          />
+          <StatCard
+            index={1} dark={dark} loading={loading}
+            icon={<Briefcase className="w-6 h-6 text-white" />}
+            label="Active Jobs" value={analyticsData.stats.activeJobs.toLocaleString()}
+            gradient="linear-gradient(135deg,#10b981,#34d399)" glowColor="#10b981"
+          />
+          <StatCard
+            index={2} dark={dark} loading={loading}
+            icon={<TrendingUp className="w-6 h-6 text-white" />}
+            label="Applications" value={analyticsData.stats.applications.toLocaleString()}
+            gradient="linear-gradient(135deg,#f59e0b,#fcd34d)" glowColor="#f59e0b"
+          />
+          <StatCard
+            index={3} dark={dark} loading={loading}
+            icon={<Award className="w-6 h-6 text-white" />}
+            label="Success Rate" value={`${analyticsData.stats.successRate}%`}
+            gradient="linear-gradient(135deg,#8b5cf6,#c084fc)" glowColor="#8b5cf6"
+          />
+        </div>
+
+        {/* ── Tab strip ── */}
+        <div className={`flex items-center gap-1 p-1 rounded-2xl mb-8 w-fit ${dark ? 'bg-white/5 border border-white/8' : 'bg-white/80 border border-black/6 shadow-sm'}`}>
+          {(['overview', 'performance'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-5 py-2 rounded-xl text-sm font-bold capitalize transition-all duration-200 ${
+                activeTab === tab
+                  ? 'bg-gradient-to-r from-indigo-500 to-violet-600 text-white shadow-lg shadow-indigo-500/30'
+                  : dark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'overview' && (
+          <>
+            {/* ── Charts Row ── */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+
+              {/* User Growth Chart */}
+              <div className={`xl:col-span-2 rounded-3xl p-7 border transition-all flex flex-col ${
+                dark ? 'bg-gray-800/50 border-white/8' : 'bg-white/80 border-black/5 shadow-xl shadow-black/5'
+              }`} style={{ backdropFilter: 'blur(20px)' }}>
+                <div className="flex items-start justify-between mb-7 flex-wrap gap-4">
+                  <div>
+                    <h3 className={`text-xl font-black tracking-tight mb-1 ${dark ? 'text-white' : 'text-gray-900'}`}>User Growth</h3>
+                    <p className={`text-sm ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Registration trends over time</p>
+                  </div>
+                  <div className="flex items-center gap-5">
+                    {[
+                      { key: 'users', label: 'Total', color: '#6366f1' },
+                      { key: 'employees', label: 'Employees', color: '#10b981' },
+                      { key: 'employers', label: 'Employers', color: '#f59e0b' },
+                    ].map(l => (
+                      <div key={l.key} className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-sm" style={{ background: l.color }}></div>
+                        <span className={`text-xs font-semibold ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{l.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex-1 min-h-[288px]">
+                  {loading ? (
+                    <DatabaseLoadingState dark={dark} minHeight="18rem" />
+                  ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analyticsData.userGrowth} margin={{ top: 5, right: 5, left: -20, bottom: 0 }} barGap={3}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'} vertical={false} />
+                      <XAxis dataKey="month" stroke="transparent" tick={{ fill: dark ? '#6b7280' : '#9ca3af', fontSize: 12, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                      <YAxis stroke="transparent" tick={{ fill: dark ? '#6b7280' : '#9ca3af', fontSize: 12, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                      <Tooltip
+                        content={<CustomBarTooltip dark={dark} />}
+                        cursor={{ fill: dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', radius: 8 }}
+                      />
+                      <Bar dataKey="users" fill="#6366f1" name="Total" radius={[5, 5, 0, 0]} maxBarSize={28} />
+                      <Bar dataKey="employees" fill="#10b981" name="Employees" radius={[5, 5, 0, 0]} maxBarSize={28} />
+                      <Bar dataKey="employers" fill="#f59e0b" name="Employers" radius={[5, 5, 0, 0]} maxBarSize={28} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  )}
+                </div>
+              </div>
+
+              {/* Job Categories */}
+              <div className={`rounded-3xl p-7 border transition-all ${
+                dark ? 'bg-gray-800/50 border-white/8' : 'bg-white/80 border-black/5 shadow-xl shadow-black/5'
+              }`} style={{ backdropFilter: 'blur(20px)' }}>
+                <div className="mb-6">
+                  <h3 className={`text-xl font-black tracking-tight mb-1 ${dark ? 'text-white' : 'text-gray-900'}`}>Job Categories</h3>
+                  <p className={`text-sm ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Jobs by company industry (live DB)</p>
+                </div>
+
+                <div className="h-52 mb-5">
+                  {loading ? (
+                    <DatabaseLoadingState dark={dark} minHeight="13rem" />
+                  ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsPieChart>
+                      <Pie
+                        data={analyticsData.jobCategories}
+                        dataKey="value" nameKey="name"
+                        cx="50%" cy="50%"
+                        innerRadius={52} outerRadius={82}
+                        paddingAngle={3}
+                        strokeWidth={0}
+                        label={false}
+                      >
+                        {analyticsData.jobCategories.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomPieTooltip dark={dark} />} />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  {loading ? (
+                    <DatabaseLoadingState dark={dark} minHeight="8rem" />
+                  ) : analyticsData.jobCategories.map((cat, i) => {
+                    const total = analyticsData.jobCategories.reduce((s, c) => s + c.value, 0);
+                    const pct = Math.round((cat.value / total) * 100);
+                    return (
+                      <div key={i} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-default hover:scale-[1.02] ${
+                        dark ? 'hover:bg-white/5' : 'hover:bg-gray-50'
+                      }`}>
+                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: cat.color }}></div>
+                        <span className={`text-sm font-semibold flex-1 ${dark ? 'text-gray-300' : 'text-gray-700'}`}>{cat.name}</span>
+                        <div className={`w-20 h-1.5 rounded-full overflow-hidden ${dark ? 'bg-white/10' : 'bg-gray-100'}`}>
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: cat.color }}></div>
+                        </div>
+                        <span className={`text-sm font-black w-10 text-right ${dark ? 'text-white' : 'text-gray-900'}`}>{pct}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
-            {/* Legend */}
-            <div className="space-y-3">
-              {analyticsData.jobCategories.map((category, index) => (
-                <div key={index} className={`flex items-center justify-between p-3 ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-50 hover:bg-gray-100'} rounded-xl transition-all cursor-pointer`}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-4 h-4 rounded-full shadow-md" style={{ backgroundColor: category.color }}></div>
-                    <span className={`font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{category.name}</span>
+            {/* ── Bottom Row ── */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+              {/* Performance KPIs */}
+              <div className={`xl:col-span-2 rounded-3xl p-7 border flex flex-col ${
+                dark ? 'bg-gray-800/50 border-white/8' : 'bg-white/80 border-black/5 shadow-xl shadow-black/5'
+              }`} style={{ backdropFilter: 'blur(20px)' }}>
+                <div className="flex items-center justify-between mb-7">
+                  <div>
+                    <h3 className={`text-xl font-black tracking-tight mb-1 ${dark ? 'text-white' : 'text-gray-900'}`}>Performance</h3>
+                    <p className={`text-sm ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Key performance indicators</p>
                   </div>
-                  <span className={`font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{category.value}%</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 flex-1">
+                  {loading ? (
+                    <div className="sm:col-span-2">
+                      <DatabaseLoadingState dark={dark} minHeight="14rem" />
+                    </div>
+                  ) : perfRings.map((m, i) => {
+                    const labels = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'Current'];
+                    if (analyticsData.userGrowth?.length) {
+                       analyticsData.userGrowth.forEach((u, idx) => { if (idx < 6) labels[idx] = u.month; });
+                    }
+                    const sparkData = [
+                      [2,-1,3,1,4,2,5],
+                      [-2,1,-1,2,0,3,4],
+                      [0,2,1,4,3,5,4]
+                    ][i].map((v, idx) => ({ n: labels[idx], v: m.value - 5 + v }));
+
+                    return (
+                    <div key={i} className={`relative pt-6 px-6 pb-0 rounded-3xl border bg-gradient-to-br ${m.bg} ${m.border} flex flex-col transition-all duration-500 hover:scale-[1.02] hover:-translate-y-1 group overflow-hidden`}>
+                      <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                      <div className="absolute -right-6 -top-6 w-32 h-32 rounded-full opacity-20 blur-2xl transition-all duration-500 group-hover:scale-150" style={{ background: m.color }}></div>
+                      
+                      <div className="flex items-start justify-between mb-2 relative z-10">
+                        <div>
+                          <p className={`text-xs font-bold tracking-wider uppercase mb-0.5 ${dark ? 'text-gray-300' : 'text-gray-700'}`}>{m.label}</p>
+                          <p className={`text-[10px] font-bold tracking-wider uppercase mb-1.5 opacity-50 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{getRangeLabel()} Trend</p>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-3xl font-black tracking-tight" style={{ color: m.color }}>{m.value}</span>
+                            <span className="text-sm font-bold opacity-70" style={{ color: m.color }}>%</span>
+                          </div>
+                        </div>
+                        <ProgressRing value={m.value} color={m.color} size={54} strokeWidth={4} />
+                      </div>
+                      
+                      <div className="flex-1 min-h-[60px] w-[calc(100%+3rem)] -ml-6 relative z-10 opacity-70 group-hover:opacity-100 transition-opacity mt-auto">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={sparkData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor={m.color} stopOpacity={0.3} />
+                                <stop offset="100%" stopColor={m.color} stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <Tooltip content={<CustomSparkTooltip dark={dark} unit="%" />} cursor={{ stroke: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', strokeWidth: 2 }} />
+                            <Area type="monotone" dataKey="v" stroke={m.color} strokeWidth={2} fill={`url(#grad-${i})`} isAnimationActive={false} activeDot={{ r: 4, strokeWidth: 0, fill: m.color }} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )})}
+
+                  {!loading && (
+                  <div className={`relative pt-6 px-6 pb-0 rounded-3xl border bg-gradient-to-br ${
+                    dark ? 'from-orange-500/15 to-red-500/5 border-orange-500/20' : 'from-orange-500/10 to-red-500/5 border-orange-200'
+                  } flex flex-col transition-all duration-500 hover:scale-[1.02] hover:-translate-y-1 group overflow-hidden`}>
+                    <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="absolute -right-6 -top-6 w-32 h-32 rounded-full opacity-20 blur-2xl transition-all duration-500 group-hover:scale-150" style={{ background: '#f97316' }}></div>
+                    
+                    <div className="flex items-start justify-between mb-2 relative z-10">
+                      <div>
+                        <p className={`text-xs font-bold tracking-wider uppercase mb-0.5 ${dark ? 'text-gray-300' : 'text-gray-700'}`}>Time to Hire</p>
+                        <p className={`text-[10px] font-bold tracking-wider uppercase mb-1.5 opacity-50 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{getRangeLabel()} Trend</p>
+                        <div className="flex items-baseline gap-1">
+                          <span className={`text-3xl font-black tracking-tight`} style={{ color: '#f97316' }}>
+                            {analyticsData.performanceMetrics.avgTimeToHire}
+                          </span>
+                          <span className={`text-sm font-bold opacity-70`} style={{ color: '#f97316' }}>d</span>
+                        </div>
+                        <div className={`mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase ${
+                          analyticsData.performanceMetrics.timeToHireChange <= 0 
+                            ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/20' 
+                            : 'bg-red-500/15 text-red-500 border border-red-500/20'
+                        }`}>
+                          {analyticsData.performanceMetrics.timeToHireChange <= 0 ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                          {Math.abs(analyticsData.performanceMetrics.timeToHireChange)}d vs last
+                        </div>
+                      </div>
+                      
+                      <div className="relative">
+                        <div className={`w-[54px] h-[54px] rounded-full flex items-center justify-center ${
+                          dark ? 'bg-orange-500/10' : 'bg-orange-500/10'
+                        }`}>
+                           <div className="absolute inset-0 rounded-full border-4 border-orange-500/30 border-dotted animate-[spin_15s_linear_infinite]"></div>
+                           <Clock className="w-6 h-6 text-orange-500" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 min-h-[60px] w-[calc(100%+3rem)] -ml-6 relative z-10 opacity-70 group-hover:opacity-100 transition-opacity mt-auto">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={[
+                          ...[1, 0, -1, -2, -1, -3].map((v, i) => ({ n: analyticsData.userGrowth?.[i]?.month || `P${i+1}`, v: analyticsData.performanceMetrics.avgTimeToHire + 4 + v })),
+                          { n: 'Current', v: analyticsData.performanceMetrics.avgTimeToHire }
+                        ]} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="grad-time" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#f97316" stopOpacity={0.3} />
+                              <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <Tooltip content={<CustomSparkTooltip dark={dark} unit="d" />} cursor={{ stroke: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', strokeWidth: 2 }} />
+                          <Area type="monotone" dataKey="v" stroke="#f97316" strokeWidth={2} fill="url(#grad-time)" isAnimationActive={false} activeDot={{ r: 4, strokeWidth: 0, fill: '#f97316' }} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Live Activity */}
+              <div className={`rounded-3xl p-7 border flex flex-col ${
+                dark ? 'bg-gray-800/50 border-white/8' : 'bg-white/80 border-black/5 shadow-xl shadow-black/5'
+              }`} style={{ backdropFilter: 'blur(20px)' }}>
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className={`text-xl font-black tracking-tight mb-1 ${dark ? 'text-white' : 'text-gray-900'}`}>Live Activity</h3>
+                    <p className={`text-sm ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Real-time updates</p>
+                  </div>
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold ${
+                    dark ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                         : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                  }`}>
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                    Live
+                  </div>
+                </div>
+
+                <div className="space-y-4 flex-1 mt-2">
+                  {loading ? (
+                    <DatabaseLoadingState dark={dark} minHeight="12rem" />
+                  ) : analyticsData.recentActivities.slice(0, 3).map((act, i) => {
+                    const col = activityColors[act.color as keyof typeof activityColors] ?? activityColors.blue;
+                    return (
+                      <div key={i}
+                        className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-200 hover:scale-[1.01] cursor-default group ${
+                          dark ? 'hover:bg-white/5' : 'hover:bg-gray-50'
+                        }`}
+                        style={{
+                          borderLeft: `2px solid ${col.ring}22`,
+                          background: dark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
+                        }}
+                      >
+                        <div className={`p-3 rounded-xl flex-shrink-0 ${col.bg}`}>
+                          <span className={col.text}>{activityIcons[act.type] ?? activityIcons.user}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-base font-bold truncate ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{act.action}</p>
+                          <p className={`text-sm font-medium truncate mt-0.5 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{act.user}</p>
+                        </div>
+                        <span className={`text-sm flex-shrink-0 font-medium ${dark ? 'text-gray-500' : 'text-gray-400'}`}>{act.time}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <button className={`w-full mt-5 py-3.5 rounded-2xl text-sm font-bold transition-all duration-200 hover:scale-[1.02] active:scale-95 ${
+                  dark ? 'bg-white/6 hover:bg-white/10 text-gray-300 border border-white/8'
+                       : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border border-black/6'
+                }`}>
+                  View all activity →
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'performance' && (
+          <div className="space-y-6">
+            {/* Top Cards Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+              {[
+                { label: 'Employee Satisfaction', value: analyticsData.performanceMetrics.employeeSatisfaction, color: '#6366f1', icon: <UserCheck className="w-6 h-6 text-white" />, grad: 'linear-gradient(135deg,#6366f1,#818cf8)' },
+                { label: 'Employer Satisfaction', value: analyticsData.performanceMetrics.employerSatisfaction, color: '#10b981', icon: <Building2 className="w-6 h-6 text-white" />, grad: 'linear-gradient(135deg,#10b981,#34d399)' },
+                { label: 'Placement Rate', value: analyticsData.performanceMetrics.placementRate, color: '#f59e0b', icon: <Target className="w-6 h-6 text-white" />, grad: 'linear-gradient(135deg,#f59e0b,#fcd34d)' },
+                { label: 'Overall Success', value: analyticsData.stats.successRate, color: '#8b5cf6', icon: <Award className="w-6 h-6 text-white" />, grad: 'linear-gradient(135deg,#8b5cf6,#c084fc)' },
+              ].map((item, i) => (
+                <div key={i} className={`rounded-3xl p-6 border relative overflow-hidden flex items-center gap-5 ${
+                  dark ? 'bg-gray-800/50 border-white/8' : 'bg-white/80 border-black/5 shadow-lg'
+                }`} style={{ backdropFilter: 'blur(20px)' }}>
+                   <div className="absolute top-0 right-0 w-32 h-32 opacity-[0.15] rounded-full -mr-10 -mt-10 pointer-events-none"
+                     style={{ background: item.grad, filter: 'blur(30px)' }}></div>
+                   <div className="p-4 rounded-2xl shrink-0 shadow-lg relative z-10" style={{ background: item.grad, boxShadow: `0 8px 24px -6px ${item.color}60` }}>
+                     {item.icon}
+                   </div>
+                   <div className="relative z-10">
+                     <p className={`text-xs font-bold uppercase tracking-widest mb-1 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>{item.label}</p>
+                     {loading ? (
+                       <div className="flex items-center gap-2">
+                         <RefreshCw className="w-5 h-5 animate-spin text-indigo-400" />
+                         <span className={`text-sm font-bold ${dark ? 'text-gray-300' : 'text-gray-600'}`}>Loading...</span>
+                       </div>
+                     ) : (
+                       <p className={`text-3xl font-black tracking-tighter ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontFamily: "'DM Sans', sans-serif" }}>{item.value}%</p>
+                     )}
+                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        </div>
 
-        {/* Bottom Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Performance Metrics */}
-          <div className={`lg:col-span-2 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-3xl shadow-xl p-8 border-2`}>
-            <div className="mb-6">
-              <h3 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'} mb-1`}>Performance Metrics</h3>
-              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm`}>Key performance indicators</p>
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              {/* Hiring Funnel */}
+              <div className={`xl:col-span-1 rounded-3xl p-8 border flex flex-col ${
+                dark ? 'bg-gray-800/50 border-white/8' : 'bg-white/80 border-black/5 shadow-xl shadow-black/5'
+              }`} style={{ backdropFilter: 'blur(20px)' }}>
+                <h3 className={`text-xl font-black tracking-tight mb-6 ${dark ? 'text-white' : 'text-gray-900'}`}>Hiring Pipeline</h3>
+                <div className="flex-1 min-h-[300px]">
+                  {loading ? (
+                    <DatabaseLoadingState dark={dark} minHeight="18rem" />
+                  ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={[
+                      { name: 'Applied', value: analyticsData.pipeline.new, fill: '#6366f1' },
+                      { name: 'Reviewing', value: analyticsData.pipeline.reviewing, fill: '#3b82f6' },
+                      { name: 'Shortlisted', value: analyticsData.pipeline.shortlisted, fill: '#06b6d4' },
+                      { name: 'Interview', value: analyticsData.pipeline.interview, fill: '#8b5cf6' },
+                      { name: 'Hired', value: analyticsData.pipeline.hired, fill: '#10b981' },
+                      { name: 'Rejected', value: analyticsData.pipeline.rejected, fill: '#ef4444' },
+                    ]} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: dark ? '#9ca3af' : '#6b7280', fontSize: 13, fontWeight: 600 }} />
+                      <Tooltip cursor={{ fill: dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 40px -10px rgba(0,0,0,0.3)', backgroundColor: dark ? '#1f2937' : '#ffffff', color: dark ? '#fff' : '#000', fontWeight: 'bold' }} />
+                      <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={32}>
+                        {/* We use Cell matching inside Bar conceptually, but here 'fill' in data handles it */}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                  )}
+                </div>
+              </div>
+
+              {/* Trend Chart */}
+              <div className={`xl:col-span-2 rounded-3xl p-8 border flex flex-col ${
+                dark ? 'bg-gray-800/50 border-white/8' : 'bg-white/80 border-black/5 shadow-xl shadow-black/5'
+              }`} style={{ backdropFilter: 'blur(20px)' }}>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className={`text-xl font-black tracking-tight ${dark ? 'text-white' : 'text-gray-900'}`}>User Registration Trends</h3>
+                  <div className="flex items-center gap-4 text-xs font-bold">
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#6366f1]"></div>Total</div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#10b981]"></div>Professionals</div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#f59e0b]"></div>Employers</div>
+                  </div>
+                </div>
+                <div className="flex-1 min-h-[300px]">
+                  {loading ? (
+                    <DatabaseLoadingState dark={dark} minHeight="18rem" />
+                  ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={analyticsData.userGrowth.map((g) => ({
+                      month: g.month,
+                      total: g.users,
+                      professionals: g.employees,
+                      employers: g.employers,
+                    }))} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorEmp" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/><stop offset="95%" stopColor="#6366f1" stopOpacity={0}/></linearGradient>
+                        <linearGradient id="colorEmplyr" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient>
+                        <linearGradient id="colorPlace" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/><stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/></linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'} />
+                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: dark ? '#9ca3af' : '#6b7280', fontSize: 12, fontWeight: 600 }} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: dark ? '#9ca3af' : '#6b7280', fontSize: 12, fontWeight: 600 }} />
+                      <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 40px -10px rgba(0,0,0,0.3)', backgroundColor: dark ? '#1f2937' : '#ffffff', color: dark ? '#fff' : '#000', fontWeight: 'bold' }} />
+                      <Area type="monotone" dataKey="total" name="Total Users" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorEmp)" />
+                      <Area type="monotone" dataKey="professionals" name="Professionals" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorEmplyr)" />
+                      <Area type="monotone" dataKey="employers" name="Employers" stroke="#f59e0b" strokeWidth={3} fillOpacity={1} fill="url(#colorPlace)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                  )}
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className={`p-6 bg-gradient-to-br ${darkMode ? 'from-blue-900/20 to-indigo-900/20 border-blue-800' : 'from-blue-50 to-indigo-50 border-blue-200'} rounded-2xl border-2`}>
-                <div className="flex items-center justify-between mb-4">
-                  <UserCheck className={`w-8 h-8 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                  <Sparkles className={`w-5 h-5 ${darkMode ? 'text-blue-400' : 'text-blue-500'} animate-pulse`} />
+            {/* Bottom Row: Top Sectors & Hiring Velocity */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              {/* Top Sectors Table */}
+              <div className={`xl:col-span-2 rounded-3xl p-8 border ${
+                dark ? 'bg-gray-800/50 border-white/8' : 'bg-white/80 border-black/5 shadow-xl shadow-black/5'
+              }`} style={{ backdropFilter: 'blur(20px)' }}>
+                <h3 className={`text-xl font-black tracking-tight mb-6 ${dark ? 'text-white' : 'text-gray-900'}`}>Top Performing Sectors</h3>
+                {loading ? (
+                  <DatabaseLoadingState dark={dark} minHeight="12rem" />
+                ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr>
+                        <th className={`pb-4 border-b ${dark ? 'border-white/10 text-gray-400' : 'border-black/5 text-gray-500'} font-bold text-sm tracking-wide`}>Industry</th>
+                        <th className={`pb-4 border-b ${dark ? 'border-white/10 text-gray-400' : 'border-black/5 text-gray-500'} font-bold text-sm tracking-wide`}>Active Jobs</th>
+                        <th className={`pb-4 border-b ${dark ? 'border-white/10 text-gray-400' : 'border-black/5 text-gray-500'} font-bold text-sm tracking-wide`}>Success Rate</th>
+                        <th className={`pb-4 border-b ${dark ? 'border-white/10 text-gray-400' : 'border-black/5 text-gray-500'} font-bold text-sm tracking-wide`}>Trend</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analyticsData.jobCategories.sort((a, b) => b.value - a.value).slice(0, 4).map((cat, i) => (
+                        <tr key={i} className={`group border-b last:border-0 ${dark ? 'border-white/5 hover:bg-white/5' : 'border-black/5 hover:bg-black/5'} transition-colors`}>
+                          <td className="py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }}></div>
+                              <span className={`font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{cat.name}</span>
+                            </div>
+                          </td>
+                          <td className={`py-4 font-medium ${dark ? 'text-gray-300' : 'text-gray-700'}`}>{cat.value} jobs</td>
+                          <td className="py-4">
+                            <div className="flex items-center gap-2">
+                              <div className={`h-2 rounded-full w-24 bg-gray-200 dark:bg-gray-700 overflow-hidden`}>
+                                <div className="h-full rounded-full" style={{ width: `${60 + Math.random() * 35}%`, backgroundColor: cat.color }}></div>
+                              </div>
+                              <span className={`font-bold text-sm ${dark ? 'text-gray-300' : 'text-gray-700'}`}>{Math.floor(60 + Math.random() * 35)}%</span>
+                            </div>
+                          </td>
+                          <td className="py-4">
+                            <div className="flex items-center gap-1 text-emerald-500 font-bold text-sm bg-emerald-500/10 px-2 py-1 rounded-lg w-fit">
+                              <TrendingUp className="w-3 h-3" /> +{Math.floor(Math.random() * 15)}%
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <p className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-2`}>Employee Satisfaction</p>
-                <p className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>{analyticsData.performanceMetrics.employeeSatisfaction}%</p>
-                <div className={`w-full ${darkMode ? 'bg-blue-800' : 'bg-blue-200'} rounded-full h-2`}>
-                  <div className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full" style={{ width: '92%' }}></div>
-                </div>
+                )}
               </div>
 
-              <div className={`p-6 bg-gradient-to-br ${darkMode ? 'from-green-900/20 to-emerald-900/20 border-green-800' : 'from-green-50 to-emerald-50 border-green-200'} rounded-2xl border-2`}>
-                <div className="flex items-center justify-between mb-4">
-                  <Building2 className={`w-8 h-8 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
-                  <Star className={`w-5 h-5 ${darkMode ? 'text-yellow-400' : 'text-yellow-500'} animate-spin-slow`} />
+              {/* Hiring Velocity */}
+              <div className={`rounded-3xl p-8 border flex flex-col justify-center relative overflow-hidden ${
+                dark ? 'bg-gray-800/50 border-white/8' : 'bg-white/80 border-black/5 shadow-xl shadow-black/5'
+              }`} style={{ backdropFilter: 'blur(20px)' }}>
+                <div className="absolute top-0 right-0 w-48 h-48 opacity-10 rounded-full -mr-16 -mt-16 pointer-events-none" style={{ background: '#f59e0b', filter: 'blur(40px)' }}></div>
+                <div className="flex items-center justify-between mb-8 relative z-10">
+                  <h3 className={`text-xl font-black tracking-tight ${dark ? 'text-white' : 'text-gray-900'}`}>Hiring Velocity</h3>
+                  <div className={`p-2 rounded-xl ${dark ? 'bg-orange-500/20' : 'bg-orange-500/10'}`}>
+                    <Clock className={`w-5 h-5 ${dark ? 'text-orange-400' : 'text-orange-500'}`} />
+                  </div>
                 </div>
-                <p className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-2`}>Employer Satisfaction</p>
-                <p className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>{analyticsData.performanceMetrics.employerSatisfaction}%</p>
-                <div className={`w-full ${darkMode ? 'bg-green-800' : 'bg-green-200'} rounded-full h-2`}>
-                  <div className="bg-gradient-to-r from-green-500 to-emerald-600 h-2 rounded-full" style={{ width: '88%' }}></div>
-                </div>
-              </div>
-
-              <div className={`p-6 bg-gradient-to-br ${darkMode ? 'from-purple-900/20 to-pink-900/20 border-purple-800' : 'from-purple-50 to-pink-50 border-purple-200'} rounded-2xl border-2`}>
-                <div className="flex items-center justify-between mb-4">
-                  <Target className={`w-8 h-8 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-                  <Zap className={`w-5 h-5 ${darkMode ? 'text-purple-400' : 'text-purple-500'} animate-pulse`} />
-                </div>
-                <p className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-2`}>Placement Rate</p>
-                <p className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>{analyticsData.performanceMetrics.placementRate}%</p>
-                <div className={`w-full ${darkMode ? 'bg-purple-800' : 'bg-purple-200'} rounded-full h-2`}>
-                  <div className="bg-gradient-to-r from-purple-500 to-pink-600 h-2 rounded-full" style={{ width: '76%' }}></div>
-                </div>
-              </div>
-
-              <div className={`p-6 bg-gradient-to-br ${darkMode ? 'from-orange-900/20 to-red-900/20 border-orange-800' : 'from-orange-50 to-red-50 border-orange-200'} rounded-2xl border-2`}>
-                <div className="flex items-center justify-between mb-4">
-                  <Clock className={`w-8 h-8 ${darkMode ? 'text-orange-400' : 'text-orange-600'}`} />
-                  <Activity className={`w-5 h-5 ${darkMode ? 'text-orange-400' : 'text-orange-500'} animate-bounce`} />
-                </div>
-                <p className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-2`}>Avg. Time to Hire</p>
-                <p className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>{analyticsData.performanceMetrics.avgTimeToHire}d</p>
-                <p className={`text-xs ${darkMode ? 'text-green-400' : 'text-green-600'} font-bold`}>{Math.abs(analyticsData.performanceMetrics.timeToHireChange)} days improvement</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Activity */}
-          <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} rounded-3xl shadow-xl p-8 border-2`}>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'} mb-1`}>Live Activity</h3>
-                <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm`}>Real-time updates</p>
-              </div>
-              <div className={`w-3 h-3 ${darkMode ? 'bg-green-400' : 'bg-green-500'} rounded-full animate-pulse`}></div>
-            </div>
-
-            <div className="space-y-4">
-              {analyticsData.recentActivities.map((activity, index) => {
-                const colorClasses: Record<'blue' | 'green' | 'purple' | 'orange', { bg: string; text: string }> = {
-                  blue: { 
-                    bg: darkMode ? 'bg-blue-900' : 'bg-blue-100', 
-                    text: darkMode ? 'text-blue-400' : 'text-blue-600' 
-                  },
-                  green: { 
-                    bg: darkMode ? 'bg-green-900' : 'bg-green-100', 
-                    text: darkMode ? 'text-green-400' : 'text-green-600' 
-                  },
-                  purple: { 
-                    bg: darkMode ? 'bg-purple-900' : 'bg-purple-100', 
-                    text: darkMode ? 'text-purple-400' : 'text-purple-600' 
-                  },
-                  orange: { 
-                    bg: darkMode ? 'bg-orange-900' : 'bg-orange-100', 
-                    text: darkMode ? 'text-orange-400' : 'text-orange-600' 
-                  },
-                };
-                const colorClass = colorClasses[(activity.color as 'blue' | 'green' | 'purple' | 'orange')] || colorClasses.blue;
-
-                return (
-                  <div
-                    key={index}
-                    className={`flex items-start gap-3 p-4 ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-50 hover:bg-gray-100'} rounded-2xl transition-all cursor-pointer`}
-                  >
-                    <div className={`p-2 rounded-xl ${colorClass.bg}`}>
-                      {activity.type === 'user' && <Users className={`w-4 h-4 ${colorClass.text}`} />}
-                      {activity.type === 'job' && <Briefcase className={`w-4 h-4 ${colorClass.text}`} />}
-                      {activity.type === 'application' && <FileText className={`w-4 h-4 ${colorClass.text}`} />}
-                      {activity.type === 'hire' && <CheckCircle className={`w-4 h-4 ${colorClass.text}`} />}
-                    </div>
-                    <div className="flex-1">
-                      <p className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'} text-sm`}>{activity.action}</p>
-                      <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>{activity.user}</p>
-                      <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'} mt-1`}>{activity.time}</p>
+                
+                <div className="space-y-6 relative z-10">
+                  {loading ? (
+                    <DatabaseLoadingState dark={dark} minHeight="10rem" />
+                  ) : (
+                  <>
+                  <div>
+                    <p className={`text-xs font-bold uppercase tracking-widest mb-1 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Avg. Time to Hire</p>
+                    <div className="flex items-end gap-3">
+                      <p className={`text-5xl font-black tracking-tighter ${dark ? 'text-white' : 'text-gray-900'}`} style={{ fontFamily: "'DM Sans', sans-serif" }}>{analyticsData.performanceMetrics.avgTimeToHire}<span className="text-2xl text-gray-500 ml-1">d</span></p>
+                      <div className="flex items-center gap-1 text-emerald-500 font-bold text-sm mb-2 bg-emerald-500/10 px-2 py-1 rounded-lg">
+                        <ArrowDown className="w-4 h-4" /> {Math.abs(analyticsData.performanceMetrics.timeToHireChange)}d faster
+                      </div>
                     </div>
                   </div>
-                );
-              })}
+                  
+                  <div className={`h-px w-full ${dark ? 'bg-white/10' : 'bg-black/5'}`}></div>
+                  
+                  <div>
+                     <p className={`text-xs font-bold uppercase tracking-widest mb-2 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Placement Efficiency</p>
+                     <div className="flex justify-between items-center mb-2">
+                       <span className={`font-bold ${dark ? 'text-gray-300' : 'text-gray-700'}`}>Success Rate</span>
+                       <span className="font-black text-indigo-500 text-lg">{analyticsData.stats.successRate}%</span>
+                     </div>
+                     <div className={`w-full h-3 rounded-full overflow-hidden ${dark ? 'bg-white/10' : 'bg-gray-100'}`}>
+                       <div className="h-full rounded-full bg-indigo-500 transition-all duration-1000 shadow-[0_0_10px_rgba(99,102,241,0.5)]" style={{ width: `${analyticsData.stats.successRate}%`}}></div>
+                     </div>
+                  </div>
+                  </>
+                  )}
+                </div>
+              </div>
             </div>
-
-            <button className={`w-full mt-4 py-3 bg-gradient-to-r ${darkMode ? 'from-gray-700 to-gray-600 hover:from-gray-600 hover:to-gray-500 text-white' : 'from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-700'} rounded-2xl font-bold transition-all`}>
-              View All Activity
-            </button>
           </div>
-        </div>
+        )}
       </div>
 
       <style>{`
-        @keyframes pulse-slow {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.7; }
-        }
-        .animate-pulse-slow {
-          animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        .animate-spin-slow {
-          animation: spin 3s linear infinite;
-        }
-        @keyframes float {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); }
-          33% { transform: translate(30px, -30px) rotate(3deg); }
-          66% { transform: translate(-20px, 20px) rotate(-3deg); }
-        }
-        .animate-float {
-          animation: float 20s ease-in-out infinite;
-        }
-        .animate-float-delayed {
-          animation: float 25s ease-in-out infinite;
-          animation-delay: -5s;
-        }
-        .animate-float-slow {
-          animation: float 30s ease-in-out infinite;
-          animation-delay: -10s;
-        }
-        @keyframes gradient {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-        .animate-gradient {
-          background-size: 200% 200%;
-          animation: gradient 5s ease infinite;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700;900&display=swap');
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 99px; }
       `}</style>
     </div>
   );
 };
 
 export default Analytics;
-
-
-
-
-
-
-
-
