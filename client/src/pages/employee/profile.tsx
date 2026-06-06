@@ -1,15 +1,18 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   User, Mail, Phone, MapPin, Edit2, Save, X,
-  Briefcase, GraduationCap, FileText, Calendar,
-  Linkedin, Github, Globe, Plus, Award, Star,
-  Download, Upload, Camera, LucideIcon, Trash2, Sparkles
+  Briefcase, GraduationCap, FileText,
+  Linkedin, Github, Globe, Plus, Award,
+  Download, Camera, Trash2, Upload,
+  ChevronRight, Share2, CheckCircle2, AlertCircle, Lightbulb,
 } from 'lucide-react';
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { apiFetch } from '@/lib/api';
-import { type UpdateProfile } from '@shared/schema';
+import { apiFetch, withSkipGlobalLoader } from '@/lib/api';
+import { cn } from '@/lib/utils';
+import { type UpdateMeProfile } from '@shared/schema';
+import { getProfileResume } from '@/lib/employee-resume';
 
 interface Education {
   id: number;
@@ -65,7 +68,26 @@ const Profile = ({ embedded = false }: ProfileProps) => {
   const { theme } = useTheme();
   const { user, setUser } = useAuth();
   const { toast } = useToast();
-  const darkMode = theme === 'dark';
+  const darkMode =
+    typeof window !== 'undefined' &&
+    (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+
+  const glassCard = darkMode
+    ? 'bg-slate-900/60 border-white/10 shadow-[0_18px_60px_rgba(0,0,0,0.25)] backdrop-blur-xl'
+    : 'bg-white/95 border-gray-100 shadow-lg';
+
+  const fieldInputClass = cn(
+    'w-full h-12 px-4 rounded-xl border transition-all duration-200 outline-none focus:ring-2 focus:ring-offset-0',
+    darkMode
+      ? 'bg-slate-800/80 border-white/10 text-white placeholder:text-slate-500 focus:border-violet-400/50 focus:ring-violet-500/25'
+      : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-indigo-400 focus:ring-indigo-500/20'
+  );
+
+  const fieldViewClass = cn(
+    'h-12 px-4 rounded-xl flex items-center text-sm',
+    darkMode ? 'bg-slate-800/50 text-slate-200 border border-white/5' : 'bg-gray-50 text-gray-900 border border-gray-100'
+  );
+
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('personal');
   const [imageHover, setImageHover] = useState(false);
@@ -73,7 +95,11 @@ const Profile = ({ embedded = false }: ProfileProps) => {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [isPhotoPreviewOpen, setIsPhotoPreviewOpen] = useState(false);
   const [newSkill, setNewSkill] = useState('');
+  const [coachExpanded, setCoachExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const resumeInputRef = useRef<HTMLInputElement | null>(null);
+  const [resumeUploading, setResumeUploading] = useState(false);
+  const profileResume = useMemo(() => getProfileResume(user?.profile ?? null), [user?.profile]);
 
   type IncompleteItem = { section: string; label: string };
   
@@ -90,47 +116,15 @@ const Profile = ({ embedded = false }: ProfileProps) => {
     },
     professional: {
       title: user?.profile?.headline || '',
-      department: 'Engineering', // Default value as it's not in User or Profile types
-      company: user?.company?.name || 'Not specified',
-      startDate: '2020-03-01', // Default value as it's not in User type
-      employeeId: 'TC-8472', // Default value as it's not in User type
-      skills: user?.profile?.skills || ['React', 'TypeScript', 'Node.js'],
-      level: 'L5 Senior' // Default value as it's not in User type
+      department: (user as any)?.department || '', 
+      company: user?.company?.name || '',
+      startDate: (user as any)?.startDate || '', 
+      employeeId: (user as any)?.employeeId || '', 
+      skills: user?.profile?.skills || [],
+      level: (user as any)?.level || ''
     },
-    education: [
-      {
-        id: 1,
-        degree: 'Master of Computer Science',
-        school: 'Tech University',
-        year: '2016',
-        gpa: '3.8'
-      },
-      {
-        id: 2,
-        degree: 'Bachelor of Engineering',
-        school: 'Engineering College',
-        year: '2014',
-        gpa: '3.9'
-      }
-    ],
-    experience: [
-      {
-        id: 1,
-        title: 'Senior Frontend Developer',
-        company: 'TechCorp Inc.',
-        period: '2020 - Present',
-        description: 'Leading frontend development team and architecting scalable solutions.',
-        achievements: ['Improved performance by 40%', 'Led team of 8 developers', 'Mentored junior engineers']
-      },
-      {
-        id: 2,
-        title: 'Frontend Developer',
-        company: 'StartupXYZ',
-        period: '2016 - 2020',
-        description: 'Built responsive web applications using React and Redux.',
-        achievements: ['Shipped 10+ major features', 'Reduced bundle size by 60%']
-      }
-    ]
+    education: (user?.profile as any)?.education || [],
+    experience: (user?.profile as any)?.experience || []
   });
 
   // Update profile when user data changes
@@ -149,12 +143,12 @@ const Profile = ({ embedded = false }: ProfileProps) => {
         },
         professional: {
           title: user.profile?.headline ?? prev.professional.title,
-          department: 'Engineering',
-          company: user.company?.name || 'Not specified',
-          startDate: '2020-03-01',
-          employeeId: 'TC-8472',
+          department: (user as any)?.department || '',
+          company: user.company?.name || '',
+          startDate: (user as any)?.startDate || '',
+          employeeId: (user as any)?.employeeId || '',
           skills: user.profile?.skills?.length ? user.profile.skills : prev.professional.skills,
-          level: 'L5 Senior'
+          level: (user as any)?.level || ''
         },
         education: prev.education,
         experience: prev.experience
@@ -201,42 +195,72 @@ const Profile = ({ embedded = false }: ProfileProps) => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      // Update professional profile
-      const response = await apiFetch('/api/me/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          headline: profile.professional.title, // Send as headline for server compatibility
-          bio: profile.personal.bio,
-          skills: profile.professional.skills
-        } as UpdateProfile)
-      });
+      const response = await apiFetch(
+        '/api/me/profile',
+        withSkipGlobalLoader({
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            firstName: profile.personal.firstName.trim(),
+            lastName: profile.personal.lastName.trim(),
+            email: profile.personal.email.trim(),
+            location: profile.personal.location.trim(),
+            telephoneNumber: profile.personal.phone.trim(),
+            headline: profile.professional.title,
+            bio: profile.personal.bio,
+            skills: profile.professional.skills,
+            experience: profile.experience,
+            education: profile.education,
+          } satisfies UpdateMeProfile),
+        })
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to update profile');
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(errorBody?.message || 'Failed to update profile');
       }
 
       const payload = await response.json();
+      const savedUser = payload?.user;
       const savedProfile = payload?.profile;
 
-      // Keep auth state in sync without depending on /api/auth/me shape.
-      if (user && savedProfile) {
+      if (user) {
         setUser({
           ...user,
-          profile: {
-            ...(user.profile || {}),
-            ...savedProfile,
-          },
+          ...(savedUser || {}),
+          profile: savedProfile
+            ? { ...(user.profile || {}), ...savedProfile }
+            : user.profile,
         });
+      }
+
+      if (savedUser || savedProfile) {
+        setProfile((prev) => ({
+          ...prev,
+          personal: {
+            ...prev.personal,
+            firstName: savedUser?.firstName ?? prev.personal.firstName,
+            lastName: savedUser?.lastName ?? prev.personal.lastName,
+            email: savedUser?.email ?? prev.personal.email,
+            phone: savedUser?.telephoneNumber ?? prev.personal.phone,
+            location: savedUser?.location ?? prev.personal.location,
+            bio: savedProfile?.bio ?? prev.personal.bio,
+          },
+          professional: {
+            ...prev.professional,
+            title: savedProfile?.headline ?? prev.professional.title,
+            skills: savedProfile?.skills?.length ? savedProfile.skills : prev.professional.skills,
+          },
+        }));
       }
 
       setIsEditing(false);
       toast({
         title: "Profile Updated",
         description: "Your profile has been successfully updated.",
-        variant: "default",
+        variant: "success",
       });
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -275,10 +299,13 @@ const Profile = ({ embedded = false }: ProfileProps) => {
       const formData = new FormData();
       formData.append("photo", file);
 
-      const response = await apiFetch("/api/me/profile-photo", {
-        method: "POST",
-        body: formData,
-      });
+      const response = await apiFetch(
+        "/api/me/profile-photo",
+        withSkipGlobalLoader({
+          method: "POST",
+          body: formData,
+        })
+      );
       if (!response.ok) {
         const errorText = await response.text();
         let errorMessage = "Upload failed";
@@ -329,13 +356,107 @@ const Profile = ({ embedded = false }: ProfileProps) => {
     }
   };
 
+  const handleResumeUpload = async (file?: File) => {
+    if (!file) return;
+    const ext = file.name.toLowerCase();
+    const valid =
+      ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type) ||
+      ext.endsWith('.pdf') ||
+      ext.endsWith('.doc') ||
+      ext.endsWith('.docx');
+    if (!valid) {
+      toast({
+        title: 'Invalid file',
+        description: 'Please upload a PDF or Word document.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: 'File too large',
+        description: 'Maximum resume size is 10MB.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setResumeUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('resume', file);
+      const response = await apiFetch(
+        '/api/me/resume',
+        withSkipGlobalLoader({
+          method: 'POST',
+          body: formData,
+        })
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || 'Upload failed');
+      }
+      const payload = await response.json();
+      if (user && payload.profile) {
+        setUser({
+          ...user,
+          profile: { ...user.profile, ...payload.profile, resumeUrl: payload.resumeUrl, resumeName: payload.resumeName },
+        });
+      }
+      toast({
+        title: 'Resume saved',
+        description: 'Your resume will be offered when you apply to jobs.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Upload failed',
+        description: error instanceof Error ? error.message : 'Could not upload resume.',
+        variant: 'destructive',
+      });
+    } finally {
+      setResumeUploading(false);
+      if (resumeInputRef.current) resumeInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveResume = async () => {
+    if (!profileResume.resumeUrl) return;
+    setResumeUploading(true);
+    try {
+      const response = await apiFetch(
+        '/api/me/resume',
+        withSkipGlobalLoader({ method: 'DELETE' })
+      );
+      if (!response.ok) {
+        throw new Error('Failed to remove resume');
+      }
+      if (user) {
+        setUser({
+          ...user,
+          profile: user.profile
+            ? { ...user.profile, resumeUrl: null, resumeName: null, resume_url: null, resume_name: null }
+            : null,
+        });
+      }
+      toast({ title: 'Resume removed', description: 'Your saved resume has been deleted.' });
+    } catch (error) {
+      toast({
+        title: 'Remove failed',
+        description: error instanceof Error ? error.message : 'Could not remove resume.',
+        variant: 'destructive',
+      });
+    } finally {
+      setResumeUploading(false);
+    }
+  };
+
   const handleRemovePhoto = async () => {
     if (!profile.personal.avatar) return;
     setPhotoUploading(true);
     try {
-      const response = await apiFetch("/api/me/profile-photo", {
-        method: "DELETE",
-      });
+      const response = await apiFetch(
+        "/api/me/profile-photo",
+        withSkipGlobalLoader({ method: "DELETE" })
+      );
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(errorText || "Failed to remove profile photo");
@@ -347,7 +468,7 @@ const Profile = ({ embedded = false }: ProfileProps) => {
       }));
 
       if (user) {
-        setUser({ ...user, profilePhoto: null });
+        setUser({ ...user, profilePhoto: undefined });
       }
 
       toast({
@@ -381,7 +502,12 @@ const Profile = ({ embedded = false }: ProfileProps) => {
         },
         professional: {
           title: user.profile?.headline || '',
-          skills: user.profile?.skills || ['React', 'TypeScript', 'Node.js']
+          department: (user as any)?.department || '',
+          company: user.company?.name || '',
+          startDate: (user as any)?.startDate || '',
+          employeeId: (user as any)?.employeeId || '',
+          skills: user.profile?.skills || [],
+          level: (user as any)?.level || ''
         },
         education: profile.education, // Keep existing education data
         experience: profile.experience // Keep existing experience data
@@ -393,8 +519,9 @@ const Profile = ({ embedded = false }: ProfileProps) => {
   const tabs = [
     { id: 'personal', label: 'Personal Info', icon: User, count: 7 },
     { id: 'professional', label: 'Professional', icon: Briefcase, count: 8 },
+    { id: 'resume', label: 'Resume', icon: FileText, count: profileResume.resumeUrl ? 1 : 0 },
     { id: 'education', label: 'Education', icon: GraduationCap, count: profile.education.length },
-    { id: 'experience', label: 'Experience', icon: FileText, count: profile.experience.length }
+    { id: 'experience', label: 'Experience', icon: Award, count: profile.experience.length }
   ];
   const tabOrder = tabs.map((tab) => tab.id);
   const activeTabIndex = tabOrder.indexOf(activeTab);
@@ -508,11 +635,33 @@ const Profile = ({ embedded = false }: ProfileProps) => {
   if (!profile.professional.skills?.length) completionChecks.push({ section: 'professional', label: 'Add at least one skill' });
   if (!profile.education?.length) completionChecks.push({ section: 'education', label: 'Add education details' });
   if (!profile.experience?.length) completionChecks.push({ section: 'experience', label: 'Add work experience' });
+  if (!profileResume.resumeUrl) completionChecks.push({ section: 'resume', label: 'Upload your resume' });
 
-  const totalChecklistItems = 10;
+  const totalChecklistItems = 11;
   const completedItems = totalChecklistItems - completionChecks.length;
   const profileCompletion = Math.max(0, Math.min(100, Math.round((completedItems / totalChecklistItems) * 100)));
   const nextMissing = completionChecks[0];
+
+  const initials = `${profile.personal.firstName?.[0] || ''}${profile.personal.lastName?.[0] || ''}`.toUpperCase() || 'U';
+
+  const profileStats = useMemo(
+    () => [
+      {
+        icon: Briefcase,
+        value: profile.experience.length > 0 ? String(profile.experience.length) : '—',
+        label: profile.experience.length === 1 ? 'Role' : 'Roles',
+      },
+      {
+        icon: Award,
+        value: profile.professional.skills.length > 0 ? String(profile.professional.skills.length) : '—',
+        label: profile.professional.skills.length === 1 ? 'Skill' : 'Skills',
+      },
+    ],
+    [profile.experience.length, profile.professional.skills.length]
+  );
+
+  const visibleSuggestions = coachExpanded ? smartSuggestions : smartSuggestions.slice(0, 2);
+  const hasMoreSuggestions = smartSuggestions.length > 2;
 
   const jumpToIncomplete = () => {
     if (!nextMissing) return;
@@ -520,30 +669,12 @@ const Profile = ({ embedded = false }: ProfileProps) => {
     setIsEditing(true);
   };
 
-  const StatsCard = ({ icon: Icon, label, value, color }: { icon: LucideIcon; label: string; value: string; color: string }) => (
-    <div className={`p-4 rounded-2xl transition-all duration-300 hover:scale-105 ${
-      darkMode ? 'bg-gray-800' : 'bg-white'
-    } shadow-lg border ${darkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-      <div className="flex items-center gap-3">
-        <div className={`p-3 rounded-xl ${color} bg-opacity-10`}>
-          <Icon className={`w-6 h-6 ${color.replace('text-', '')}`} />
-        </div>
-        <div>
-          <p className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-            {value}
-          </p>
-          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            {label}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className={`${embedded ? 'min-h-full' : 'min-h-screen w-screen fixed inset-0'} transition-colors duration-300 overflow-y-auto ${
-      darkMode 
-        ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' 
+      embedded
+        ? 'bg-transparent'
+        : darkMode
+        ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900'
         : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'
     }`}>
       {/* Animated Background Elements */}
@@ -556,9 +687,9 @@ const Profile = ({ embedded = false }: ProfileProps) => {
         } animate-pulse delay-1000`} />
       </div>
 
-      <div className={`max-w-7xl mx-auto relative z-10 ${embedded ? 'px-2 py-3' : 'px-6 py-8'}`}>
+      <div className={`${embedded ? 'w-full' : 'max-w-7xl mx-auto'} relative z-10 ${embedded ? 'px-2 py-3' : 'px-6 py-8'}`}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             {!embedded && (
               <button
@@ -632,111 +763,121 @@ const Profile = ({ embedded = false }: ProfileProps) => {
           </div>
         </div>
 
-        {/* Completion Banner */}
-        <div className={`rounded-3xl p-5 mb-8 border shadow-xl ${
-          darkMode ? 'bg-gray-800/90 border-gray-700' : 'bg-white/95 border-gray-100'
-        }`}>
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div>
-              <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-blue-300' : 'text-indigo-600'}`}>
-                Profile Completion
-              </p>
-              <h3 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                {profileCompletion}% complete
-              </h3>
-              <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                {completionChecks.length === 0
-                  ? 'Great work! Your profile is fully complete and recruiter-ready.'
-                  : `${completionChecks.length} detail${completionChecks.length > 1 ? 's' : ''} left to complete.`}
-              </p>
+        {/* Profile completion — compact strip */}
+        <div className={cn('mb-5 rounded-2xl border px-4 py-3.5', glassCard)}>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+            <div className="flex items-center gap-3 shrink-0">
+              <div
+                className={cn(
+                  'flex h-11 w-11 items-center justify-center rounded-xl text-sm font-bold tabular-nums',
+                  darkMode ? 'bg-violet-500/15 text-violet-200' : 'bg-indigo-50 text-indigo-700'
+                )}
+              >
+                {profileCompletion}%
+              </div>
+              <div>
+                <p className={cn('text-sm font-semibold', darkMode ? 'text-white' : 'text-gray-900')}>
+                  Profile completion
+                </p>
+                <p className={cn('text-xs mt-0.5', darkMode ? 'text-slate-400' : 'text-gray-500')}>
+                  {completionChecks.length === 0
+                    ? 'Ready for recruiters'
+                    : `${completionChecks.length} item${completionChecks.length > 1 ? 's' : ''} remaining`}
+                </p>
+              </div>
             </div>
 
-            <div className="flex-1 max-w-xl">
-              <div className={`w-full h-3 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+            <div className="flex-1 min-w-[180px] max-w-md">
+              <div className={cn('h-1.5 w-full rounded-full overflow-hidden', darkMode ? 'bg-white/10' : 'bg-gray-200')}>
                 <div
-                  className="h-3 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 transition-all duration-500"
+                  className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-500"
                   style={{ width: `${profileCompletion}%` }}
                 />
               </div>
               {nextMissing && (
-                <p className={`mt-2 text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Next step: <span className="font-semibold">{nextMissing.label}</span>
+                <p className={cn('text-xs mt-1.5 truncate', darkMode ? 'text-slate-400' : 'text-gray-500')}>
+                  Next: <span className="font-medium">{nextMissing.label}</span>
                 </p>
               )}
             </div>
 
             {completionChecks.length > 0 && (
               <button
+                type="button"
                 onClick={jumpToIncomplete}
-                className={`px-5 py-3 rounded-2xl font-bold transition-all duration-300 hover:scale-105 ${
+                className={cn(
+                  'shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-colors',
                   darkMode
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
-                    : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white'
-                }`}
+                    ? 'bg-violet-600/90 hover:bg-violet-600 text-white'
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                )}
               >
-                Complete Now
+                Complete
               </button>
             )}
           </div>
         </div>
 
-        {/* AI Smart Coach */}
-        <div className={`rounded-3xl p-5 mb-8 border shadow-xl ${
-          darkMode ? 'bg-gray-800/90 border-gray-700' : 'bg-white/95 border-gray-100'
-        }`}>
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles className={`w-5 h-5 ${darkMode ? 'text-purple-300' : 'text-indigo-600'}`} />
-            <h3 className={`text-lg font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-              AI Smart Coach
-            </h3>
-            <span className={`text-xs px-2 py-1 rounded-full font-semibold ${
-              darkMode ? 'bg-purple-500/20 text-purple-300' : 'bg-indigo-100 text-indigo-700'
-            }`}>
-              Personalized
-            </span>
-          </div>
-
-          <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Recommendations update automatically based on what you enter in your profile.
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {smartSuggestions.map((tip, index) => (
+        {/* Profile tips */}
+        <div className={cn('mb-6 rounded-2xl border px-4 py-3.5', glassCard)}>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <Lightbulb className={cn('w-4 h-4 shrink-0', darkMode ? 'text-violet-400' : 'text-indigo-600')} />
+              <h3 className={cn('text-sm font-semibold truncate', darkMode ? 'text-white' : 'text-gray-900')}>
+                Profile tips
+              </h3>
+            </div>
+            {hasMoreSuggestions && (
               <button
-                key={`${tip.title}-${index}`}
-                onClick={() => {
-                  setActiveTab(tip.section);
-                  setIsEditing(true);
-                }}
-                className={`text-left rounded-2xl p-4 border transition-all duration-300 hover:scale-[1.01] ${
-                  darkMode
-                    ? 'bg-gray-900/40 border-gray-700 hover:border-blue-500'
-                    : 'bg-indigo-50/50 border-indigo-100 hover:border-indigo-300'
-                }`}
+                type="button"
+                onClick={() => setCoachExpanded((v) => !v)}
+                className={cn(
+                  'text-xs font-medium shrink-0 transition-colors',
+                  darkMode ? 'text-violet-300 hover:text-violet-200' : 'text-indigo-600 hover:text-indigo-800'
+                )}
               >
-                <p className={`font-bold mb-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{tip.title}</p>
-                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{tip.detail}</p>
+                {coachExpanded ? 'Show less' : `+${smartSuggestions.length - 2} more`}
               </button>
-            ))}
+            )}
           </div>
-        </div>
 
+          <ul className="space-y-2">
+            {visibleSuggestions.map((tip, index) => (
+              <li key={`${tip.title}-${index}`}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(tip.section);
+                    setIsEditing(true);
+                  }}
+                  className={cn(
+                    'w-full text-left rounded-xl px-3 py-2.5 border transition-colors',
+                    darkMode
+                      ? 'border-white/5 bg-white/[0.02] hover:border-violet-500/30 hover:bg-white/[0.04]'
+                      : 'border-gray-100 bg-gray-50/80 hover:border-indigo-200 hover:bg-white'
+                  )}
+                >
+                  <p className={cn('text-sm font-medium', darkMode ? 'text-slate-200' : 'text-gray-900')}>
+                    {tip.title}
+                  </p>
+                  <p className={cn('text-xs mt-0.5 line-clamp-2', darkMode ? 'text-slate-500' : 'text-gray-600')}>
+                    {tip.detail}
+                  </p>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
           {/* Sidebar */}
           <div className="w-full lg:w-80 flex-shrink-0">
             {/* Profile Card */}
-            <div className={`rounded-3xl shadow-2xl overflow-hidden mb-6 transform transition-all duration-300 hover:shadow-2xl ${
-              darkMode ? 'bg-gray-800' : 'bg-white'
-            }`}>
-              <div className={`h-32 relative ${
-                darkMode 
-                  ? 'bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700' 
-                  : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-600'
-              }`}>
-                <div className="absolute inset-0 bg-black bg-opacity-20" />
+            <div className={cn('relative mb-6 rounded-2xl border overflow-hidden', glassCard)}>
+              <div className="relative h-28 overflow-hidden">
+                <div className={cn('absolute inset-0 bg-gradient-to-br', darkMode ? 'from-indigo-950 via-violet-950 to-slate-950' : 'from-indigo-600 via-violet-600 to-fuchsia-600')} />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.18),transparent_55%)]" />
               </div>
-              
-              <div className="px-6 pb-6 -mt-16 relative">
+              <div className="px-6 pb-6 -mt-14 relative">
                 <div 
                   className="relative group"
                   onMouseEnter={() => setImageHover(true)}
@@ -749,44 +890,69 @@ const Profile = ({ embedded = false }: ProfileProps) => {
                     className="hidden"
                     onChange={(e) => handlePhotoUpload(e.target.files?.[0])}
                   />
-                  <div className={`w-32 h-32 rounded-3xl border-4 mx-auto mb-4 transition-all duration-300 ${
-                    darkMode ? 'border-gray-800 bg-gray-700' : 'border-white bg-gray-200'
-                  } ${imageHover ? 'scale-110' : ''} flex items-center justify-center overflow-hidden`}>
-                    {profile.personal.avatar ? (
-                      <button
-                        type="button"
-                        onClick={() => !isEditing && setIsPhotoPreviewOpen(true)}
-                        className="w-full h-full"
-                        aria-label="Open profile photo preview"
-                      >
-                        <img 
-                          src={profile.personal.avatar} 
-                          alt="Profile" 
-                          className="w-full h-full rounded-3xl object-cover"
-                        />
-                      </button>
-                    ) : (
-                      <User className={`w-12 h-12 transition-all duration-300 ${
-                        darkMode ? 'text-gray-400' : 'text-gray-500'
-                      } ${imageHover ? 'scale-110' : ''}`} />
-                    )}
-                    {isEditing && (
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={photoUploading}
-                        className={`absolute inset-0 bg-black bg-opacity-50 rounded-3xl flex items-center justify-center transition-all duration-300 ${
-                        imageHover ? 'opacity-100' : 'opacity-0'
-                      } disabled:cursor-not-allowed`}
-                      >
-                        {photoUploading ? (
-                          <span className="text-white text-sm font-semibold">Uploading...</span>
-                        ) : (
-                          <Camera className="w-8 h-8 text-white" />
-                        )}
-                      </button>
-                    )}
+                  <div className="relative mx-auto mb-3 w-[7.25rem] h-[7.25rem]">
+                    <div
+                      className={cn(
+                        'absolute -inset-[3px] rounded-[22px] bg-gradient-to-br from-violet-500 via-indigo-500 to-blue-500 transition-opacity duration-300',
+                        imageHover ? 'opacity-100' : 'opacity-75'
+                      )}
+                    />
+                    <div
+                      className={cn(
+                        'relative flex h-full w-full items-center justify-center overflow-hidden rounded-[20px] border-2 transition-transform duration-300',
+                        darkMode ? 'border-slate-900 bg-slate-800' : 'border-white bg-slate-100',
+                        imageHover && 'scale-[1.02]'
+                      )}
+                    >
+                      {profile.personal.avatar ? (
+                        <button
+                          type="button"
+                          onClick={() => !isEditing && setIsPhotoPreviewOpen(true)}
+                          className="h-full w-full"
+                          aria-label="Open profile photo preview"
+                        >
+                          <img
+                            src={profile.personal.avatar}
+                            alt="Profile"
+                            className="h-full w-full object-cover"
+                          />
+                        </button>
+                      ) : (
+                        <span
+                          className={cn(
+                            'text-2xl font-black tracking-tight',
+                            darkMode ? 'text-violet-200' : 'text-indigo-700'
+                          )}
+                        >
+                          {initials}
+                        </span>
+                      )}
+                      {isEditing && (
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={photoUploading}
+                          className={cn(
+                            'absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55 transition-opacity duration-300',
+                            imageHover ? 'opacity-100' : 'opacity-0',
+                            'disabled:cursor-not-allowed'
+                          )}
+                        >
+                          {photoUploading ? (
+                            <span className="text-xs font-semibold text-white">Uploading…</span>
+                          ) : (
+                            <>
+                              <Camera className="h-6 w-6 text-white" />
+                              <span className="text-[10px] font-semibold text-white/90">Change photo</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
+                  <p className={cn('text-center text-[11px] mb-4', darkMode ? 'text-slate-500' : 'text-gray-400')}>
+                    {isEditing ? 'JPG, PNG or WEBP · max 5MB' : 'Tap photo to preview'}
+                  </p>
                   {isEditing && profile.personal.avatar && (
                     <button
                       type="button"
@@ -804,119 +970,122 @@ const Profile = ({ embedded = false }: ProfileProps) => {
                   )}
                 </div>
                 
-                <div className="text-center mb-6">
-                  <h2 className={`text-2xl font-black mb-2 ${
-                    darkMode ? 'text-white' : 'text-gray-900'
-                  }`}>
+                <div className="text-center mb-5">
+                  <h2 className={cn('text-xl font-black tracking-tight mb-1', darkMode ? 'text-white' : 'text-gray-900')}>
                     {profile.personal.firstName} {profile.personal.lastName}
                   </h2>
-                  
-                  <p className={`text-lg font-semibold mb-4 ${
-                    darkMode ? 'text-blue-400' : 'text-indigo-600'
-                  }`}>
+                  <p className={cn('text-sm font-medium', darkMode ? 'text-violet-300/90' : 'text-indigo-600')}>
                     {profile.professional.title || 'Add your professional title'}
                   </p>
-                  
-                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${
-                    darkMode ? 'bg-gray-700' : 'bg-gray-100'
-                  }`}>
-                    <Star className={`w-4 h-4 ${
-                      darkMode ? 'text-yellow-400' : 'text-yellow-500'
-                    }`} />
-                    <span className={`text-sm font-semibold ${
-                      darkMode ? 'text-gray-300' : 'text-gray-700'
-                    }`}>
-                      Premium Member
-                    </span>
-                  </div>
                 </div>
                 
                 {/* Quick Stats */}
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  <StatsCard 
-                    icon={Briefcase} 
-                    label="Experience" 
-                    value="8 yrs" 
-                    color="text-blue-500"
-                  />
-                  <StatsCard 
-                    icon={Award} 
-                    label="Projects" 
-                    value="24" 
-                    color="text-purple-500"
-                  />
+                <div className="flex gap-2 mb-5">
+                  {profileStats.map((stat) => (
+                    <div
+                      key={stat.label}
+                      className={cn(
+                        'flex-1 flex items-center gap-2.5 px-3 py-2.5 rounded-xl border backdrop-blur-sm',
+                        darkMode ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-100'
+                      )}
+                    >
+                      <div className={cn('p-2 rounded-lg', darkMode ? 'bg-white/5' : 'bg-white shadow-sm')}>
+                        <stat.icon className={cn('w-4 h-4', darkMode ? 'text-white/80' : 'text-indigo-600')} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className={cn('text-sm font-black leading-tight', darkMode ? 'text-white' : 'text-gray-900')}>{stat.value}</p>
+                        <p className={cn('text-[10px] font-semibold uppercase tracking-wide', darkMode ? 'text-slate-400' : 'text-gray-500')}>{stat.label}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Completion Checklist */}
-                <div className={`mb-6 p-4 rounded-2xl border ${
-                  darkMode ? 'border-gray-700 bg-gray-900/40' : 'border-gray-100 bg-indigo-50/50'
-                }`}>
-                  <p className={`text-sm font-bold mb-3 ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>
-                    Quick Checklist
-                  </p>
-                  <div className="space-y-2 max-h-36 overflow-y-auto">
-                    {(completionChecks.length ? completionChecks : [{ section: 'done', label: 'Profile complete - ready to apply faster' }]).map((item, idx) => (
-                      <button
-                        key={`${item.label}-${idx}`}
-                        onClick={() => {
-                          if (item.section === 'done') return;
-                          setActiveTab(item.section);
-                          setIsEditing(true);
-                        }}
-                        className={`w-full text-left flex items-center gap-2 text-xs px-2 py-2 rounded-lg transition-colors ${
-                          darkMode ? 'hover:bg-gray-700/60 text-gray-300' : 'hover:bg-white text-gray-700'
-                        }`}
-                      >
-                        <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full ${
-                          item.section === 'done'
-                            ? (darkMode ? 'bg-green-600 text-white' : 'bg-green-500 text-white')
-                            : (darkMode ? 'bg-orange-500/20 text-orange-400' : 'bg-orange-100 text-orange-600')
-                        }`}>
-                          {item.section === 'done' ? '✓' : '!'}
-                        </span>
-                        {item.label}
-                      </button>
-                    ))}
+                <div className={cn('mb-5 p-4 rounded-2xl border', darkMode ? 'border-white/10 bg-white/5' : 'border-indigo-100/80 bg-indigo-50/40')}>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className={cn('text-xs font-bold uppercase tracking-wider', darkMode ? 'text-slate-300' : 'text-gray-700')}>
+                      Quick Checklist
+                    </p>
+                    <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full', darkMode ? 'bg-violet-500/20 text-violet-300' : 'bg-indigo-100 text-indigo-700')}>
+                      {profileCompletion}%
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 max-h-32 overflow-y-auto pr-0.5">
+                    {(completionChecks.length ? completionChecks : [{ section: 'done', label: 'Profile complete — ready to apply' }]).map((item, idx) => {
+                      const done = item.section === 'done';
+                      return (
+                        <button
+                          key={`${item.label}-${idx}`}
+                          type="button"
+                          onClick={() => {
+                            if (done) return;
+                            setActiveTab(item.section);
+                            setIsEditing(true);
+                          }}
+                          className={cn(
+                            'w-full text-left flex items-center gap-2.5 text-xs px-2.5 py-2 rounded-xl transition-colors',
+                            darkMode ? 'hover:bg-white/5 text-slate-300' : 'hover:bg-white text-gray-700',
+                            done && 'cursor-default'
+                          )}
+                        >
+                          {done ? (
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4 shrink-0 text-amber-400" />
+                          )}
+                          <span className="leading-snug">{item.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
                 
                 {/* Social Links */}
-                <div className="flex justify-center gap-3 mb-6">
+                <div className="flex justify-center gap-2.5 mb-5">
                   {[
-                    { icon: Linkedin, color: 'hover:bg-blue-500', label: 'LinkedIn' },
-                    { icon: Github, color: 'hover:bg-gray-700', label: 'GitHub' },
-                    { icon: Globe, color: 'hover:bg-green-500', label: 'Portfolio' }
+                    { icon: Linkedin, hover: 'hover:border-blue-400/50 hover:text-blue-400', label: 'LinkedIn' },
+                    { icon: Github, hover: 'hover:border-slate-400/50 hover:text-slate-200', label: 'GitHub' },
+                    { icon: Globe, hover: 'hover:border-emerald-400/50 hover:text-emerald-400', label: 'Portfolio' },
                   ].map((social, index) => (
                     <button
                       key={index}
-                      className={`p-3 rounded-xl transition-all duration-300 transform hover:scale-110 ${
-                        darkMode 
-                          ? 'bg-gray-700 text-gray-400 hover:text-white' 
-                          : 'bg-gray-100 text-gray-600 hover:text-white'
-                      } ${social.color}`}
+                      type="button"
+                      className={cn(
+                        'p-2.5 rounded-xl border transition-all duration-300 hover:scale-105',
+                        darkMode ? 'border-white/10 bg-white/5 text-slate-400' : 'border-gray-200 bg-white text-gray-500 shadow-sm',
+                        social.hover
+                      )}
                       title={social.label}
                     >
-                      <social.icon className="w-5 h-5" />
+                      <social.icon className="w-4 h-4" />
                     </button>
                   ))}
                 </div>
                 
                 {/* Action Buttons */}
                 <div className="flex gap-2">
-                  <button className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all duration-300 ${
-                    darkMode
-                      ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                  }`}>
+                  <button
+                    type="button"
+                    className={cn(
+                      'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border transition-all duration-300 hover:scale-[1.02]',
+                      darkMode
+                        ? 'border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 shadow-sm'
+                    )}
+                  >
                     <Download className="w-4 h-4" />
                     Export
                   </button>
-                  <button className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all duration-300 ${
-                    darkMode
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white'
-                  }`}>
-                    <Upload className="w-4 h-4" />
+                  <button
+                    type="button"
+                    className={cn(
+                      'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-white transition-all duration-300 hover:scale-[1.02] shadow-lg',
+                      darkMode
+                        ? 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500'
+                        : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500'
+                    )}
+                  >
+                    <Share2 className="w-4 h-4" />
                     Share
                   </button>
                 </div>
@@ -929,10 +1098,8 @@ const Profile = ({ embedded = false }: ProfileProps) => {
           <div className="flex-1 min-w-0">
             {/* Personal Info Tab */}
             {activeTab === 'personal' && (
-              <div className={`rounded-3xl shadow-2xl p-8 transform transition-all duration-300 ${
-                darkMode ? 'bg-gray-800' : 'bg-white'
-              }`}>
-                <div className="flex items-center justify-between mb-8">
+              <div className={cn('rounded-3xl p-8 border min-h-[450px]', glassCard)}>
+                <div className="flex items-center justify-between mb-6">
                   <div>
                     <h3 className={`text-2xl font-black ${
                       darkMode ? 'text-white' : 'text-gray-900'
@@ -972,17 +1139,11 @@ const Profile = ({ embedded = false }: ProfileProps) => {
                           type={field.field === 'birthday' ? 'date' : 'text'}
                           value={field.value}
                           onChange={(e) => handleInputChange('personal', field.field, e.target.value)}
-                          className={`w-full px-4 py-4 rounded-xl border-2 transition-all duration-300 ${
-                            darkMode
-                              ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500 focus:scale-105'
-                              : 'bg-white border-gray-200 text-gray-900 focus:border-indigo-500 focus:scale-105'
-                          }`}
+                          className={fieldInputClass}
                           placeholder={`Enter ${field.label.toLowerCase()}`}
                         />
                       ) : (
-                        <p className={`px-4 py-4 rounded-xl ${
-                          darkMode ? 'bg-gray-700 text-white' : 'bg-gray-50 text-gray-900'
-                        }`}>
+                        <p className={fieldViewClass}>
                           {field.value || 'Not provided'}
                         </p>
                       )}
@@ -1001,18 +1162,20 @@ const Profile = ({ embedded = false }: ProfileProps) => {
                         value={profile.personal.bio}
                         onChange={(e) => handleInputChange('personal', 'bio', e.target.value)}
                         rows={4}
-                        className={`w-full px-4 py-4 rounded-xl border-2 transition-all duration-300 ${
-                          darkMode
-                            ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500 focus:scale-105'
-                            : 'bg-white border-gray-200 text-gray-900 focus:border-indigo-500 focus:scale-105'
-                        }`}
-                        placeholder="Tell us about yourself..."
+                        className={cn(fieldInputClass, 'h-auto min-h-[7rem] py-3 resize-y')}
+                        placeholder="Describe your role, years of experience, top skills, and one measurable achievement (e.g. improved load time by 35%)."
                       />
                     ) : (
-                      <p className={`px-4 py-4 rounded-xl leading-relaxed ${
-                        darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-50 text-gray-700'
-                      }`}>
-                        {profile.personal.bio}
+                      <p
+                        className={cn(
+                          fieldViewClass,
+                          'h-auto min-h-[7rem] py-3 items-start leading-relaxed',
+                          !profile.personal.bio?.trim() && (darkMode ? 'text-slate-500 italic' : 'text-gray-400 italic')
+                        )}
+                      >
+                        {profile.personal.bio?.trim()
+                          ? profile.personal.bio
+                          : 'Add a short bio so employers understand your strengths and experience.'}
                       </p>
                     )}
                   </div>
@@ -1022,9 +1185,7 @@ const Profile = ({ embedded = false }: ProfileProps) => {
 
             {/* Professional Tab */}
             {activeTab === 'professional' && (
-              <div className={`rounded-3xl shadow-2xl p-8 transform transition-all duration-300 ${
-                darkMode ? 'bg-gray-800' : 'bg-white'
-              }`}>
+              <div className={cn('rounded-3xl p-8 border min-h-[450px]', glassCard)}>
                 <div className="mb-8">
                   <h3 className={`text-2xl font-black ${
                     darkMode ? 'text-white' : 'text-gray-900'
@@ -1051,17 +1212,11 @@ const Profile = ({ embedded = false }: ProfileProps) => {
                           type={field.field === 'startDate' ? 'date' : 'text'}
                           value={field.value}
                           onChange={(e) => handleInputChange('professional', field.field, e.target.value)}
-                          className={`w-full px-4 py-4 rounded-xl border-2 transition-all duration-300 ${
-                            darkMode
-                              ? 'bg-gray-800/40 border-gray-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:bg-gray-800/60'
-                              : 'bg-gray-50/70 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:bg-white'
-                          }`}
+                          className={fieldInputClass}
                           placeholder={field.field === 'title' ? 'Enter your professional title' : ''}
                         />
                       ) : (
-                        <p className={`px-4 py-4 rounded-xl ${
-                          darkMode ? 'bg-gray-700 text-white' : 'bg-gray-50 text-gray-900'
-                        }`}>
+                        <p className={fieldViewClass}>
                           {field.value || 'Not provided'}
                         </p>
                       )}
@@ -1132,63 +1287,261 @@ const Profile = ({ embedded = false }: ProfileProps) => {
               </div>
             )}
 
-            {/* Education Tab */}
-            {activeTab === 'education' && (
-              <div className={`rounded-3xl shadow-2xl p-8 transform transition-all duration-300 ${
-                darkMode ? 'bg-gray-800' : 'bg-white'
-              }`}>
+            {/* Resume Tab */}
+            {activeTab === 'resume' && (
+              <div className={cn('rounded-3xl p-8 border min-h-[450px]', glassCard)}>
                 <div className="mb-8">
-                  <h3 className={`text-2xl font-black ${
-                    darkMode ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    Education
+                  <h3 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    Resume
                   </h3>
                   <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Your strongest education details build trust with employers.
+                    Save one resume on your profile. When you apply, your details and resume are pre-filled for you to review before submitting.
                   </p>
+                </div>
+
+                {profileResume.resumeUrl ? (
+                  <div className={cn(
+                    'flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl border',
+                    darkMode ? 'border-white/10 bg-slate-800/50' : 'border-gray-100 bg-gray-50'
+                  )}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={cn(
+                        'p-3 rounded-xl',
+                        darkMode ? 'bg-violet-500/20 text-violet-300' : 'bg-indigo-100 text-indigo-600'
+                      )}>
+                        <FileText className="w-6 h-6" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className={`font-semibold truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {profileResume.resumeName || 'Resume'}
+                        </p>
+                        <a
+                          href={profileResume.resumeUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary underline"
+                        >
+                          Preview file
+                        </a>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <a
+                        href={profileResume.resumeUrl}
+                        download
+                        className={cn(
+                          'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm border',
+                          darkMode ? 'border-white/10 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-100'
+                        )}
+                      >
+                        <Download className="w-4 h-4" />
+                        Download
+                      </a>
+                      <button
+                        type="button"
+                        disabled={resumeUploading}
+                        onClick={() => resumeInputRef.current?.click()}
+                        className={cn(
+                          'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm',
+                          darkMode ? 'bg-violet-600 hover:bg-violet-700 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                        )}
+                      >
+                        <Upload className="w-4 h-4" />
+                        Replace
+                      </button>
+                      <button
+                        type="button"
+                        disabled={resumeUploading}
+                        onClick={handleRemoveResume}
+                        className={cn(
+                          'inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm',
+                          darkMode ? 'text-red-400 hover:bg-red-500/10' : 'text-red-600 hover:bg-red-50'
+                        )}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      'p-8 rounded-2xl border-2 border-dashed text-center',
+                      darkMode ? 'border-gray-600 bg-gray-800/30' : 'border-gray-200 bg-gray-50'
+                    )}
+                  >
+                    <FileText className={cn('w-12 h-12 mx-auto mb-4', darkMode ? 'text-gray-500' : 'text-gray-400')} />
+                    <p className={`font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      No resume uploaded yet
+                    </p>
+                    <p className={`text-sm mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      PDF or Word, up to 10MB. Used to speed up job applications.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={resumeUploading}
+                      onClick={() => resumeInputRef.current?.click()}
+                      className={cn(
+                        'inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white',
+                        darkMode ? 'bg-violet-600 hover:bg-violet-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                      )}
+                    >
+                      {resumeUploading ? (
+                        <>Uploading...</>
+                      ) : (
+                        <>
+                          <Upload className="w-5 h-5" />
+                          Upload resume
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                <input
+                  ref={resumeInputRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  className="hidden"
+                  onChange={(e) => handleResumeUpload(e.target.files?.[0])}
+                />
+              </div>
+            )}
+
+            {/* Education Tab */}
+            {activeTab === 'education' && (
+              <div className={cn('rounded-3xl p-8 border min-h-[450px]', glassCard)}>
+                <div className="flex justify-between items-start mb-8">
+                  <div>
+                    <h3 className={`text-2xl font-black ${
+                      darkMode ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      Education
+                    </h3>
+                    <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Your strongest education details build trust with employers.
+                    </p>
+                  </div>
+                  {isEditing && (
+                    <button
+                      onClick={() => setProfile(prev => ({
+                        ...prev,
+                        education: [...prev.education, { id: Date.now(), degree: '', school: '', year: '', gpa: '' }]
+                      }))}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors"
+                    >
+                      + Add Education
+                    </button>
+                  )}
                 </div>
                 
                 <div className="space-y-6">
-                  {profile.education.map((edu) => (
+                  {profile.education.length === 0 ? (
+                    <div className="text-center py-10 border-2 border-dashed rounded-2xl border-gray-300 dark:border-gray-700">
+                      <p className="text-gray-500 dark:text-gray-400">No education added yet.</p>
+                    </div>
+                  ) : profile.education.map((edu, index) => (
                     <div
                       key={edu.id}
                       className={`p-6 rounded-2xl border transition-all duration-300 ${
                         darkMode ? 'border-gray-700 hover:border-blue-500/70' : 'border-gray-100 hover:border-indigo-200'
                       }`}
                     >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-start gap-4">
-                          <div className={`text-2xl p-3 rounded-xl ${
-                            darkMode ? 'bg-blue-500/20' : 'bg-blue-100'
-                          }`}>
-                            🎓
+                      {isEditing ? (
+                        <div className="space-y-4">
+                          <div className="flex justify-between">
+                            <h4 className="font-bold">Education Entry</h4>
+                            <button 
+                              onClick={() => setProfile(prev => ({ ...prev, education: prev.education.filter((_, i) => i !== index) }))}
+                              className="text-red-500 hover:text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
-                          <div>
-                            <h4 className={`text-lg font-black mb-1 ${
-                              darkMode ? 'text-white' : 'text-gray-900'
-                            }`}>
-                              {edu.degree}
-                            </h4>
-                            <p className={`font-semibold mb-2 ${
-                              darkMode ? 'text-blue-400' : 'text-indigo-600'
-                            }`}>
-                              {edu.school}
-                            </p>
+                          <div className="grid grid-cols-2 gap-4">
+                            <input 
+                              type="text" 
+                              placeholder="Degree"
+                              value={edu.degree}
+                              onChange={(e) => {
+                                const newEdu = [...profile.education];
+                                newEdu[index].degree = e.target.value;
+                                setProfile({ ...profile, education: newEdu });
+                              }}
+                              className={`w-full px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+                            />
+                            <input 
+                              type="text" 
+                              placeholder="School"
+                              value={edu.school}
+                              onChange={(e) => {
+                                const newEdu = [...profile.education];
+                                newEdu[index].school = e.target.value;
+                                setProfile({ ...profile, education: newEdu });
+                              }}
+                              className={`w-full px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+                            />
+                            <input 
+                              type="text" 
+                              placeholder="Year (e.g. 2020 - 2024)"
+                              value={edu.year}
+                              onChange={(e) => {
+                                const newEdu = [...profile.education];
+                                newEdu[index].year = e.target.value;
+                                setProfile({ ...profile, education: newEdu });
+                              }}
+                              className={`w-full px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+                            />
+                            <input 
+                              type="text" 
+                              placeholder="GPA"
+                              value={edu.gpa}
+                              onChange={(e) => {
+                                const newEdu = [...profile.education];
+                                newEdu[index].gpa = e.target.value;
+                                setProfile({ ...profile, education: newEdu });
+                              }}
+                              className={`w-full px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+                            />
                           </div>
                         </div>
-                        <div className={`px-4 py-2 rounded-xl font-semibold ${
-                          darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-                        }`}>
-                          {edu.year}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-6">
-                        <span className={`text-sm ${
-                          darkMode ? 'text-gray-400' : 'text-gray-600'
-                        }`}>
-                          GPA: <strong>{edu.gpa}</strong>
-                        </span>
-                      </div>
+                      ) : (
+                        <>
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-start gap-4">
+                              <div className={`text-2xl p-3 rounded-xl ${
+                                darkMode ? 'bg-blue-500/20' : 'bg-blue-100'
+                              }`}>
+                                🎓
+                              </div>
+                              <div>
+                                <h4 className={`text-lg font-black mb-1 ${
+                                  darkMode ? 'text-white' : 'text-gray-900'
+                                }`}>
+                                  {edu.degree}
+                                </h4>
+                                <p className={`font-semibold mb-2 ${
+                                  darkMode ? 'text-blue-400' : 'text-indigo-600'
+                                }`}>
+                                  {edu.school}
+                                </p>
+                              </div>
+                            </div>
+                            <div className={`px-4 py-2 rounded-xl font-semibold ${
+                              darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {edu.year}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-6">
+                            <span className={`text-sm ${
+                              darkMode ? 'text-gray-400' : 'text-gray-600'
+                            }`}>
+                              GPA: <strong>{edu.gpa}</strong>
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1197,113 +1550,235 @@ const Profile = ({ embedded = false }: ProfileProps) => {
 
             {/* Experience Tab */}
             {activeTab === 'experience' && (
-              <div className={`rounded-3xl shadow-2xl p-8 transform transition-all duration-300 ${
-                darkMode ? 'bg-gray-800' : 'bg-white'
-              }`}>
-                <div className="mb-8">
-                  <h3 className={`text-2xl font-black ${
-                    darkMode ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    Work Experience
-                  </h3>
-                  <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Focus on impact and outcomes to increase interview chances.
-                  </p>
+              <div className={cn('rounded-3xl p-8 border min-h-[450px]', glassCard)}>
+                <div className="flex justify-between items-start mb-8">
+                  <div>
+                    <h3 className={`text-2xl font-black ${
+                      darkMode ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      Work Experience
+                    </h3>
+                    <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Focus on impact and outcomes to increase interview chances.
+                    </p>
+                  </div>
+                  {isEditing && (
+                    <button
+                      onClick={() => setProfile(prev => ({
+                        ...prev,
+                        experience: [...prev.experience, { id: Date.now(), title: '', company: '', period: '', description: '', achievements: [] }]
+                      }))}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700 transition-colors"
+                    >
+                      + Add Experience
+                    </button>
+                  )}
                 </div>
                 
                 <div className="space-y-6">
-                  {profile.experience.map((exp) => (
+                  {profile.experience.length === 0 ? (
+                    <div className="text-center py-10 border-2 border-dashed rounded-2xl border-gray-300 dark:border-gray-700">
+                      <p className="text-gray-500 dark:text-gray-400">No work experience added yet.</p>
+                    </div>
+                  ) : profile.experience.map((exp, index) => (
                     <div
                       key={exp.id}
                       className={`p-6 rounded-2xl border transition-all duration-300 ${
-                        darkMode ? 'border-gray-700 hover:border-blue-500/70' : 'border-gray-100 hover:border-indigo-200'
+                        darkMode ? 'border-gray-700 hover:border-purple-500/70' : 'border-gray-100 hover:border-purple-200'
                       }`}
                     >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-start gap-4">
-                          <div className={`text-2xl p-3 rounded-xl ${
-                            darkMode ? 'bg-purple-500/20' : 'bg-purple-100'
+                      {isEditing ? (
+                        <div className="space-y-4">
+                          <div className="flex justify-between">
+                            <h4 className="font-bold">Experience Entry</h4>
+                            <button 
+                              onClick={() => setProfile(prev => ({ ...prev, experience: prev.experience.filter((_, i) => i !== index) }))}
+                              className="text-red-500 hover:text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <input 
+                              type="text" 
+                              placeholder="Job Title"
+                              value={exp.title}
+                              onChange={(e) => {
+                                const newExp = [...profile.experience];
+                                newExp[index].title = e.target.value;
+                                setProfile({ ...profile, experience: newExp });
+                              }}
+                              className={`w-full px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+                            />
+                            <input 
+                              type="text" 
+                              placeholder="Company"
+                              value={exp.company}
+                              onChange={(e) => {
+                                const newExp = [...profile.experience];
+                                newExp[index].company = e.target.value;
+                                setProfile({ ...profile, experience: newExp });
+                              }}
+                              className={`w-full px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+                            />
+                            <input 
+                              type="text" 
+                              placeholder="Period (e.g. 2021 - Present)"
+                              value={exp.period}
+                              onChange={(e) => {
+                                const newExp = [...profile.experience];
+                                newExp[index].period = e.target.value;
+                                setProfile({ ...profile, experience: newExp });
+                              }}
+                              className={`col-span-2 w-full px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+                            />
+                            <textarea 
+                              placeholder="Description"
+                              value={exp.description}
+                              onChange={(e) => {
+                                const newExp = [...profile.experience];
+                                newExp[index].description = e.target.value;
+                                setProfile({ ...profile, experience: newExp });
+                              }}
+                              className={`col-span-2 w-full px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+                              rows={2}
+                            />
+                            <div className="col-span-2">
+                              <label className="block text-sm font-semibold mb-2">Achievements (one per line)</label>
+                              <textarea 
+                                placeholder="Increased revenue by 20%&#10;Led a team of 5 developers"
+                                value={exp.achievements.join('\n')}
+                                onChange={(e) => {
+                                  const newExp = [...profile.experience];
+                                  newExp[index].achievements = e.target.value.split('\n');
+                                  setProfile({ ...profile, experience: newExp });
+                                }}
+                                className={`w-full px-4 py-2 rounded-xl border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}
+                                rows={3}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-start gap-4">
+                              <div className={`text-2xl p-3 rounded-xl ${
+                                darkMode ? 'bg-purple-500/20' : 'bg-purple-100'
+                              }`}>
+                                💼
+                              </div>
+                              <div>
+                                <h4 className={`text-lg font-black mb-1 ${
+                                  darkMode ? 'text-white' : 'text-gray-900'
+                                }`}>
+                                  {exp.title}
+                                </h4>
+                                <p className={`font-semibold mb-2 ${
+                                  darkMode ? 'text-purple-400' : 'text-purple-600'
+                                }`}>
+                                  {exp.company}
+                                </p>
+                              </div>
+                            </div>
+                            <div className={`px-4 py-2 rounded-xl font-semibold ${
+                              darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {exp.period}
+                            </div>
+                          </div>
+                          
+                          <p className={`mb-4 leading-relaxed ${
+                            darkMode ? 'text-gray-300' : 'text-gray-700'
                           }`}>
-                            💼
+                            {exp.description}
+                          </p>
+                          
+                          <div className="space-y-2">
+                            {exp.achievements.filter(Boolean).map((achievement, i) => (
+                              <div key={i} className="flex items-center gap-3">
+                                <div className={`w-2 h-2 rounded-full ${
+                                  darkMode ? 'bg-green-400' : 'bg-green-500'
+                                }`} />
+                                <span className={`text-sm ${
+                                  darkMode ? 'text-gray-400' : 'text-gray-600'
+                                }`}>
+                                  {achievement}
+                                </span>
+                              </div>
+                            ))}
                           </div>
-                          <div>
-                            <h4 className={`text-lg font-black mb-1 ${
-                              darkMode ? 'text-white' : 'text-gray-900'
-                            }`}>
-                              {exp.title}
-                            </h4>
-                            <p className={`font-semibold mb-2 ${
-                              darkMode ? 'text-purple-400' : 'text-purple-600'
-                            }`}>
-                              {exp.company}
-                            </p>
-                          </div>
-                        </div>
-                        <div className={`px-4 py-2 rounded-xl font-semibold ${
-                          darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-                        }`}>
-                          {exp.period}
-                        </div>
-                      </div>
-                      
-                      <p className={`mb-4 leading-relaxed ${
-                        darkMode ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
-                        {exp.description}
-                      </p>
-                      
-                      <div className="space-y-2">
-                        {exp.achievements.map((achievement, index) => (
-                          <div key={index} className="flex items-center gap-3">
-                            <div className={`w-2 h-2 rounded-full ${
-                              darkMode ? 'bg-green-400' : 'bg-green-500'
-                            }`} />
-                            <span className={`text-sm ${
-                              darkMode ? 'text-gray-400' : 'text-gray-600'
-                            }`}>
-                              {achievement}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            <div className={`mt-5 rounded-2xl border px-4 py-3 flex items-center justify-between ${
-              darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'
-            }`}>
+            <div className={cn('mt-6 rounded-2xl border px-4 py-4', glassCard)}>
+              <div className="flex items-center justify-center gap-1.5 mb-4">
+                {tabs.map((tab, i) => (
+                  <div
+                    key={tab.id}
+                    className={cn(
+                      'h-1.5 rounded-full transition-all duration-300',
+                      i === activeTabIndex
+                        ? 'w-8 bg-gradient-to-r from-indigo-500 to-violet-500'
+                        : i < activeTabIndex
+                          ? cn('w-2', darkMode ? 'bg-violet-400/70' : 'bg-indigo-400')
+                          : cn('w-2', darkMode ? 'bg-white/15' : 'bg-gray-200')
+                    )}
+                  />
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => canGoPrev && setActiveTab(tabOrder[activeTabIndex - 1])}
                 disabled={!canGoPrev}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                className={cn(
+                  'px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all',
                   canGoPrev
-                    ? (darkMode ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')
-                    : (darkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-50 text-gray-400')
-                }`}
+                    ? darkMode
+                      ? 'border-white/10 bg-white/5 text-slate-200 hover:bg-white/10'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                    : 'border-transparent opacity-40 cursor-not-allowed text-gray-500'
+                )}
               >
-                {canGoPrev ? `Previous: ${prevTabLabel}` : "Previous"}
+                {canGoPrev ? `Previous: ${prevTabLabel}` : 'Previous'}
               </button>
 
-              <p className={`text-xs sm:text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                Step {activeTabIndex + 1} of {tabs.length}
+              <p className={cn('text-xs sm:text-sm font-medium', darkMode ? 'text-slate-400' : 'text-gray-500')}>
+                Step <span className={cn('font-bold', darkMode ? 'text-white' : 'text-gray-900')}>{activeTabIndex + 1}</span> of {tabs.length}
               </p>
 
               <button
                 type="button"
                 onClick={() => canGoNext && setActiveTab(tabOrder[activeTabIndex + 1])}
                 disabled={!canGoNext}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all',
                   canGoNext
-                    ? (darkMode ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-indigo-600 text-white hover:bg-indigo-700')
-                    : (darkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-50 text-gray-400')
-                }`}
+                    ? cn(
+                        'text-white shadow-lg hover:scale-[1.02]',
+                        darkMode
+                          ? 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500'
+                          : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500'
+                      )
+                    : 'bg-transparent opacity-40 cursor-not-allowed text-gray-500'
+                )}
               >
-                {canGoNext ? `Next: ${nextTabLabel}` : "Completed"}
+                {canGoNext ? (
+                  <>
+                    Next: {nextTabLabel}
+                    <ChevronRight className="h-4 w-4" />
+                  </>
+                ) : (
+                  'Completed'
+                )}
               </button>
+              </div>
             </div>
           </div>
         </div>
