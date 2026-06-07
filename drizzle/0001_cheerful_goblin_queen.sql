@@ -1,0 +1,1 @@
+-- Migration file (empty placeholder - database already has these tables)

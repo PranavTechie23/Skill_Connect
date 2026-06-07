@@ -1,0 +1,1 @@
+-- Initial migration (empty placeholder - database already has these tables)
