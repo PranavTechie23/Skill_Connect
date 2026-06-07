@@ -1,4 +1,11 @@
 import { ArrowLeft } from 'lucide-react';
+import React from 'react';
+
+type AdminEmbeddedContextValue = {
+  embedded: boolean;
+};
+
+const AdminEmbeddedContext = React.createContext<AdminEmbeddedContextValue>({ embedded: false });
 
 type Props = {
   className?: string;
@@ -6,6 +13,12 @@ type Props = {
 };
 
 const AdminBackButton: React.FC<Props> = ({ className = '', children }) => {
+  const { embedded } = React.useContext(AdminEmbeddedContext);
+
+  if (embedded) {
+    return null;
+  }
+
   return (
     <button
       onClick={() => window.history.back()}
@@ -17,4 +30,6 @@ const AdminBackButton: React.FC<Props> = ({ className = '', children }) => {
   );
 };
 
+export const useAdminEmbedded = () => React.useContext(AdminEmbeddedContext);
+export const AdminEmbeddedProvider = AdminEmbeddedContext.Provider;
 export default AdminBackButton;
