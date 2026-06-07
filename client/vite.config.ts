@@ -1,9 +1,31 @@
-import * as path from "path";
-import { defineConfig } from "vite";
+import fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 
+const clientDir = path.dirname(fileURLToPath(import.meta.url));
+const viteCacheDir = path.join(clientDir, "node_modules", ".vite");
+
+/** Remove half-finished dep bundles left by crashed/restarted dev servers. */
+function cleanStaleViteCache(): Plugin {
+  return {
+    name: "clean-stale-vite-cache",
+    apply: "serve",
+    config() {
+      if (!fs.existsSync(viteCacheDir)) return;
+
+      for (const entry of fs.readdirSync(viteCacheDir)) {
+        if (entry.startsWith("deps_temp_")) {
+          fs.rmSync(path.join(viteCacheDir, entry), { recursive: true, force: true });
+        }
+      }
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [cleanStaleViteCache(), react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src")
@@ -58,12 +80,38 @@ export default defineConfig({
       }
     },
     headers: {
-      'Accept-Ranges': 'bytes'
+      "Accept-Ranges": "bytes",
     },
-    cors: false
   },
-  assetsInclude: ['.mp4'],
+  assetsInclude: [".mp4"],
   optimizeDeps: {
-    exclude: ['*.mp4']
-  }
+    exclude: ["*.mp4"],
+    // Pre-bundle deps for all routes so navigation does not trigger mid-session re-optimization.
+    entries: [
+      path.resolve(clientDir, "index.html"),
+      path.resolve(clientDir, "src/**/*.{ts,tsx}"),
+    ],
+    include: [
+      "react",
+      "react-dom",
+      "react-dom/client",
+      "react-router-dom",
+      "@tanstack/react-query",
+      "gsap",
+      "date-fns",
+      "sonner",
+      "framer-motion",
+      "lucide-react",
+      "zod",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-label",
+      "@radix-ui/react-select",
+      "@radix-ui/react-tabs",
+      "@radix-ui/react-toast",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-tooltip",
+      "@radix-ui/react-alert-dialog",
+    ],
+    holdUntilCrawlEnd: true,
+  },
 });

@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { apiFetch, API_BASE_URL } from "../lib/api";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from "react";
+import { apiFetch } from "../lib/api";
 
 /**
  * Improved AuthContext
@@ -9,19 +9,16 @@ import { apiFetch, API_BASE_URL } from "../lib/api";
  * - isLoading properly set during async ops
  * - Cancels stale checkAuth requests on unmount
  */
-// Helper to normalize backend user response
-function normalizeUser(backendUser: any): User {
-  return {
-    ...backendUser,
-    userType: backendUser.userType || backendUser.user_type,
-  };
-}
 interface ProfessionalProfile {
   id?: number;
   userId?: number;
   headline?: string | null;
   bio?: string | null;
   skills?: string[];
+  resumeUrl?: string | null;
+  resumeName?: string | null;
+  resume_url?: string | null;
+  resume_name?: string | null;
 }
 
 interface Company {
@@ -75,7 +72,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return null;
     }
   });
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const authVersionRef = useRef(0);
 
   useEffect(() => {
     // Persist changes to localStorage
@@ -88,7 +86,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [user]);
 
   const checkAuth = async (controller: AbortController) => {
-    setIsLoading(true);
+    const requestVersion = ++authVersionRef.current;
     try {
       const res = await apiFetch("/api/auth/me", {
         signal: controller.signal,
@@ -110,6 +108,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // For 401/403, check if we have a user in localStorage first
         // Only clear if we don't have a cached user (might be temporary session issue)
         if (res.status === 401 || res.status === 403) {
+          if (requestVersion !== authVersionRef.current) return;
           // Check if we have a cached user - if yes, keep it (session might be temporarily unavailable)
           const cachedUser = localStorage.getItem(STORAGE_KEY);
           if (!cachedUser) {
@@ -123,11 +122,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
         // For other errors, log and clear
         console.warn(`Auth check failed with status ${res.status}`);
+        if (requestVersion !== authVersionRef.current) return;
         setUserState(null);
         return;
       }
 
       const returnedUser: User | null = data?.user ?? data ?? null;
+      if (requestVersion !== authVersionRef.current) return;
       setUserState(returnedUser);
     } catch (err: any) {
       if (err.name === "AbortError") {
@@ -136,10 +137,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } else {
         // Only log other errors
         console.error("Auth check failed:", err);
+        if (requestVersion !== authVersionRef.current) return;
         setUserState(null);
       }
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -152,6 +152,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const setUser = (u: User | null) => setUserState(u);
 
   const login = async (email: string, password: string): Promise<User | null> => {
+    // Invalidate stale /api/auth/me checks before logging in.
+    authVersionRef.current += 1;
     setIsLoading(true);
     try {
       // Always use backend for login, including admin
@@ -175,10 +177,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       if (!res.ok) {
-        // For 401 or 403 errors, just log out silently without error
+        // Invalid credentials should be surfaced to the login form.
         if (res.status === 401 || res.status === 403) {
           setUserState(null);
-          return null;
+          throw new Error("Invalid email or password");
         }
         // For 500 errors, provide a more user-friendly message
         if (res.status === 500) {
@@ -217,6 +219,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const register = async (userData: any): Promise<User> => {
+    authVersionRef.current += 1;
     setIsLoading(true);
     try {
       const res = await apiFetch("/api/auth/register", {
@@ -251,21 +254,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = async (): Promise<void> => {
-    setIsLoading(true);
+    authVersionRef.current += 1;
+    setUserState(null);
     try {
-      // Best-effort: call backend logout, ignore network errors but clear local state
-      try {
-        await apiFetch("/api/auth/logout", {
-          method: "POST",
-          credentials: "include"
-        });
-      } catch (e) {
-        console.warn("Logout endpoint failed or unreachable:", e);
-      }
-      setUserState(null);
-      try { localStorage.removeItem(STORAGE_KEY); } catch {}
-    } finally {
-      setIsLoading(false);
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // ignore storage errors
+    }
+    try {
+      await apiFetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (e) {
+      console.warn("Logout endpoint failed or unreachable:", e);
     }
   };
 
@@ -290,13 +292,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw new Error("Failed to update user profile");
       }
 
-      const { profile } = await res.json();
+      const { user: savedUser, profile } = await res.json();
       setUserState(prevUser => prevUser ? ({
         ...prevUser,
-        profile: profile || prevUser.profile
+        ...(savedUser || {}),
+        profile: profile || prevUser.profile,
       }) : null);
       
-      return { profile } as any;
+      return { ...(savedUser || {}), profile } as any;
     } finally {
       setIsLoading(false);
     }
