@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { type User, type InsertUser, type Company, type InsertCompany, type Job, type InsertJob, type Application, type InsertApplication, type Message, type InsertMessage, type Experience, type InsertExperience, type Story, type ProfessionalProfile, type InsertProfessionalProfile, type Notification } from "../../shared/schema";
+import { type User, type InsertUser, type Company, type InsertCompany, type Job, type InsertJob, type Application, type InsertApplication, type Message, type InsertMessage, type Experience, type InsertExperience, type Story, type ProfessionalProfile, type InsertProfessionalProfile, type Notification, type AiEvent } from "../../shared/schema";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
 import { resolveEmployeeMessagingAccess } from "./lib/messaging-policy";
@@ -344,6 +344,9 @@ export class Storage {
     includeInactive?: boolean;
   } = {}): Promise<{ jobs: Job[]; totalCount: number }> {
     try {
+      if (filters.jobType) {
+        filters.jobType = filters.jobType.trim().toLowerCase();
+      }
       console.log('Getting jobs with filters:', filters);
 
       // Check connection first
@@ -969,7 +972,11 @@ export class Storage {
         ownerLastName: row.owner_last_name ? String(row.owner_last_name) : null,
         ownerUserType: row.owner_user_type ? String(row.owner_user_type) : null,
         jobPostings: parseJobPostingsCount(row.job_postings),
-        status: row.owner_id ? "approved" : "pending",
+        status: row.status
+          ? String(row.status)
+          : row.owner_id
+            ? "approved"
+            : "pending",
       }));
     } catch (error) {
       console.error('Error in getAllCompaniesWithDetails:', error);
@@ -1013,6 +1020,9 @@ export class Storage {
       // Allow ownerId to be updated (for claiming companies without owners)
       if ((updates as any).ownerId !== undefined) {
         setParts.push(sql`owner_id = ${(updates as any).ownerId}`);
+      }
+      if ((updates as { status?: string }).status !== undefined) {
+        setParts.push(sql`status = ${(updates as { status?: string }).status}`);
       }
       // Handle profileScore separately if needed (it's not in Company schema)
       if ((updates as any).profileScore !== undefined) {
@@ -2002,6 +2012,38 @@ export class Storage {
     }
   }
 
+  /** All applications with applicant + job joins for admin analytics. */
+  async getAllApplicationsWithDetailsForAdmin(): Promise<any[]> {
+    try {
+      const result = await db.execute(sql`
+        SELECT
+          a.*,
+          j.title AS job_title,
+          j.created_at AS job_created_at,
+          u.first_name AS applicant_first_name,
+          u.last_name AS applicant_last_name,
+          u.email AS applicant_email
+        FROM applications a
+        LEFT JOIN jobs j ON a.job_id = j.id
+        LEFT JOIN users u ON a.applicant_id = u.id
+        ORDER BY a.applied_at DESC
+      `);
+      return result.rows.map((row: Record<string, unknown>) => {
+        const first = row.applicant_first_name != null ? String(row.applicant_first_name) : "";
+        const last = row.applicant_last_name != null ? String(row.applicant_last_name) : "";
+        const name = `${first} ${last}`.trim();
+        return {
+          ...row,
+          applicant_name: name || (row.applicant_email != null ? String(row.applicant_email) : null),
+          job_title: row.job_title != null ? String(row.job_title) : null,
+        };
+      });
+    } catch (error) {
+      console.error('Error in getAllApplicationsWithDetailsForAdmin:', error);
+      throw error;
+    }
+  }
+
   async createApplication(application: InsertApplication): Promise<Application> {
     try {
       const result = await db.execute(sql`
@@ -2261,6 +2303,165 @@ export class Storage {
       linkTab: row.link_tab ? String(row.link_tab) : null,
       createdAt: row.created_at ? new Date(String(row.created_at)) : new Date(),
     };
+  }
+
+  async createAiEvent(event: {
+    userId?: string | null;
+    feature: string;
+    provider?: string | null;
+    model?: string | null;
+    status: "success" | "error";
+    latencyMs?: number | null;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+    metadata?: Record<string, unknown>;
+  }): Promise<AiEvent | null> {
+    try {
+      const result = await db.execute(sql`
+        INSERT INTO ai_events (
+          user_id, feature, provider, model, status, latency_ms,
+          error_code, error_message, metadata, created_at
+        ) VALUES (
+          ${event.userId ?? null},
+          ${event.feature},
+          ${event.provider ?? null},
+          ${event.model ?? null},
+          ${event.status},
+          ${event.latencyMs ?? null},
+          ${event.errorCode ?? null},
+          ${event.errorMessage ?? null},
+          ${JSON.stringify(event.metadata ?? {})}::jsonb,
+          ${new Date()}
+        ) RETURNING *
+      `);
+      const row = result.rows[0] as any;
+      return {
+        id: Number(row.id),
+        userId: row.user_id ? String(row.user_id) : null,
+        feature: String(row.feature),
+        provider: row.provider ? String(row.provider) : null,
+        model: row.model ? String(row.model) : null,
+        status: String(row.status),
+        latencyMs: row.latency_ms != null ? Number(row.latency_ms) : null,
+        errorCode: row.error_code ? String(row.error_code) : null,
+        errorMessage: row.error_message ? String(row.error_message) : null,
+        metadata: row.metadata ?? {},
+        createdAt: row.created_at ? new Date(String(row.created_at)) : new Date(),
+      };
+    } catch (error) {
+      console.warn("AI event logging skipped:", error instanceof Error ? error.message : error);
+      return null;
+    }
+  }
+
+  async getAiEventAnalytics(range: "7d" | "30d" | "90d" | "1y" = "30d") {
+    const days =
+      range === "7d" ? 7 : range === "90d" ? 90 : range === "1y" ? 365 : 30;
+    const since = new Date();
+    since.setDate(since.getDate() - days + 1);
+    since.setHours(0, 0, 0, 0);
+
+    const emptyPayload = {
+      range,
+      rangeLabel:
+        range === "7d"
+          ? "Last 7 days"
+          : range === "30d"
+            ? "Last 30 days"
+            : range === "90d"
+              ? "Last 90 days"
+              : "Last year",
+      generatedAt: new Date().toISOString(),
+      overview: {
+        totalEvents: 0,
+        successfulEvents: 0,
+        errorEvents: 0,
+        successRate: 0,
+        avgLatencyMs: 0,
+      },
+      byFeature: [] as Array<{ feature: string; total: number; success: number; error: number }>,
+      byProvider: [] as Array<{ provider: string; total: number }>,
+      recentErrors: [] as Array<{
+        id: number;
+        feature: string;
+        provider: string | null;
+        model: string | null;
+        errorCode: string | null;
+        errorMessage: string | null;
+        createdAt: string | null;
+      }>,
+    };
+
+    try {
+      const result = await db.execute(sql`
+        SELECT *
+        FROM ai_events
+        WHERE created_at >= ${since}
+        ORDER BY created_at DESC
+        LIMIT 1000
+      `);
+
+      const rows = result.rows as Array<Record<string, unknown>>;
+      const totalEvents = rows.length;
+      const successfulEvents = rows.filter((row) => String(row.status) === "success").length;
+      const errorEvents = rows.filter((row) => String(row.status) === "error").length;
+      const latencies = rows
+        .map((row) => Number(row.latency_ms))
+        .filter((value) => Number.isFinite(value) && value >= 0);
+
+      const featureMap = new Map<string, { feature: string; total: number; success: number; error: number }>();
+      const providerMap = new Map<string, number>();
+
+      for (const row of rows) {
+        const feature = row.feature ? String(row.feature) : "unknown";
+        const status = row.status ? String(row.status) : "unknown";
+        const provider = row.provider ? String(row.provider) : "unknown";
+
+        const featureStats =
+          featureMap.get(feature) ?? { feature, total: 0, success: 0, error: 0 };
+        featureStats.total += 1;
+        if (status === "success") featureStats.success += 1;
+        if (status === "error") featureStats.error += 1;
+        featureMap.set(feature, featureStats);
+
+        providerMap.set(provider, (providerMap.get(provider) ?? 0) + 1);
+      }
+
+      return {
+        ...emptyPayload,
+        generatedAt: new Date().toISOString(),
+        overview: {
+          totalEvents,
+          successfulEvents,
+          errorEvents,
+          successRate:
+            totalEvents > 0 ? Math.round((successfulEvents / totalEvents) * 1000) / 10 : 0,
+          avgLatencyMs:
+            latencies.length > 0
+              ? Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length)
+              : 0,
+        },
+        byFeature: Array.from(featureMap.values()).sort((a, b) => b.total - a.total),
+        byProvider: Array.from(providerMap.entries())
+          .map(([provider, total]) => ({ provider, total }))
+          .sort((a, b) => b.total - a.total),
+        recentErrors: rows
+          .filter((row) => String(row.status) === "error")
+          .slice(0, 10)
+          .map((row) => ({
+            id: Number(row.id),
+            feature: row.feature ? String(row.feature) : "unknown",
+            provider: row.provider ? String(row.provider) : null,
+            model: row.model ? String(row.model) : null,
+            errorCode: row.error_code ? String(row.error_code) : null,
+            errorMessage: row.error_message ? String(row.error_message) : null,
+            createdAt: row.created_at ? new Date(String(row.created_at)).toISOString() : null,
+          })),
+      };
+    } catch (error) {
+      console.warn("AI event analytics unavailable:", error instanceof Error ? error.message : error);
+      return emptyPayload;
+    }
   }
 }
 

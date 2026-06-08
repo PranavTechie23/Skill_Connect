@@ -1,11 +1,24 @@
 import dashboardRouter from "./routes/dashboard";
+import platformDashboardRouter from "./routes/platform-dashboard";
 import jobsRouter from "./routes/jobs";
+import resumesRouter from "./routes/resumes";
+import recommendationsRouter from "./routes/recommendations";
+import aiReviewRouter from "./routes/ai-review";
+import aiAdminRouter from "./routes/ai-admin";
 import {
   buildEmployerAnalytics,
   mapApplicationsForAnalytics,
   mapJobsForAnalytics,
   type EmployerAnalyticsRange,
 } from "./lib/employer-analytics";
+import {
+  buildAdminAnalytics,
+  mapApplicationsForAdminAnalytics,
+  mapCompaniesForAdminAnalytics,
+  mapJobsForAdminAnalytics,
+  mapUsersForAdminAnalytics,
+  type AdminAnalyticsRange,
+} from "./lib/admin-analytics";
 import adminStoriesRouter from "./routes/admin/stories";
 import authOauthRouter, { passport as oauthPassport } from "./routes/auth-oauth";
 import { type Express, Router } from "express";
@@ -70,6 +83,7 @@ import {
   accountStatusLoginMessage,
   USER_ACCOUNT_STATUSES,
 } from "./lib/account-status";
+import { createAssistantReply } from "./ai/assistant-service";
 
 function jobEmployerId(job: { employerId?: string | null; employer_id?: string | null } | null): string {
   if (!job) return "";
@@ -198,6 +212,34 @@ const normalizeOptionalText = (value: unknown) => {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 };
+
+function assistantEventMetadata(body: unknown): Record<string, unknown> {
+  const messages = (body as { messages?: unknown })?.messages;
+  return {
+    messageCount: Array.isArray(messages) ? messages.length : 0,
+  };
+}
+
+function logAssistantAiEvent(event: {
+  userId?: string | null;
+  status: "success" | "error";
+  latencyMs: number;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  void storage.createAiEvent({
+    userId: event.userId ?? null,
+    feature: "assistant_chat",
+    provider: "gemini",
+    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+    status: event.status,
+    latencyMs: event.latencyMs,
+    errorCode: event.errorCode ?? null,
+    errorMessage: event.errorMessage ?? null,
+    metadata: event.metadata ?? {},
+  });
+}
 
 // Helper functions
 const requireAuth = async (req: any, res: any, next: any) => {
@@ -1065,6 +1107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // OAuth routes (Google)
   app.use("/api/auth", authOauthRouter);
+  app.use("/api/admin/platform-dashboard", platformDashboardRouter);
 
   // AI assistant (Gemini) endpoint for the in-app SupportChatbot
   // Expected request:
@@ -1072,72 +1115,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Expected response:
   //  { reply: string }
   app.post("/api/assistant/chat", async (req, res) => {
+    const startedAt = Date.now();
+    const userId = req.session?.userId ? String(req.session.userId) : null;
+    const metadata = assistantEventMetadata(req.body);
+
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
-        return res
-          .status(500)
-          .json({ error: "GEMINI_API_KEY is not set", message: "Missing Gemini API key" });
-      }
-
-      const model =
-        process.env.GEMINI_MODEL || "gemini-2.5-flash";
-
-      const { messages } = req.body ?? {};
-      if (!Array.isArray(messages)) {
-        return res
-          .status(400)
-          .json({ error: "Invalid request", message: "Expected { messages: [...] }" });
-      }
-
-      // Gemini expects roles: "user" and "model" (not "assistant").
-      const contents = messages
-        .filter((m: any) => m && typeof m.text === "string")
-        .map((m: any) => {
-          const role = m.role === "assistant" ? "model" : "user";
-          return {
-            role,
-            parts: [{ text: m.text }],
-          };
-        });
-
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-        model
-      )}:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-      const r = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents,
-        }),
+      const reply = await createAssistantReply(req.body);
+      logAssistantAiEvent({
+        userId,
+        status: "success",
+        latencyMs: Date.now() - startedAt,
+        metadata,
       });
-
-      if (!r.ok) {
-        const errText = await r.text().catch(() => "");
-        return res.status(502).json({
-          error: "Upstream Gemini error",
-          status: r.status,
-          message: errText || "Gemini request failed",
-        });
-      }
-
-      const data: any = await r.json();
-      const parts = data?.candidates?.[0]?.content?.parts;
-
-      const reply =
-        Array.isArray(parts) ? parts.map((p: any) => p?.text).filter(Boolean).join("") : "";
-
-      if (!reply) {
-        return res.status(502).json({
-          error: "No reply generated",
-          message: "Gemini returned an empty response",
-        });
-      }
-
       return res.json({ reply });
     } catch (error: any) {
+      if (error?.statusCode && error?.responseBody) {
+        logAssistantAiEvent({
+          userId,
+          status: "error",
+          latencyMs: Date.now() - startedAt,
+          errorCode: String(error.responseBody.error || error.statusCode),
+          errorMessage: String(error.responseBody.message || error.message || "Assistant failed"),
+          metadata: {
+            ...metadata,
+            statusCode: error.statusCode,
+          },
+        });
+        return res.status(error.statusCode).json(error.responseBody);
+      }
+
       console.error("Assistant error:", error);
+      logAssistantAiEvent({
+        userId,
+        status: "error",
+        latencyMs: Date.now() - startedAt,
+        errorCode: "Assistant failed",
+        errorMessage: error?.message || "Unknown error",
+        metadata,
+      });
       return res.status(500).json({
         error: "Assistant failed",
         message: error?.message || "Unknown error",
@@ -2252,6 +2267,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount the dashboard route with auth
   authRouter.use("/dashboard", dashboardRouter);
+
+  // Mount the resumes route with auth
+  authRouter.use("/resumes", resumesRouter);
+
+  // Mount the recommendations route with auth
+  authRouter.use("/recommendations", recommendationsRouter);
   
   // Mount the admin stories route
   app.use("/api/admin/stories", adminStoriesRouter);
@@ -2312,6 +2333,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mount the authenticated router
   app.use("/api", authRouter);
   app.use("/api/applications", applicationsRouter);
+  app.use("/api/ai/applications", aiReviewRouter);
+  app.use("/api/ai/admin", aiAdminRouter);
   
   // Log registered routes for debugging
   console.log('✅ Routes registered:');
@@ -2667,6 +2690,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (Object.prototype.hasOwnProperty.call(req.body, "ownerId")) {
         updates.ownerId = normalizeOptionalText(req.body?.ownerId);
       }
+      if (Object.prototype.hasOwnProperty.call(req.body, "status")) {
+        const allowed = new Set(["approved", "pending", "rejected", "suspended", "blocked"]);
+        const status = String(req.body.status || "").toLowerCase().trim();
+        if (!allowed.has(status)) {
+          return res.status(400).json({ message: "Invalid company status" });
+        }
+        updates.status = status;
+      }
 
       if (Object.keys(updates).length === 0 && !req.body.reason) {
         return res.status(400).json({ message: "No valid fields provided for update" });
@@ -2979,133 +3010,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: Get analytics data (live DB-backed)
   app.get("/api/admin/analytics", requireAdmin, async (req, res) => {
     try {
-      const timeRange = (req.query.timeRange as string) || "1y";
+      const rawRange = String(req.query.timeRange || "1y");
+      const timeRange: AdminAnalyticsRange =
+        rawRange === "7d" || rawRange === "30d" || rawRange === "90d" || rawRange === "1y"
+          ? rawRange
+          : "1y";
 
       const [users, jobsResult, companies, applications] = await Promise.all([
         storage.getAllUsers(),
-        storage.getJobs(),
+        storage.getJobs({ includeInactive: true }),
         storage.getAllCompanies(),
-        storage.getApplicationsByJob("all"),
+        storage.getAllApplicationsWithDetailsForAdmin(),
       ]);
 
-      const jobs = jobsResult.jobs || [];
+      const payload = buildAdminAnalytics(
+        mapUsersForAdminAnalytics(users as Array<Record<string, unknown>>),
+        mapJobsForAdminAnalytics(jobsResult.jobs as unknown as Array<Record<string, unknown>>),
+        mapCompaniesForAdminAnalytics(companies as Array<Record<string, unknown>>),
+        mapApplicationsForAdminAnalytics(applications as Array<Record<string, unknown>>),
+        timeRange,
+      );
 
-      // Determine threshold date
-      const now = new Date();
-      let thresholdDate = new Date();
-      if (timeRange === "7d") thresholdDate.setDate(now.getDate() - 7);
-      else if (timeRange === "30d") thresholdDate.setDate(now.getDate() - 30);
-      else if (timeRange === "90d") thresholdDate.setDate(now.getDate() - 90);
-      else thresholdDate.setFullYear(now.getFullYear() - 1); // "1y" or default
-
-      const isWithinRange = (dateStr: any) => {
-        if (!dateStr) return false;
-        return new Date(dateStr) >= thresholdDate;
-      };
-
-      const filteredUsers = users.filter((u: any) => isWithinRange(u.createdAt || u.created_at));
-      const filteredJobs = jobs.filter((j: any) => isWithinRange(j.createdAt || j.created_at));
-      const filteredApps = applications.filter((a: any) => isWithinRange(a.appliedAt || a.applied_at || a.createdAt));
-
-      // User Growth Data
-      const userGrowthMap: Record<string, { users: number, employees: number, employers: number }> = {};
-      
-      filteredUsers.forEach((u: any) => {
-        const d = new Date(u.createdAt || u.created_at || Date.now());
-        let label = "";
-        if (timeRange === "7d" || timeRange === "30d") {
-          label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        } else {
-          label = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        }
-        
-        if (!userGrowthMap[label]) {
-          userGrowthMap[label] = { users: 0, employees: 0, employers: 0 };
-        }
-        userGrowthMap[label].users++;
-        const t = u.userType || u.user_type;
-        if (t === "Employee") userGrowthMap[label].employees++;
-        if (t === "Employer") userGrowthMap[label].employers++;
-      });
-      
-      const userGrowth = Object.keys(userGrowthMap).map(month => ({
-        month,
-        users: userGrowthMap[month].users,
-        employees: userGrowthMap[month].employees,
-        employers: userGrowthMap[month].employers
-      }));
-
-      // Job Categories
-      const jobCatMap: Record<string, number> = {};
-      filteredJobs.forEach((j: any) => {
-        const cat = j.jobType || j.job_type || "Other";
-        jobCatMap[cat] = (jobCatMap[cat] || 0) + 1;
-      });
-      const jobCategories = Object.keys(jobCatMap).map(category => ({
-        name: category,
-        value: jobCatMap[category]
-      }));
-
-      const recentActivities = [
-        ...filteredUsers.map((user: any) => ({
-          type: "user",
-          action: "User registered",
-          user: user.email || user.firstName || "New User",
-          createdAt: user.createdAt || user.created_at || null,
-        })),
-        ...filteredJobs.map((job: any) => ({
-          type: "job",
-          action: "Job posted",
-          user: job.title,
-          createdAt: job.createdAt || job.created_at || null,
-        })),
-        ...filteredApps.map((application: any) => ({
-          type: "application",
-          action: "Application submitted",
-          user: String(application.status || "applied"),
-          createdAt: application.appliedAt || application.applied_at || application.createdAt || null,
-        })),
-      ]
-        .sort((a, b) => {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return bTime - aTime;
-        })
-        .slice(0, 5);
-
-      const successfulApps = filteredApps.filter((a: any) => 
-        ["hired", "accepted", "approved"].includes(String(a.status || "").toLowerCase())
-      ).length;
-      
-      const successRate = filteredApps.length > 0 
-        ? Math.round((successfulApps / filteredApps.length) * 100) 
-        : 0;
-        
-      const avgAppsPerJob = filteredJobs.length > 0 ? filteredApps.length / filteredJobs.length : 0;
-      const employerSatisfaction = Math.min(100, Math.round(50 + (avgAppsPerJob * 10)));
-      const employeeSatisfaction = Math.min(100, Math.round(50 + (filteredJobs.length * 2)));
-
-      return res.json({
-        userGrowth,
-        jobCategories,
-        recentActivities,
-        stats: {
-          users: filteredUsers.length,
-          jobs: filteredJobs.length,
-          companies: companies.filter((c: any) => isWithinRange(c.createdAt || c.created_at)).length,
-          applications: filteredApps.length,
-          successRate: successRate,
-        },
-        performanceMetrics: {
-          employeeSatisfaction,
-          employerSatisfaction,
-          placementRate: successRate,
-          avgTimeToHire: 14,
-          timeToHireChange: -2
-        }
-      });
+      return res.json(payload);
     } catch (error) {
       handleError(res, error, "Failed to fetch analytics");
+    }
+  });
+
+  // Admin: AI observability summary for assistant and future AI features
+  app.get("/api/admin/ai-events", requireAdmin, async (req, res) => {
+    try {
+      const rawRange = String(req.query.timeRange || "30d");
+      const timeRange =
+        rawRange === "7d" || rawRange === "30d" || rawRange === "90d" || rawRange === "1y"
+          ? rawRange
+          : "30d";
+
+      const payload = await storage.getAiEventAnalytics(timeRange);
+      return res.json(payload);
+    } catch (error) {
+      handleError(res, error, "Failed to fetch AI event analytics");
     }
   });
 
@@ -3122,15 +3066,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
+      const parseCreatedAt = (row: Record<string, unknown>) =>
+        new Date(String(row.createdAt ?? row.created_at ?? 0));
+      const parseAppliedAt = (row: Record<string, unknown>) =>
+        new Date(String(row.appliedAt ?? row.applied_at ?? 0));
+
       const stats = {
         totalUsers: users.length,
-        activeJobs: jobsResult.jobs.filter(job => job.isActive).length,
+        activeJobs: jobsResult.jobs.filter((job) => job.isActive).length,
         totalCompanies: companies.length,
         totalApplications: applications.length,
-        newUsersThisWeek: users.filter(user => new Date(user.createdAt) >= oneWeekAgo).length,
-        newJobsThisWeek: jobsResult.jobs.filter(job => new Date(job.createdAt) >= oneWeekAgo).length,
-        newCompaniesThisWeek: companies.filter(company => new Date(company.createdAt) >= oneWeekAgo).length,
-        newApplicationsThisWeek: applications.filter(app => new Date(app.appliedAt) >= oneWeekAgo).length
+        newUsersThisWeek: users.filter((user) => parseCreatedAt(user as Record<string, unknown>) >= oneWeekAgo).length,
+        newJobsThisWeek: jobsResult.jobs.filter((job) => parseCreatedAt(job as unknown as Record<string, unknown>) >= oneWeekAgo).length,
+        newCompaniesThisWeek: companies.filter((company) => parseCreatedAt(company as Record<string, unknown>) >= oneWeekAgo).length,
+        newApplicationsThisWeek: applications.filter((app) => parseAppliedAt(app as Record<string, unknown>) >= oneWeekAgo).length,
       };
       
       res.json(stats);
