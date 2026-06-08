@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Settings, User, Shield, Bell, LogOut,
   Save, X, Eye, EyeOff, Mail, Smartphone,
-  Palette, Download, Trash2,
+  Palette, Download, Trash2, Lock, AlertTriangle,
   Check, Monitor, Smartphone as PhoneIcon, CheckCircle2, Loader2
 } from 'lucide-react';
 import { useTheme } from "@/components/theme-provider";
 import { useNavigate } from 'react-router-dom';
+import { scrollDashboardToTop } from '@/lib/scroll-to-top';
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useToast } from "@/hooks/use-toast";
+import type { UpdateMeProfile } from "@shared/schema";
 
 interface SettingsPageProps {
   embedded?: boolean;
@@ -16,19 +20,34 @@ interface SettingsPageProps {
 
 const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
   const { theme, setTheme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const darkMode = typeof window !== 'undefined' && (
     theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
   );
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('account');
+
+  const selectSection = (sectionId: string) => {
+    setActiveSection(sectionId);
+    scrollDashboardToTop();
+  };
   const [isEditing, setIsEditing] = useState(false);
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showSavedToast, setShowSavedToast] = useState(false);
+
+  // Delete account modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
   const settingsStorageKey = user?.id ? `employee-settings:${user.id}` : 'employee-settings:guest';
   const resolveAppearanceTheme = () => (theme === 'system' ? 'auto' : theme);
 
@@ -90,15 +109,16 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
     }
   }, [user]);
 
-  // Load persisted settings for this user/session.
+  // Load persisted UI preferences (not account identity — that comes from auth/DB).
   useEffect(() => {
     try {
       const raw = localStorage.getItem(settingsStorageKey);
       if (raw) {
         const parsed = JSON.parse(raw);
-        setSettings((prev) => ({ ...prev, ...parsed }));
-        if (parsed?.appearance) {
-          applyAppearancePreferences(parsed.appearance);
+        const { account: _account, ...uiPreferences } = parsed;
+        setSettings((prev) => ({ ...prev, ...uiPreferences }));
+        if (uiPreferences?.appearance) {
+          applyAppearancePreferences(uiPreferences.appearance);
         }
       }
       const savedAt = localStorage.getItem(`${settingsStorageKey}:savedAt`);
@@ -119,36 +139,64 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
   const handleSave = async () => {
     if (!isEditing || isSaving) return;
     setIsSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 900));
-
-    // Apply app theme from appearance settings.
-    const selectedTheme = settings.appearance.theme;
-    if (selectedTheme === 'auto') {
-      setTheme('system');
-    } else {
-      setTheme(selectedTheme as 'light' | 'dark');
-    }
-    applyAppearancePreferences(settings.appearance);
-
-    // Persist all settings.
     try {
-      localStorage.setItem(settingsStorageKey, JSON.stringify(settings));
-    } catch (error) {
-      console.warn('Failed to persist employee settings', error);
-    }
+      const payload: UpdateMeProfile = {
+        firstName: settings.account.firstName.trim(),
+        lastName: settings.account.lastName.trim(),
+        email: settings.account.email.trim(),
+        telephoneNumber: settings.account.phone.trim(),
+      };
+      await updateUser(payload);
+      await queryClient.invalidateQueries({ queryKey: ['applications'] });
+      await queryClient.invalidateQueries({ queryKey: ['messages'] });
 
-    const savedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    localStorage.setItem(`${settingsStorageKey}:savedAt`, savedAt);
-    setIsEditing(false);
-    setLastSavedAt(savedAt);
-    setIsSaving(false);
-    setShowSavedToast(true);
-    setTimeout(() => setShowSavedToast(false), 2800);
+      const selectedTheme = settings.appearance.theme;
+      if (selectedTheme === 'auto') {
+        setTheme('system');
+      } else {
+        setTheme(selectedTheme as 'light' | 'dark');
+      }
+      applyAppearancePreferences(settings.appearance);
+
+      const { account: _account, ...uiPreferences } = settings;
+      try {
+        localStorage.setItem(settingsStorageKey, JSON.stringify(uiPreferences));
+      } catch (error) {
+        console.warn('Failed to persist employee settings', error);
+      }
+
+      const savedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      localStorage.setItem(`${settingsStorageKey}:savedAt`, savedAt);
+      setIsEditing(false);
+      setLastSavedAt(savedAt);
+      setShowSavedToast(true);
+      setTimeout(() => setShowSavedToast(false), 2800);
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      toast({
+        title: 'Save failed',
+        description: 'Could not update your account. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
+    if (user) {
+      setSettings((prev) => ({
+        ...prev,
+        account: {
+          ...prev.account,
+          firstName: user.firstName || '',
+          lastName: user.lastName || '',
+          email: user.email || '',
+          phone: user.telephoneNumber || '',
+        },
+      }));
+    }
     setIsEditing(false);
-    // Reset form data here
   };
 
   const handleLogout = async () => {
@@ -158,6 +206,81 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
     } catch (e) {
       console.warn('Logout failed:', e);
     }
+  };
+
+  const handleExportData = async () => {
+    try {
+      const response = await fetch('/api/me/export');
+      if (!response.ok) throw new Error('Failed to export data');
+      const data = await response.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `user_data_export_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({
+        title: 'Export successful',
+        description: 'Your data has been successfully exported.',
+      });
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({
+        title: 'Export failed',
+        description: 'Could not export your data. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword.trim()) {
+      setDeleteError('Password is required.');
+      return;
+    }
+    setDeleteLoading(true);
+    setDeleteError('');
+    try {
+      const response = await fetch('/api/me/account', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: deletePassword }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const msg = (body as { message?: string }).message;
+        if (response.status === 401) {
+          setDeleteError(msg || 'Incorrect password. Please try again.');
+        } else {
+          setDeleteError(msg || 'Failed to delete account. Please try again.');
+        }
+        return;
+      }
+      await logout();
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('Delete account failed:', error);
+      setDeleteError('An unexpected error occurred. Please try again.');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const openDeleteModal = () => {
+    setShowDeleteModal(true);
+    setDeleteStep(1);
+    setDeletePassword('');
+    setDeleteError('');
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setDeleteStep(1);
+    setDeletePassword('');
+    setDeleteError('');
   };
 
   const getColorClasses = (color: 'blue' | 'green' | 'purple' | 'pink' | 'orange', isDark: boolean) => {
@@ -232,10 +355,10 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
   }, [theme]);
 
   return (
-    <div className={`${embedded ? 'min-h-full' : 'min-h-screen w-screen fixed inset-0'} transition-colors duration-300 ${
-      darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-50 via-white to-purple-50'
+    <div className={`${embedded ? 'min-h-full' : 'min-h-screen w-screen fixed inset-0'} transition-colors duration-500 ${
+      embedded ? 'bg-transparent' : darkMode ? 'bg-[#0B0F19] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]' : 'bg-slate-50 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.15),rgba(255,255,255,0))]'
     } overflow-y-auto`}>
-      <div className={`max-w-7xl mx-auto ${embedded ? 'px-2 py-3' : 'px-6 py-8'}`}>
+      <div className={`${embedded ? 'w-full' : 'max-w-7xl mx-auto'} ${embedded ? 'px-2 py-3' : 'px-6 py-8'} relative z-10`}>
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
@@ -310,45 +433,22 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
           </div>
         </div>
 
-        {/* Engagement Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className={`rounded-2xl p-4 border ${
-            darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'
-          }`}>
-            <p className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Profile Strength</p>
-            <p className={`text-2xl font-black mt-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{profileStrength}%</p>
-            <div className={`w-full h-2 rounded-full mt-3 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-              <div className="h-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500" style={{ width: `${profileStrength}%` }} />
-            </div>
-          </div>
-          <div className={`rounded-2xl p-4 border ${
-            darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'
-          }`}>
-            <p className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Notifications Enabled</p>
-            <p className={`text-2xl font-black mt-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{enabledEmailNotifs + enabledPushNotifs}</p>
-            <p className={darkMode ? 'text-gray-400 text-sm mt-1' : 'text-gray-600 text-sm mt-1'}>Email: {enabledEmailNotifs} | Push: {enabledPushNotifs}</p>
-          </div>
-          <div className={`rounded-2xl p-4 border ${
-            darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'
-          }`}>
-            <p className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Last Saved</p>
-            <p className={`text-lg font-bold mt-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{lastSavedAt ?? 'Not saved yet'}</p>
-            <p className={darkMode ? 'text-gray-400 text-sm mt-1' : 'text-gray-600 text-sm mt-1'}>Tip: Enable 2FA for better account trust.</p>
-          </div>
-        </div>
+
 
         <div className="flex gap-8">
           {/* Sidebar Navigation */}
           <div className="w-80 flex-shrink-0">
-            <div className={`rounded-3xl p-1 ${
-              darkMode ? 'bg-gray-800' : 'bg-white'
-            } shadow-lg`}>
+            <div className={`rounded-[2rem] p-3 border transition-all duration-500 ${
+              darkMode 
+                ? 'bg-gray-800/40 backdrop-blur-2xl border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.12)]' 
+                : 'bg-white/70 backdrop-blur-2xl border-white/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
+            }`}>
               {sections.map((section) => {
                 const Icon = section.icon;
                 return (
                   <button
                     key={section.id}
-                    onClick={() => setActiveSection(section.id)}
+                    onClick={() => selectSection(section.id)}
                     className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl transition-all mb-1 ${
                       activeSection === section.id
                         ? darkMode
@@ -395,9 +495,14 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
           <div className="flex-1">
             {/* Account Settings */}
             {activeSection === 'account' && (
-              <div className={`rounded-3xl shadow-xl p-8 ${
-                darkMode ? 'bg-gray-800' : 'bg-white'
+              <div className={`rounded-[2rem] shadow-2xl p-8 border relative overflow-hidden transition-all duration-500 ${
+                darkMode 
+                  ? 'bg-gray-800/40 backdrop-blur-2xl border-white/10' 
+                  : 'bg-white/70 backdrop-blur-2xl border-white/40'
               }`}>
+                <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="relative z-10">
                 <div className="flex items-center gap-3 mb-6">
                   <div className={`p-3 rounded-xl ${
                     darkMode ? 'bg-blue-500/20' : 'bg-blue-100'
@@ -467,7 +572,7 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
                     )}
                   </div>
                   
-                  <div className="col-span-2">
+                  <div>
                     <label className={`block text-sm font-semibold mb-2 ${
                       darkMode ? 'text-gray-400' : 'text-gray-600'
                     }`}>
@@ -496,7 +601,7 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
                     </div>
                   </div>
                   
-                  <div className="col-span-2">
+                  <div>
                     <label className={`block text-sm font-semibold mb-2 ${
                       darkMode ? 'text-gray-400' : 'text-gray-600'
                     }`}>
@@ -592,7 +697,9 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
                     Data Management
                   </h4>
                   <div className="flex gap-3">
-                    <button className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all ${
+                    <button 
+                      onClick={handleExportData}
+                      className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all ${
                       darkMode
                         ? 'bg-gray-700 hover:bg-gray-600 text-white'
                         : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
@@ -600,7 +707,9 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
                       <Download className="w-4 h-4" />
                       Export Data
                     </button>
-                    <button className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all ${
+                    <button 
+                      onClick={openDeleteModal}
+                      className={`flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all ${
                       darkMode
                         ? 'bg-red-500/20 hover:bg-red-500/30 text-red-400'
                         : 'bg-red-50 hover:bg-red-100 text-red-600'
@@ -610,14 +719,205 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
                     </button>
                   </div>
                 </div>
+
+                {/* Delete Account Modal */}
+                {showDeleteModal && (
+                  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={closeDeleteModal}>
+                    <div
+                      className={`relative w-full max-w-lg mx-4 rounded-2xl overflow-hidden shadow-2xl border ${
+                        darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'
+                      }`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="h-2 bg-gradient-to-r from-red-500 to-rose-600" />
+                      <div className="p-6">
+                        <div className="flex items-start gap-4 mb-5">
+                          <div className={`p-3 rounded-xl shrink-0 ${
+                            darkMode ? 'bg-red-500/10' : 'bg-red-100'
+                          }`}>
+                            <AlertTriangle className="w-7 h-7 text-red-500" />
+                          </div>
+                          <div>
+                            <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                              Delete Your Account
+                            </h3>
+                            <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              This is a permanent and irreversible action.
+                            </p>
+                          </div>
+                          <button
+                            onClick={closeDeleteModal}
+                            className={`ml-auto p-2 rounded-lg transition-colors ${
+                              darkMode ? 'hover:bg-slate-800 text-gray-400' : 'hover:bg-gray-100 text-gray-500'
+                            }`}
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+
+                        {deleteStep === 1 && (
+                          <>
+                            <div className={`p-4 rounded-xl mb-5 border ${
+                              darkMode ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-100'
+                            }`}>
+                              <p className={`text-sm font-semibold mb-3 ${
+                                darkMode ? 'text-red-400' : 'text-red-600'
+                              }`}>
+                                By deleting your account, the following will happen:
+                              </p>
+                              <ul className={`text-sm space-y-2.5 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                <li className="flex items-start gap-2">
+                                  <span className="text-red-500 font-bold mt-0.5">•</span>
+                                  All your personal information will be permanently anonymized.
+                                </li>
+                                <li className="flex items-start gap-2">
+                                  <span className="text-red-500 font-bold mt-0.5">•</span>
+                                  Your profile, skills, and professional details will be erased.
+                                </li>
+                                <li className="flex items-start gap-2">
+                                  <span className="text-red-500 font-bold mt-0.5">•</span>
+                                  All job applications and their history will be lost.
+                                </li>
+                                <li className="flex items-start gap-2">
+                                  <span className="text-red-500 font-bold mt-0.5">•</span>
+                                  Your messages and conversations will no longer be accessible.
+                                </li>
+                                <li className="flex items-start gap-2">
+                                  <span className="text-red-500 font-bold mt-0.5">•</span>
+                                  This action <strong>cannot be undone</strong> — there is no recovery.
+                                </li>
+                              </ul>
+                            </div>
+
+                            <p className={`text-sm mb-5 ${
+                              darkMode ? 'text-gray-400' : 'text-gray-500'
+                            }`}>
+                              We recommend exporting your data before proceeding.
+                            </p>
+
+                            <div className="flex gap-3">
+                              <button
+                                onClick={closeDeleteModal}
+                                className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all ${
+                                  darkMode
+                                    ? 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
+                                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200'
+                                }`}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => setDeleteStep(2)}
+                                className="flex-1 px-4 py-3 rounded-xl font-semibold bg-red-600 hover:bg-red-700 text-white transition-all shadow-lg shadow-red-500/20"
+                              >
+                                I understand, continue
+                              </button>
+                            </div>
+                          </>
+                        )}
+
+                        {deleteStep === 2 && (
+                          <>
+                            <p className={`text-sm mb-4 ${
+                              darkMode ? 'text-gray-300' : 'text-gray-700'
+                            }`}>
+                              Please enter your account password to confirm the deletion.
+                            </p>
+
+                            <div className="relative mb-4">
+                              <Lock className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 ${
+                                darkMode ? 'text-gray-500' : 'text-gray-400'
+                              }`} />
+                              <input
+                                type={showDeletePassword ? 'text' : 'password'}
+                                value={deletePassword}
+                                onChange={(e) => { setDeletePassword(e.target.value); setDeleteError(''); }}
+                                placeholder="Enter your password"
+                                className={`w-full pl-11 pr-12 py-3.5 rounded-xl border-2 transition-all focus:ring-2 focus:outline-none ${
+                                  deleteError
+                                    ? darkMode
+                                      ? 'border-red-500 bg-red-500/5 text-white focus:ring-red-500'
+                                      : 'border-red-500 bg-red-50 text-gray-900 focus:ring-red-500'
+                                    : darkMode
+                                      ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-500 focus:border-red-500 focus:ring-red-500'
+                                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-red-500 focus:ring-red-500'
+                                }`}
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && deletePassword.trim()) handleDeleteAccount();
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowDeletePassword(!showDeletePassword)}
+                                className={`absolute right-3.5 top-1/2 -translate-y-1/2 ${
+                                  darkMode ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
+                                }`}
+                              >
+                                {showDeletePassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                              </button>
+                            </div>
+
+                            {deleteError && (
+                              <div className={`flex items-center gap-2 px-4 py-3 rounded-xl mb-4 text-sm font-medium ${
+                                darkMode
+                                  ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                  : 'bg-red-50 text-red-600 border border-red-100'
+                              }`}>
+                                <AlertTriangle className="w-4 h-4 shrink-0" />
+                                {deleteError}
+                              </div>
+                            )}
+
+                            <div className="flex gap-3">
+                              <button
+                                onClick={() => { setDeleteStep(1); setDeleteError(''); setDeletePassword(''); }}
+                                className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all ${
+                                  darkMode
+                                    ? 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
+                                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200'
+                                }`}
+                              >
+                                Back
+                              </button>
+                              <button
+                                onClick={handleDeleteAccount}
+                                disabled={deleteLoading || !deletePassword.trim()}
+                                className="flex-1 px-4 py-3 rounded-xl font-semibold bg-red-600 hover:bg-red-700 text-white transition-all shadow-lg shadow-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                              >
+                                {deleteLoading ? (
+                                  <>
+                                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                                    Deleting...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Trash2 className="w-4 h-4" />
+                                    Permanently Delete
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                </div>
               </div>
             )}
 
             {/* Security Settings */}
             {activeSection === 'security' && (
-              <div className={`rounded-3xl shadow-xl p-8 ${
-                darkMode ? 'bg-gray-800' : 'bg-white'
+              <div className={`rounded-[2rem] shadow-2xl p-8 border relative overflow-hidden transition-all duration-500 ${
+                darkMode 
+                  ? 'bg-gray-800/40 backdrop-blur-2xl border-white/10' 
+                  : 'bg-white/70 backdrop-blur-2xl border-white/40'
               }`}>
+                <div className="absolute -top-40 -right-40 w-80 h-80 bg-green-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className="relative z-10">
                 <div className="flex items-center gap-3 mb-6">
                   <div className={`p-3 rounded-xl ${
                     darkMode ? 'bg-green-500/20' : 'bg-green-100'
@@ -804,6 +1104,7 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
                       </button>
                     </div>
                   </div>
+                </div>
                 </div>
               </div>
             )}

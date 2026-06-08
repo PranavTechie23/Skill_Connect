@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus, Camera, Video, Globe, X, Heart,
   MessageCircle, Share, Clock,
@@ -13,7 +13,9 @@ interface StoriesPageProps {
 
 const StoriesPage = ({ embedded = false }: StoriesPageProps) => {
   const { theme } = useTheme();
-  const darkMode = theme === 'dark';
+  const darkMode =
+    typeof window !== 'undefined' &&
+    (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
   const [showCreateStory, setShowCreateStory] = useState(false);
   const [activeStory, setActiveStory] = useState(null);
   const [newStory, setNewStory] = useState({
@@ -156,7 +158,7 @@ const StoriesPage = ({ embedded = false }: StoriesPageProps) => {
     }
   };
 
-  const likeStory = (storyId) => {
+  const likeStory = (storyId: string) => {
     setStories(prev => ({
       myStories: prev.myStories.map(story =>
         story.id === storyId ? { ...story, likes: story.likes + 1 } : story
@@ -167,14 +169,14 @@ const StoriesPage = ({ embedded = false }: StoriesPageProps) => {
     }));
   };
 
-  const StoryViewer = ({ story, onClose }) => {
+  const StoryViewer = ({ story, onClose }: { story: any, onClose: () => void }) => {
     const [currentTime, setCurrentTime] = useState(0);
     const [isPlaying, setIsPlaying] = useState(true);
     const [showReactions, setShowReactions] = useState(false);
 
     const backgroundClass = backgroundOptions.find(bg => bg.id === story.background)?.class;
 
-    React.useEffect(() => {
+    useEffect(() => {
       if (isPlaying && currentTime < story.duration) {
         const timer = setTimeout(() => {
           setCurrentTime(prev => prev + 1);
@@ -468,7 +470,7 @@ const StoriesPage = ({ embedded = false }: StoriesPageProps) => {
     </div>
   );
 
-  const StoryCard = ({ story, isOwn = false }) => {
+  const StoryCard = ({ story, isOwn = false }: { story: any, isOwn?: boolean }) => {
     const backgroundClass = backgroundOptions.find(bg => bg.id === story.background)?.class;
     
     return (
@@ -532,9 +534,9 @@ const StoriesPage = ({ embedded = false }: StoriesPageProps) => {
 
   return (
     <div className={`${embedded ? 'min-h-full' : 'min-h-screen'} transition-colors duration-300 ${
-      darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-50 via-white to-purple-50'
+      embedded ? 'bg-transparent' : darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-50 via-white to-purple-50'
     }`}>
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className={embedded ? 'w-full' : 'max-w-7xl mx-auto px-6 py-8'}>
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
