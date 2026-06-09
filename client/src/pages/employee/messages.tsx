@@ -1,328 +1,402 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Search, MoreHorizontal, Phone, Video, Mail,
-  User, Check, CheckCheck, Clock, Paperclip, Smile,
-  Send, Image, File, MapPin, Calendar, Mic,
-  Star, StarOff
+  Search, Paperclip, Smile,
+  Send, Loader2, MessageSquare, Mail,
+  Phone, Video, MoreHorizontal,
 } from 'lucide-react';
+import { MessageDeliveryTicks, messageDeliveryStatus } from '@/components/message-delivery-ticks';
 import { useTheme } from "@/components/theme-provider";
+import { useAuth } from '@/contexts/AuthContext';
+import { apiFetch, withSkipGlobalLoader } from '@/lib/api';
+import { formatRelativeTime } from '@/lib/notifications-service';
+import { hrRoleLabel, isHrUserType } from '@/lib/messaging-policy';
+import { cn } from '@/lib/utils';
 
 interface EmployeeMessagesProps {
   embedded?: boolean;
 }
 
+type RawMessage = Record<string, unknown>;
+
+interface NormalizedMessage {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+  senderDisplayName: string;
+  receiverDisplayName: string;
+  senderUserType: string;
+  receiverUserType: string;
+}
+
+interface Conversation {
+  peerId: string;
+  userName: string;
+  userRole: string;
+  lastMessage: string;
+  timestamp: string;
+  sortAt: string;
+  unread: number;
+}
+
+interface HrContact {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+}
+
+function str(v: unknown): string {
+  return v != null ? String(v) : '';
+}
+
+function normalizeMessage(m: RawMessage): NormalizedMessage {
+  return {
+    id: str(m.id),
+    senderId: str(m.senderId ?? m.sender_id),
+    receiverId: str(m.receiverId ?? m.receiver_id),
+    content: str(m.content),
+    isRead: Boolean(m.isRead ?? m.is_read),
+    createdAt: str(m.createdAt ?? m.created_at),
+    senderDisplayName: str(m.senderDisplayName ?? m.sender_display_name),
+    receiverDisplayName: str(m.receiverDisplayName ?? m.receiver_display_name),
+    senderUserType: str(m.senderUserType ?? m.sender_user_type),
+    receiverUserType: str(m.receiverUserType ?? m.receiver_user_type),
+  };
+}
+
+function formatUserRole(_userType: string): string {
+  return hrRoleLabel();
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+  if (parts.length === 1 && parts[0].length >= 2) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase() || '?';
+}
+
+function peerFromMessage(msg: NormalizedMessage, currentUserId: string) {
+  const isOutbound = msg.senderId === currentUserId;
+  return {
+    peerId: isOutbound ? msg.receiverId : msg.senderId,
+    displayName: isOutbound ? msg.receiverDisplayName : msg.senderDisplayName,
+    userType: isOutbound ? msg.receiverUserType : msg.senderUserType,
+  };
+}
+
+function displayNameFromUser(u: Record<string, unknown>): string {
+  const firstName = str(u.firstName ?? u.first_name);
+  const lastName = str(u.lastName ?? u.last_name);
+  const email = str(u.email);
+  const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+  if (fullName) return fullName;
+  if (email) return email;
+  return '';
+}
+
+function Avatar({
+  name,
+  darkMode,
+  size = 'md',
+}: {
+  name: string;
+  darkMode: boolean;
+  size?: 'sm' | 'md';
+}) {
+  const dim = size === 'sm' ? 'w-10 h-10 text-sm' : 'w-12 h-12 text-base';
+  return (
+    <div
+      className={cn(
+        dim,
+        'rounded-xl flex items-center justify-center font-bold shrink-0',
+        darkMode
+          ? 'bg-gradient-to-br from-violet-600/40 to-sky-600/40 text-violet-100 ring-1 ring-white/10'
+          : 'bg-gradient-to-br from-indigo-100 to-violet-100 text-indigo-700 ring-1 ring-indigo-200/60',
+      )}
+    >
+      {getInitials(name)}
+    </div>
+  );
+}
+
 const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false }) => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { theme } = useTheme();
-  const darkMode = theme === 'dark';
-  const [selectedChat, setSelectedChat] = useState('1');
+  const darkMode =
+    typeof window !== 'undefined' &&
+    (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+
+  const [selectedPeerId, setSelectedPeerId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [peerNames, setPeerNames] = useState<Record<string, string>>({});
 
-  // Mock data
-  const conversations = [
-    {
-      id: '1',
-      userId: 'user2',
-      userName: 'Sarah Chen',
-      userRole: 'Product Manager',
-      userAvatar: null,
-      lastMessage: 'Hey! Did you get a chance to review the design specs?',
-      timestamp: '2:30 PM',
-      unread: 2,
-      isOnline: true,
-      isPinned: true,
-      lastActive: '2 min ago'
+  const panelClass = cn(
+    'rounded-2xl border backdrop-blur-xl',
+    darkMode
+      ? 'bg-slate-900/60 border-white/10 shadow-[0_18px_60px_rgba(0,0,0,0.22)]'
+      : 'bg-white/95 border-gray-200/80 shadow-lg',
+  );
+
+  const { data: allMessages = [], isLoading } = useQuery({
+    queryKey: ['messages', user?.id],
+    queryFn: async () => {
+      const res = await apiFetch('/api/messages');
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []).map((m: RawMessage) => normalizeMessage(m));
     },
-    {
-      id: '2',
-      userId: 'user3',
-      userName: 'Mike Rodriguez',
-      userRole: 'Backend Developer',
-      userAvatar: null,
-      lastMessage: 'The API endpoints are ready for testing',
-      timestamp: '1:15 PM',
-      unread: 0,
-      isOnline: true,
-      isPinned: false,
-      lastActive: '5 min ago'
+    enabled: !!user?.id,
+    refetchInterval: 20_000,
+  });
+
+  const { data: hrContacts = [] } = useQuery({
+    queryKey: ['messages', 'hr-contacts', user?.id],
+    queryFn: async (): Promise<HrContact[]> => {
+      const res = await apiFetch('/api/messages/hr-contacts');
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (!Array.isArray(data)) return [];
+      return data.map((c: Record<string, unknown>) => ({
+        id: str(c.id),
+        firstName: str(c.firstName ?? c.first_name) || undefined,
+        lastName: str(c.lastName ?? c.last_name) || undefined,
+        email: str(c.email) || undefined,
+      }));
     },
-    {
-      id: '3',
-      userId: 'user4',
-      userName: 'Emily Davis',
-      userRole: 'UI/UX Designer',
-      userAvatar: null,
-      lastMessage: 'I sent you the updated mockups',
-      timestamp: '12:45 PM',
-      unread: 0,
-      isOnline: false,
-      isPinned: true,
-      lastActive: '1 hour ago'
-    },
-    {
-      id: '4',
-      userId: 'user5',
-      userName: 'David Kim',
-      userRole: 'Team Lead',
-      userAvatar: null,
-      lastMessage: 'Great work on the last deployment!',
-      timestamp: '11:20 AM',
-      unread: 1,
-      isOnline: false,
-      isPinned: false,
-      lastActive: '2 hours ago'
-    },
-    {
-      id: '5',
-      userId: 'user6',
-      userName: 'Lisa Wang',
-      userRole: 'QA Engineer',
-      userAvatar: null,
-      lastMessage: 'Found some issues in the login flow',
-      timestamp: 'Yesterday',
-      unread: 0,
-      isOnline: true,
-      isPinned: false,
-      lastActive: '30 min ago'
+    enabled: !!user?.id,
+    staleTime: 60_000,
+  });
+
+  const resolvePeerName = async (peerId: string) => {
+    if (!peerId || peerNames[peerId]) return;
+    try {
+      const res = await apiFetch(`/api/users/${peerId}`);
+      if (!res.ok) return;
+      const u = await res.json();
+      const name = displayNameFromUser(u);
+      if (name) {
+        setPeerNames((prev) => ({ ...prev, [peerId]: name }));
+      }
+    } catch {
+      // ignore
     }
-  ];
-
-  type Message = {
-    id: string;
-    sender: string;
-    content: string;
-    timestamp: string;
-    status: string;
-    type: string;
-  };
-  
-  type Messages = {
-    [key: string]: Message[];
-  };
-  
-  const messages: Messages = {
-    '1': [
-      {
-        id: '1',
-        sender: 'user2',
-        content: 'Hey Alex! Are you available for a quick call about the new feature?',
-        timestamp: '2:15 PM',
-        status: 'read',
-        type: 'text'
-      },
-      {
-        id: '2',
-        sender: 'user1',
-        content: 'Hi Sarah! Yes, I can talk now. What do you need?',
-        timestamp: '2:16 PM',
-        status: 'read',
-        type: 'text'
-      },
-      {
-        id: '3',
-        sender: 'user2',
-        content: 'I wanted to discuss the timeline for the user dashboard redesign',
-        timestamp: '2:17 PM',
-        status: 'read',
-        type: 'text'
-      },
-      {
-        id: '4',
-        sender: 'user2',
-        content: 'Did you get a chance to review the design specs I sent yesterday?',
-        timestamp: '2:30 PM',
-        status: 'delivered',
-        type: 'text'
-      }
-    ],
-    '2': [
-      {
-        id: '1',
-        sender: 'user3',
-        content: 'The new API endpoints are ready for frontend integration',
-        timestamp: '1:15 PM',
-        status: 'read',
-        type: 'text'
-      }
-    ],
-    '3': [
-      {
-        id: '1',
-        sender: 'user4',
-        content: 'I sent you the updated mockups for the mobile app',
-        timestamp: '12:45 PM',
-        status: 'read',
-        type: 'text'
-      }
-    ],
-    '4': [
-      {
-        id: '1',
-        sender: 'user5',
-        content: 'Great work on the last deployment! The client is very happy',
-        timestamp: '11:20 AM',
-        status: 'delivered',
-        type: 'text'
-      }
-    ],
-    '5': [
-      {
-        id: '1',
-        sender: 'user6',
-        content: 'Found some issues in the login flow that need attention',
-        timestamp: 'Yesterday',
-        status: 'read',
-        type: 'text'
-      }
-    ]
   };
 
-  const currentConversation = conversations.find(chat => chat.id === selectedChat);
-  const currentMessages = messages[selectedChat] || [];
+  useEffect(() => {
+    if (!user?.id || allMessages.length === 0) return;
+    const missing = new Set<string>();
+    for (const msg of allMessages) {
+      const { peerId, displayName } = peerFromMessage(msg, user.id);
+      if (peerId && peerId !== user.id && !displayName && !peerNames[peerId]) {
+        missing.add(peerId);
+      }
+    }
+    missing.forEach((id) => void resolvePeerName(id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allMessages, user?.id]);
+
+  const hrContactName = (contact: HrContact): string => {
+    const full = [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim();
+    if (full) return full;
+    if (contact.email) return contact.email;
+    return 'HR Support';
+  };
+
+  const conversations = useMemo((): Conversation[] => {
+    if (!user?.id) return [];
+
+    const map = new Map<string, Conversation>();
+
+    for (const msg of allMessages) {
+      const { peerId, displayName, userType } = peerFromMessage(msg, user.id);
+      if (!peerId || peerId === user.id) continue;
+      if (!isHrUserType(userType)) continue;
+
+      const fromApi = displayName?.trim();
+      const userName = fromApi || peerNames[peerId]?.trim() || 'Loading…';
+      const unreadAdd = msg.receiverId === user.id && !msg.isRead ? 1 : 0;
+
+      const existing = map.get(peerId);
+      if (!existing || (msg.createdAt && msg.createdAt > existing.sortAt)) {
+        map.set(peerId, {
+          peerId,
+          userName,
+          userRole: formatUserRole(userType),
+          lastMessage: msg.content,
+          timestamp: msg.createdAt ? formatRelativeTime(msg.createdAt) : '',
+          sortAt: msg.createdAt,
+          unread: (existing?.unread ?? 0) + unreadAdd,
+        });
+      } else if (existing) {
+        map.set(peerId, {
+          ...existing,
+          unread: existing.unread + unreadAdd,
+        });
+      }
+    }
+
+    for (const contact of hrContacts) {
+      if (!contact.id || map.has(contact.id)) continue;
+      map.set(contact.id, {
+        peerId: contact.id,
+        userName: hrContactName(contact),
+        userRole: hrRoleLabel(),
+        lastMessage: 'Start a conversation with HR',
+        timestamp: '',
+        sortAt: '',
+        unread: 0,
+      });
+    }
+
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.unread !== b.unread) return b.unread - a.unread;
+      return (b.sortAt || '').localeCompare(a.sortAt || '');
+    });
+  }, [allMessages, user?.id, peerNames, hrContacts]);
+
+  useEffect(() => {
+    if (selectedPeerId || hrContacts.length === 0) return;
+    setSelectedPeerId(hrContacts[0].id);
+  }, [hrContacts, selectedPeerId]);
+
+  const filteredConversations = conversations.filter(
+    (c) =>
+      c.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const { data: threadMessages = [], isLoading: threadLoading } = useQuery({
+    queryKey: ['messages', user?.id, selectedPeerId],
+    queryFn: async () => {
+      if (!selectedPeerId) return [];
+      const res = await apiFetch(`/api/messages?otherUserId=${selectedPeerId}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []).map((m: RawMessage) => normalizeMessage(m));
+    },
+    enabled: !!user?.id && !!selectedPeerId,
+    refetchInterval: 10_000,
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: async (content: string) => {
+      if (!user?.id || !selectedPeerId) throw new Error('Missing recipient');
+      const res = await apiFetch(
+        '/api/messages',
+        withSkipGlobalLoader({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            senderId: user.id,
+            receiverId: selectedPeerId,
+            content,
+          }),
+        })
+      );
+      if (!res.ok) throw new Error('Failed to send message');
+      return res.json();
+    },
+    onSuccess: () => {
+      setMessageInput('');
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+  });
+
+  const currentConversation = conversations.find((c) => c.peerId === selectedPeerId);
 
   const sendMessage = () => {
-    if (messageInput.trim()) {
-      // In a real app, this would send to a backend
-      setMessageInput('');
-      setShowAttachmentMenu(false);
-    }
-  };
-
-  const togglePin = (chatId: string) => {
-    // Toggle pin status
-    console.log('Toggle pin:', chatId);
-  };
-
-  type Conversation = {
-    id: string;
-    userId: string;
-    userName: string;
-    userRole: string;
-    userAvatar: string | null;
-    lastMessage: string;
-    timestamp: string;
-    unread: number;
-    isOnline: boolean;
-    isPinned: boolean;
-    lastActive: string;
+    const text = messageInput.trim();
+    if (!text || sendMutation.isPending) return;
+    sendMutation.mutate(text);
+    setShowAttachmentMenu(false);
   };
 
   const ConversationItem = ({ conversation }: { conversation: Conversation }) => (
-    <div
-      onClick={() => setSelectedChat(conversation.id)}
-      className={`p-4 rounded-2xl cursor-pointer transition-all ${
-        selectedChat === conversation.id
+    <button
+      type="button"
+      onClick={() => setSelectedPeerId(conversation.peerId)}
+      className={cn(
+        'w-full text-left p-3 rounded-xl transition-all',
+        selectedPeerId === conversation.peerId
           ? darkMode
-            ? 'bg-blue-600/20 border border-blue-500/30'
+            ? 'bg-violet-600/20 border border-violet-500/30'
             : 'bg-indigo-50 border border-indigo-200'
           : darkMode
-          ? 'hover:bg-gray-700/50'
-          : 'hover:bg-gray-100'
-      }`}
+            ? 'hover:bg-white/[0.06] border border-transparent'
+            : 'hover:bg-gray-50 border border-transparent',
+      )}
     >
       <div className="flex items-start gap-3">
-        <div className="relative">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-            darkMode ? 'bg-gray-700' : 'bg-gray-200'
-          }`}>
-            <User className={`w-6 h-6 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
-          </div>
-          {conversation.isOnline && (
-            <div className={`absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 ${darkMode ? 'border-gray-800' : 'border-white'}`} />
-          )}
-        </div>
-        
+        <Avatar name={conversation.userName} darkMode={darkMode} size="sm" />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1">
-            <h4 className={`font-semibold truncate ${
-              darkMode ? 'text-white' : 'text-gray-900'
-            }`}>
+          <div className="flex items-center justify-between gap-2 mb-0.5">
+            <h4 className={cn('font-semibold truncate text-sm', darkMode ? 'text-white' : 'text-gray-900')}>
               {conversation.userName}
             </h4>
-            <div className="flex items-center gap-1">
-              <span className={`text-xs ${
-                darkMode ? 'text-gray-400' : 'text-gray-500'
-              }`}>
-                {conversation.timestamp}
-              </span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  togglePin(conversation.id);
-                }}
-                className={`p-1 rounded ${darkMode ? 'hover:bg-gray-600/20' : 'hover:bg-gray-200'}`}
-              >
-                {conversation.isPinned ? (
-                  <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                ) : (
-                  <StarOff className={`w-4 h-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
-                )}
-              </button>
-            </div>
+            <span className={cn('text-xs shrink-0', darkMode ? 'text-slate-400' : 'text-gray-500')}>
+              {conversation.timestamp}
+            </span>
           </div>
-          
-          <p className={`text-sm truncate mb-1 ${
-            darkMode ? 'text-gray-400' : 'text-gray-600'
-          }`}>
-            {conversation.userRole}
-          </p>
-          
-          <p className={`text-sm truncate ${
-            conversation.unread > 0
-              ? darkMode ? 'text-white font-semibold' : 'text-gray-900 font-semibold'
-              : darkMode
-              ? 'text-gray-500'
-              : 'text-gray-500'
-          }`}>
+          <p className={cn('text-xs truncate', darkMode ? 'text-slate-400' : 'text-gray-600')}>
             {conversation.lastMessage}
           </p>
         </div>
-        
         {conversation.unread > 0 && (
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
-            darkMode
-              ? 'bg-blue-500 text-white'
-              : 'bg-indigo-600 text-white'
-          }`}>
+          <span
+            className={cn(
+              'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
+              darkMode ? 'bg-violet-500 text-white' : 'bg-indigo-600 text-white',
+            )}
+          >
             {conversation.unread}
-          </div>
+          </span>
         )}
       </div>
-    </div>
+    </button>
   );
 
-  const MessageBubble = ({ message }: { message: Message }) => {
-    const isOwn = message.sender === 'user1';
-    
+  const MessageBubble = ({ message }: { message: NormalizedMessage }) => {
+    const isOwn = message.senderId === user?.id;
     return (
-      <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4`}>
-        <div className={`max-w-xs lg:max-w-md rounded-2xl p-4 shadow-md ${
-          isOwn
-            ? darkMode
-              ? 'bg-blue-600 text-white'
-              : 'bg-indigo-600 text-white'
-            : darkMode
-            ? 'bg-gray-700 text-white'
-            : 'bg-white text-gray-900'
-        }`}>
-          <p className="text-sm leading-relaxed">{message.content}</p>
-          <div className={`flex items-center gap-2 mt-2 text-xs ${
+      <div className={cn('flex mb-3', isOwn ? 'justify-end' : 'justify-start')}>
+        <div
+          className={cn(
+            'max-w-xs lg:max-w-md rounded-2xl px-4 py-3',
             isOwn
-              ? darkMode ? 'text-blue-100' : 'text-indigo-100'
+              ? darkMode
+                ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-900/30'
+                : 'bg-indigo-600 text-white shadow-md'
               : darkMode
-              ? 'text-gray-400'
-              : 'text-gray-500'
-          }`}>
-            <span>{message.timestamp}</span>
+                ? 'bg-white/[0.06] text-slate-100 border border-white/10'
+                : 'bg-gray-100 text-gray-900',
+          )}
+        >
+          <p className="text-sm leading-relaxed">{message.content}</p>
+          <div
+            className={cn(
+              'flex items-center gap-1.5 mt-1.5 text-[11px]',
+              isOwn
+                ? darkMode ? 'text-violet-200/80' : 'text-indigo-100'
+                : darkMode ? 'text-slate-500' : 'text-gray-500',
+            )}
+          >
+            <span>{message.createdAt ? formatRelativeTime(message.createdAt) : ''}</span>
             {isOwn && (
-              message.status === 'read' ? (
-                <CheckCheck className="w-4 h-4" />
-              ) : message.status === 'delivered' ? (
-                <Check className="w-4 h-4" />
-              ) : (
-                <Clock className="w-4 h-4" />
-              )
+              <MessageDeliveryTicks
+                status={messageDeliveryStatus(message.isRead)}
+                onOwnBubble
+              />
             )}
           </div>
         </div>
@@ -331,293 +405,242 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
   };
 
   return (
-    <div className={`${embedded ? 'min-h-full' : 'min-h-screen'} transition-colors duration-300 ${
-      darkMode ? 'bg-gray-900' : 'bg-gray-50'
-    }`}>
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            {!embedded && (
-              <button
-                onClick={() => window.history.back()}
-                className={`p-2 rounded-xl transition-all ${
-                  darkMode
-                    ? 'hover:bg-gray-700 text-gray-400'
-                    : 'hover:bg-gray-200 text-gray-600'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-              </button>
-            )}
-            <div>
-              <h1 className={`text-3xl font-black ${
-                darkMode ? 'text-white' : 'text-gray-900'
-              }`}>
-                Messages
-              </h1>
-              <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-                Connect and collaborate with your team
-              </p>
-            </div>
+    <div
+      className={cn(
+        embedded ? 'h-full min-h-0 flex flex-col overflow-hidden' : 'min-h-screen',
+        'transition-colors duration-300',
+        embedded ? 'bg-transparent' : darkMode ? 'bg-slate-950' : 'bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50',
+      )}
+    >
+      <div
+        className={cn(
+          embedded ? 'w-full flex-1 min-h-0 flex flex-col overflow-hidden' : 'max-w-7xl mx-auto px-4 sm:px-6 py-6 lg:py-8',
+        )}
+      >
+        {!embedded && (
+          <div className="mb-6">
+            <h1 className={cn('text-2xl sm:text-3xl font-black tracking-tight', darkMode ? 'text-white' : 'text-gray-900')}>
+              Messages
+            </h1>
+            <p className={cn('mt-1 text-sm', darkMode ? 'text-slate-400' : 'text-gray-600')}>
+              Contact HR for application support, interviews, and account help
+            </p>
           </div>
-          
-          <div className="flex items-center gap-3">
+        )}
 
-          </div>
-        </div>
-
-        <div className="flex gap-8 h-[calc(100vh-200px)]">
-          {/* Conversations Sidebar */}
-          <div className="w-96 flex-shrink-0 flex flex-col">
-            {/* Search Bar */}
-            <div className={`rounded-2xl p-2 mb-4 ${
-              darkMode ? 'bg-gray-800' : 'bg-white shadow-lg'
-            }`}>
+        <div
+          className={cn(
+            'flex gap-4 lg:gap-6 min-h-0 overflow-hidden',
+            embedded ? 'flex-1' : 'h-[calc(100vh-180px)] min-h-[420px]',
+          )}
+        >
+          <div className="w-full sm:w-80 lg:w-96 flex-shrink-0 flex flex-col min-h-0 gap-3">
+            <div className={cn(panelClass, 'p-2')}>
               <div className="relative">
-                <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 ${
-                  darkMode ? 'text-gray-500' : 'text-gray-400'
-                }`} />
+                <Search
+                  className={cn(
+                    'absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4',
+                    darkMode ? 'text-slate-500' : 'text-gray-400',
+                  )}
+                />
                 <input
                   type="text"
-                  placeholder="Search messages..."
+                  placeholder="Search conversations..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-3 rounded-xl outline-none transition-all ${
+                  className={cn(
+                    'w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none transition-colors',
                     darkMode
-                      ? 'bg-gray-700 text-white placeholder-gray-400'
-                      : 'bg-gray-50 text-gray-900 placeholder-gray-500'
-                  }`}
+                      ? 'bg-white/[0.05] border border-white/10 text-slate-50 placeholder-slate-500 focus:border-violet-500/50'
+                      : 'bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:border-indigo-400',
+                  )}
                 />
               </div>
             </div>
 
-            {/* Filter Tabs */}
-            <div className="flex gap-2 mb-4">
-              {['All', 'Unread', 'Pinned', 'Team'].map(tab => (
-                <button
-                  key={tab}
-                  className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${
-                    tab === 'All'
-                      ? darkMode
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-indigo-600 text-white shadow-md'
-                      : darkMode
-                      ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                      : 'bg-white text-gray-700 hover:bg-gray-100 shadow-sm'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-
-            {/* Conversations List */}
-            <div className={`flex-1 rounded-2xl ${
-              darkMode ? 'bg-gray-800' : 'bg-white shadow-lg'
-            } overflow-y-auto`}>
-              <div className="p-4 space-y-2">
-                {conversations.map(conversation => (
-                  <ConversationItem
-                    key={conversation.id}
-                    conversation={conversation}
-                  />
-                ))}
+            <div className={cn(panelClass, 'flex-1 min-h-0 overflow-hidden flex flex-col')}>
+              <div className="px-4 py-3 border-b border-inherit shrink-0">
+                <p className={cn('text-xs font-semibold uppercase tracking-wider', darkMode ? 'text-slate-500' : 'text-gray-500')}>
+                  HR contacts
+                </p>
+              </div>
+              <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                {isLoading ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 className="w-7 h-7 animate-spin text-violet-500" />
+                  </div>
+                ) : filteredConversations.length === 0 ? (
+                  <div className="text-center py-12 px-4">
+                    <MessageSquare className={cn('w-10 h-10 mx-auto mb-3', darkMode ? 'text-slate-600' : 'text-gray-300')} />
+                    <p className={cn('text-sm font-medium', darkMode ? 'text-slate-300' : 'text-gray-700')}>
+                      HR support unavailable
+                    </p>
+                    <p className={cn('text-xs mt-1', darkMode ? 'text-slate-500' : 'text-gray-500')}>
+                      No HR contacts are configured yet. Please try again later.
+                    </p>
+                  </div>
+                ) : (
+                  filteredConversations.map((conversation) => (
+                    <ConversationItem key={conversation.peerId} conversation={conversation} />
+                  ))
+                )}
               </div>
             </div>
           </div>
 
-          {/* Chat Area */}
-          <div className="flex-1 flex flex-col">
-            {currentConversation ? (
-              <>
-                {/* Chat Header */}
-                <div className={`rounded-2xl p-4 mb-4 ${
-                  darkMode ? 'bg-gray-800' : 'bg-white shadow-lg'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                          darkMode ? 'bg-gray-700' : 'bg-gray-200'
-                        }`}>
-                          <User className={`w-6 h-6 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
-                        </div>
-                        {currentConversation.isOnline && (
-                          <div className={`absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 ${darkMode ? 'border-gray-800' : 'border-white'}`} />
-                        )}
-                      </div>
-                      <div>
-                        <h3 className={`font-semibold ${
-                          darkMode ? 'text-white' : 'text-gray-900'
-                        }`}>
+          <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
+            {currentConversation && selectedPeerId ? (
+              <div className={cn(panelClass, 'flex flex-col flex-1 min-h-0 overflow-hidden')}>
+                <div
+                  className={cn(
+                    'p-4 shrink-0 border-b',
+                    darkMode ? 'border-white/10' : 'border-gray-200/80',
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Avatar name={currentConversation.userName} darkMode={darkMode} />
+                      <div className="min-w-0">
+                        <h3 className={cn('font-semibold truncate', darkMode ? 'text-white' : 'text-gray-900')}>
                           {currentConversation.userName}
                         </h3>
-                        <p className={`text-sm ${
-                          darkMode ? 'text-gray-400' : 'text-gray-600'
-                        }`}>
-                          {currentConversation.userRole} • {currentConversation.isOnline ? 'Online' : `Last seen ${currentConversation.lastActive}`}
+                        <p className={cn('text-xs truncate', darkMode ? 'text-slate-400' : 'text-gray-600')}>
+                          {currentConversation.userRole}
                         </p>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <button className={`p-3 rounded-xl transition-all ${
-                        darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
-                      }`}>
-                        <Phone className="w-5 h-5" />
-                      </button>
-                      <button className={`p-3 rounded-xl transition-all ${
-                        darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
-                      }`}>
-                        <Video className="w-5 h-5" />
-                      </button>
-                      <button className={`p-3 rounded-xl transition-all ${
-                        darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
-                      }`}>
-                        <MoreHorizontal className="w-5 h-5" />
-                      </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {[Phone, Video, MoreHorizontal].map((Icon, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          className={cn(
+                            'p-2.5 rounded-xl transition-colors',
+                            darkMode ? 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-200' : 'text-gray-500 hover:bg-gray-100',
+                          )}
+                        >
+                          <Icon className="w-4 h-4" />
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
 
-                {/* Messages Area */}
-                <div className={`flex-1 rounded-2xl ${
-                  darkMode ? 'bg-gray-800' : 'bg-white shadow-lg'
-                } overflow-y-auto p-6`}>
-                  <div className="space-y-4">
-                    {currentMessages.map(message => (
-                      <MessageBubble key={message.id} message={message} />
-                    ))}
-                  </div>
+                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 lg:p-6">
+                  {threadLoading ? (
+                    <div className="flex justify-center py-16">
+                      <Loader2 className="w-7 h-7 animate-spin text-violet-500" />
+                    </div>
+                  ) : threadMessages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center min-h-[12rem] py-16 text-center">
+                      <MessageSquare className={cn('w-10 h-10 mb-3', darkMode ? 'text-slate-600' : 'text-gray-300')} />
+                      <p className={cn('text-sm font-medium', darkMode ? 'text-slate-300' : 'text-gray-700')}>
+                        No messages yet
+                      </p>
+                      <p className={cn('text-xs mt-1 max-w-xs', darkMode ? 'text-slate-500' : 'text-gray-500')}>
+                        Say hello to start the conversation.
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      {threadMessages.map((message) => (
+                        <MessageBubble key={message.id} message={message} />
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {/* Message Input */}
-                <div className={`mt-4 rounded-2xl p-4 ${
-                  darkMode ? 'bg-gray-800' : 'bg-white shadow-lg'
-                }`}>
-                  <div className="flex items-end gap-3">
-                    {/* Attachment Button */}
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
-                        className={`p-3 rounded-xl transition-all ${
-                          darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
-                        }`}
-                      >
-                        <Paperclip className="w-5 h-5" />
-                      </button>
-                      
-                      {showAttachmentMenu && (
-                        <div className={`absolute bottom-14 left-0 p-2 rounded-xl shadow-2xl border ${
-                          darkMode
-                            ? 'bg-gray-700 border-gray-600'
-                            : 'bg-white border-gray-200'
-                        }`}>
-                          <div className="grid grid-cols-2 gap-2">
-                            <button className={`p-3 rounded-xl text-left transition-all ${
-                              darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
-                            }`}>
-                              <Image className="w-5 h-5 mb-1" />
-                              <span className="text-sm">Photo</span>
-                            </button>
-                            <button className={`p-3 rounded-xl text-left transition-all ${
-                              darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
-                            }`}>
-                              <File className="w-5 h-5 mb-1" />
-                              <span className="text-sm">File</span>
-                            </button>
-                            <button className={`p-3 rounded-xl text-left transition-all ${
-                              darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
-                            }`}>
-                              <MapPin className="w-5 h-5 mb-1" />
-                              <span className="text-sm">Location</span>
-                            </button>
-                            <button className={`p-3 rounded-xl text-left transition-all ${
-                              darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'
-                            }`}>
-                              <Calendar className="w-5 h-5 mb-1" />
-                              <span className="text-sm">Event</span>
-                            </button>
-                          </div>
-                        </div>
+                <div
+                  className={cn(
+                    'p-3 shrink-0 border-t',
+                    darkMode ? 'border-white/10' : 'border-gray-200/80',
+                  )}
+                >
+                  <div className="flex items-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
+                      className={cn(
+                        'p-2.5 rounded-xl transition-colors',
+                        darkMode ? 'text-slate-400 hover:bg-white/[0.06]' : 'text-gray-500 hover:bg-gray-100',
                       )}
-                    </div>
-
-                    {/* Message Input */}
-                    <div className="flex-1">
-                      <textarea
-                        value={messageInput}
-                        onChange={(e) => setMessageInput(e.target.value)}
-                        placeholder="Type a message..."
-                        rows={1}
-                        className={`w-full px-4 py-3 rounded-xl resize-none outline-none transition-all ${
-                          darkMode
-                            ? 'bg-gray-700 text-white placeholder-gray-400'
-                            : 'bg-gray-100 text-gray-900 placeholder-gray-500'
-                        }`}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            sendMessage();
-                          }
-                        }}
-                      />
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-2">
-                      <button className={`p-3 rounded-xl transition-all ${
-                        darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
-                      }`}>
-                        <Mic className="w-5 h-5" />
-                      </button>
-                      <button className={`p-3 rounded-xl transition-all ${
-                        darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
-                      }`}>
-                        <Smile className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={sendMessage}
-                        disabled={!messageInput.trim()}
-                        className={`p-3 rounded-xl transition-all ${
-                          !messageInput.trim()
-                            ? darkMode
-                              ? 'bg-gray-600 text-gray-400'
-                              : 'bg-gray-300 text-gray-500'
-                            : darkMode
-                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                            : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                        }`}
-                      >
+                    >
+                      <Paperclip className="w-5 h-5" />
+                    </button>
+                    <textarea
+                      value={messageInput}
+                      onChange={(e) => setMessageInput(e.target.value)}
+                      placeholder="Message HR..."
+                      rows={1}
+                      className={cn(
+                        'flex-1 px-4 py-2.5 rounded-xl resize-none text-sm outline-none transition-colors max-h-28',
+                        darkMode
+                          ? 'bg-white/[0.05] border border-white/10 text-slate-50 placeholder-slate-500 focus:border-violet-500/50'
+                          : 'bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:border-indigo-400',
+                      )}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          sendMessage();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className={cn(
+                        'p-2.5 rounded-xl transition-colors hidden sm:block',
+                        darkMode ? 'text-slate-400 hover:bg-white/[0.06]' : 'text-gray-500 hover:bg-gray-100',
+                      )}
+                    >
+                      <Smile className="w-5 h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={sendMessage}
+                      disabled={!messageInput.trim() || sendMutation.isPending}
+                      className={cn(
+                        'p-2.5 rounded-xl transition-all shrink-0',
+                        !messageInput.trim()
+                          ? darkMode
+                            ? 'bg-white/[0.06] text-slate-600'
+                            : 'bg-gray-200 text-gray-400'
+                          : darkMode
+                            ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white hover:opacity-90'
+                            : 'bg-indigo-600 hover:bg-indigo-700 text-white',
+                      )}
+                    >
+                      {sendMutation.isPending ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
                         <Send className="w-5 h-5" />
-                      </button>
-                    </div>
+                      )}
+                    </button>
                   </div>
                 </div>
-              </>
+              </div>
             ) : (
-              /* Empty State */
-              <div className={`flex-1 rounded-2xl flex items-center justify-center ${
-                darkMode ? 'bg-gray-800' : 'bg-white shadow-lg'
-              }`}>
-                <div className="text-center">
-                  <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                    darkMode ? 'bg-gray-700' : 'bg-gray-100'
-                  }`}>
-                    <Mail className={`w-12 h-12 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} />
-                  </div>
-                  <h3 className={`text-2xl font-black mb-2 ${
-                    darkMode ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    Select a conversation
-                  </h3>
-                  <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-                    Choose a chat from the sidebar to start messaging
-                  </p>
+              <div
+                className={cn(
+                  panelClass,
+                  'flex-1 flex flex-col items-center justify-center text-center p-8',
+                )}
+              >
+                <div
+                  className={cn(
+                    'w-16 h-16 rounded-2xl flex items-center justify-center mb-5',
+                    darkMode
+                      ? 'bg-gradient-to-br from-violet-600/30 to-indigo-600/20 ring-1 ring-white/10'
+                      : 'bg-gradient-to-br from-indigo-100 to-violet-100',
+                  )}
+                >
+                  <Mail className={cn('w-8 h-8', darkMode ? 'text-violet-300' : 'text-indigo-500')} />
                 </div>
+                <h3 className={cn('text-xl font-bold mb-2', darkMode ? 'text-white' : 'text-gray-900')}>
+                  Select a conversation
+                </h3>
+                <p className={cn('text-sm max-w-sm', darkMode ? 'text-slate-400' : 'text-gray-600')}>
+                  Select an HR contact from the sidebar to view messages or send a new inquiry.
+                </p>
               </div>
             )}
           </div>

@@ -90,15 +90,45 @@ html {
   scroll-padding-top: 5rem;
 }
 
-/* Google Translate integration */
-/* Keep top banner visible, only suppress noisy tooltip/menu artifacts. */
+@keyframes logout-progress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+@keyframes logout-progress-fill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+/* Google Translate integration - COMPLETELY INVISIBLE */
+.goog-te-banner-frame,
 .goog-te-balloon-frame,
 #goog-gt-tt,
 #goog-gt-tt iframe,
 .goog-te-menu-frame,
 .goog-te-menu2,
-.goog-te-menu-value span {
+.goog-te-menu-value span,
+.skiptranslate iframe,
+.goog-tooltip,
+.goog-tooltip:hover,
+.goog-te-gadget,
+.goog-logo-link,
+.goog-te-spinner-pos,
+.goog-te-spinner-animation,
+img[src*="translate.google.com"],
+body > .skiptranslate {
   display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .goog-text-highlight {
@@ -108,15 +138,7 @@ html {
 
 body {
   top: 0 !important;
-}
-
-/* Prevent page jump when Google banner appears */
-.goog-te-banner-frame {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100% !important;
-  z-index: 2147483647 !important;
+  position: static !important;
 }
 
 /* Employee appearance preferences */
@@ -142,4 +164,239 @@ body {
 
 :root[data-ui-density="spacious"] :where(button, input, select, textarea) {
   min-height: 2.85rem;
+}
+
+@layer components {
+  .admin-embedded-ui {
+    --admin-surface-border-light: rgba(148, 163, 184, 0.16);
+    --admin-surface-border-dark: rgba(255, 255, 255, 0.07);
+    --admin-surface-shadow-light: 0 18px 48px rgba(15, 23, 42, 0.08);
+    --admin-surface-shadow-dark:
+      0 24px 60px -28px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    --admin-surface-bg-light: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.88));
+    --admin-surface-bg-dark: linear-gradient(
+      180deg,
+      rgba(30, 41, 59, 0.62) 0%,
+      rgba(15, 23, 42, 0.48) 100%
+    );
+    --admin-input-bg-dark: rgba(255, 255, 255, 0.05);
+    --admin-input-border-dark: rgba(255, 255, 255, 0.08);
+  }
+
+  .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-xl"][class*="border"]:not([data-floating-menu]),
+  .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-2xl"][class*="border"]:not([data-floating-menu]),
+  .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-3xl"][class*="border"]:not([data-floating-menu]),
+  .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-[1.75rem]"][class*="border"]:not([data-floating-menu]),
+  .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-[2rem]"][class*="border"]:not([data-floating-menu]) {
+    position: relative;
+    overflow: hidden;
+    border-color: var(--admin-surface-border-light) !important;
+    background: var(--admin-surface-bg-light) !important;
+    box-shadow: var(--admin-surface-shadow-light), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  .dark .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-xl"][class*="border"]:not([data-floating-menu]),
+  .dark .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-2xl"][class*="border"]:not([data-floating-menu]),
+  .dark .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-3xl"][class*="border"]:not([data-floating-menu]),
+  .dark .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-[1.75rem]"][class*="border"]:not([data-floating-menu]),
+  .dark .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-[2rem]"][class*="border"]:not([data-floating-menu]) {
+    border-color: var(--admin-surface-border-dark) !important;
+    background: var(--admin-surface-bg-dark) !important;
+    box-shadow: var(--admin-surface-shadow-dark);
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  }
+
+  /* Upgrade flat gray utility classes inside admin tabs (employer-like glass) */
+  .dark .admin-embedded-ui .bg-gray-800 {
+    background: linear-gradient(
+      180deg,
+      rgba(30, 41, 59, 0.58) 0%,
+      rgba(15, 23, 42, 0.45) 100%
+    ) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .dark .admin-embedded-ui .border-gray-700 {
+    border-color: rgba(255, 255, 255, 0.07) !important;
+  }
+
+  .dark .admin-embedded-ui .bg-gray-700 {
+    background: var(--admin-input-bg-dark) !important;
+  }
+
+  .dark .admin-embedded-ui .border-gray-600 {
+    border-color: var(--admin-input-border-dark) !important;
+  }
+
+  .dark .admin-embedded-ui :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]) {
+    background: var(--admin-input-bg-dark) !important;
+    border-color: var(--admin-input-border-dark) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .dark .admin-embedded-ui :is(input, select, textarea):focus {
+    border-color: rgba(99, 102, 241, 0.45) !important;
+    box-shadow:
+      0 0 0 3px rgba(99, 102, 241, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+  }
+
+  .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-xl"][class*="border"]:not([data-floating-menu])::before,
+  .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-2xl"][class*="border"]:not([data-floating-menu])::before,
+  .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-3xl"][class*="border"]:not([data-floating-menu])::before,
+  .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-[1.75rem]"][class*="border"]:not([data-floating-menu])::before,
+  .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-[2rem]"][class*="border"]:not([data-floating-menu])::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+    pointer-events: none;
+    opacity: 0.8;
+  }
+
+  .dark .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-xl"][class*="border"]:not([data-floating-menu])::before,
+  .dark .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-2xl"][class*="border"]:not([data-floating-menu])::before,
+  .dark .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-3xl"][class*="border"]:not([data-floating-menu])::before,
+  .dark .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-[1.75rem]"][class*="border"]:not([data-floating-menu])::before,
+  .dark .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-[2rem]"][class*="border"]:not([data-floating-menu])::before {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  }
+
+  .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-xl"][class*="border"]:not([data-floating-menu]):hover,
+  .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-2xl"][class*="border"]:not([data-floating-menu]):hover,
+  .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-3xl"][class*="border"]:not([data-floating-menu]):hover,
+  .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-[1.75rem]"][class*="border"]:not([data-floating-menu]):hover,
+  .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-[2rem]"][class*="border"]:not([data-floating-menu]):hover {
+    transform: translateY(-1px);
+    transition: box-shadow 180ms ease, border-color 180ms ease, transform 180ms ease;
+  }
+
+  .dark .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-xl"][class*="border"]:not([data-floating-menu]):hover,
+  .dark .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-2xl"][class*="border"]:not([data-floating-menu]):hover,
+  .dark .admin-embedded-ui :is(div, section, article, aside)[class*="rounded-3xl"][class*="border"]:not([data-floating-menu]):hover {
+    border-color: rgba(255, 255, 255, 0.11) !important;
+    box-shadow:
+      0 28px 64px -24px rgba(99, 102, 241, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  }
+
+  .admin-embedded-ui :is(input, select, textarea) {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  /* Premium salary range slider (employee Browse Jobs) */
+  .salary-range-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 0.75rem;
+    border-radius: 9999px;
+    cursor: pointer;
+    outline: none;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      inset 0 -1px 0 rgba(15, 23, 42, 0.06);
+  }
+
+  .salary-range-slider--light {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      inset 0 -1px 0 rgba(15, 23, 42, 0.05),
+      0 10px 22px rgba(37, 99, 235, 0.08);
+  }
+
+  .salary-range-slider--dark {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      inset 0 -1px 0 rgba(2, 6, 23, 0.35),
+      0 12px 26px rgba(2, 6, 23, 0.35);
+  }
+
+  .salary-range-slider::-webkit-slider-runnable-track {
+    height: 0.75rem;
+    border-radius: 9999px;
+    background: transparent;
+  }
+
+  .salary-range-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1.1rem;
+    height: 1.1rem;
+    margin-top: -0.17rem;
+    border-radius: 9999px;
+    background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.35) 55%, rgba(255, 255, 255, 0.12));
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    box-shadow:
+      0 10px 22px rgba(2, 6, 23, 0.38),
+      0 0 0 1px rgba(99, 102, 241, 0.25);
+  }
+
+  .salary-range-slider--light::-webkit-slider-thumb {
+    background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.55) 55%, rgba(255, 255, 255, 0.18));
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    box-shadow:
+      0 10px 22px rgba(15, 23, 42, 0.18),
+      0 0 0 1px rgba(37, 99, 235, 0.18);
+  }
+
+  .salary-range-slider:focus-visible::-webkit-slider-thumb {
+    box-shadow:
+      0 10px 22px rgba(2, 6, 23, 0.38),
+      0 0 0 4px rgba(56, 189, 248, 0.28),
+      0 0 0 1px rgba(99, 102, 241, 0.35);
+  }
+
+  .salary-range-slider--light:focus-visible::-webkit-slider-thumb {
+    box-shadow:
+      0 10px 22px rgba(15, 23, 42, 0.18),
+      0 0 0 4px rgba(37, 99, 235, 0.2),
+      0 0 0 1px rgba(99, 102, 241, 0.22);
+  }
+
+  .salary-range-slider::-moz-range-track {
+    height: 0.75rem;
+    border-radius: 9999px;
+    background: transparent;
+    border: none;
+  }
+
+  .salary-range-slider::-moz-range-thumb {
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 9999px;
+    background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.35) 55%, rgba(255, 255, 255, 0.12));
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    box-shadow:
+      0 10px 22px rgba(2, 6, 23, 0.38),
+      0 0 0 1px rgba(99, 102, 241, 0.25);
+  }
+
+  .salary-range-slider--light::-moz-range-thumb {
+    background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.55) 55%, rgba(255, 255, 255, 0.18));
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    box-shadow:
+      0 10px 22px rgba(15, 23, 42, 0.18),
+      0 0 0 1px rgba(37, 99, 235, 0.18);
+  }
+
+  .salary-range-slider:focus-visible::-moz-range-thumb {
+    box-shadow:
+      0 10px 22px rgba(2, 6, 23, 0.38),
+      0 0 0 4px rgba(56, 189, 248, 0.28),
+      0 0 0 1px rgba(99, 102, 241, 0.35);
+  }
+
+  .salary-range-slider--light:focus-visible::-moz-range-thumb {
+    box-shadow:
+      0 10px 22px rgba(15, 23, 42, 0.18),
+      0 0 0 4px rgba(37, 99, 235, 0.2),
+      0 0 0 1px rgba(99, 102, 241, 0.22);
+  }
 }
