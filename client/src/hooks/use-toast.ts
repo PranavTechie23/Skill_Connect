@@ -13,6 +13,7 @@ type ToasterToast = ToastProps & {
   title?: React.ReactNode
   description?: React.ReactNode
   action?: ToastActionElement
+  isLoading?: boolean
 }
 
 const actionTypes = {
@@ -139,13 +140,52 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">
 
+function toastText(value: React.ReactNode): string {
+  if (typeof value === "string") return value
+  if (typeof value === "number") return String(value)
+  return ""
+}
+
+/** Infer success/destructive variant when callers omit `variant`. */
+export function inferToastVariant(
+  props: Pick<Toast, "title" | "description" | "variant">
+): ToastProps["variant"] {
+  if (props.variant) return props.variant
+
+  const title = toastText(props.title).trim()
+  const description = toastText(props.description).trim()
+  const combined = `${title} ${description}`.toLowerCase()
+
+  const successTitle =
+    /^success/i.test(title) ||
+    /^(saved|updated|deleted|created|copied|approved|submitted)$/i.test(title) ||
+    /successfully/.test(combined) ||
+    /welcome to/i.test(combined) ||
+    /^account created/i.test(title)
+
+  if (successTitle) return "success"
+
+  const errorTitle =
+    /^error/i.test(title) ||
+    /^failed/i.test(title) ||
+    /failure/i.test(combined) ||
+    /^validation$/i.test(title) ||
+    /denied/i.test(combined) ||
+    /could not/i.test(combined)
+
+  if (errorTitle) return "destructive"
+
+  return "default"
+}
+
 function toast({ ...props }: Toast) {
   const id = genId()
+  const variant = inferToastVariant(props)
 
   const update = (props: ToasterToast) =>
     dispatch({
       type: "UPDATE_TOAST",
-      toast: { ...props, id },
+      toast: { ...props, id, variant: props.variant ?? inferToastVariant(props) },
     })
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
 
@@ -153,6 +193,7 @@ function toast({ ...props }: Toast) {
     type: "ADD_TOAST",
     toast: {
       ...props,
+      variant,
       id,
       open: true,
       onOpenChange: (open) => {
@@ -166,6 +207,14 @@ function toast({ ...props }: Toast) {
     dismiss,
     update,
   }
+}
+
+function toastSuccess(props: Omit<Toast, "variant">) {
+  return toast({ ...props, variant: "success" })
+}
+
+function toastError(props: Omit<Toast, "variant">) {
+  return toast({ ...props, variant: "destructive" })
 }
 
 function useToast() {
@@ -184,8 +233,10 @@ function useToast() {
   return {
     ...state,
     toast,
+    toastSuccess,
+    toastError,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   }
 }
 
-export { useToast, toast }
+export { useToast, toast, toastSuccess, toastError }
