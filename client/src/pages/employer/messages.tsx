@@ -1,141 +1,220 @@
-import { useState } from 'react';
-import { Search, Send, Paperclip, Smile, MoreVertical, Phone, Video, Star, Check, CheckCheck, Circle } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Search, Send, Paperclip, Smile, MoreVertical, Calendar, Briefcase, ClipboardList, Loader2, Mail, Link2 } from 'lucide-react';
+import { MessageDeliveryTicks, messageDeliveryStatus } from '@/components/message-delivery-ticks';
 import { useTheme } from "@/components/theme-provider";
+import { useAuth } from '@/contexts/AuthContext';
+import { apiFetch } from '@/lib/api';
+import { formatRelativeTime } from '@/lib/notifications-service';
+import { getInitials } from '@/lib/employer-service';
 import AdminBackButton from "@/components/AdminBackButton";
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import { employerPageTitleClass } from '@/lib/employer-page-styles';
 
 interface MessagesProps {
   embedded?: boolean;
 }
 
+type RawMessage = Record<string, unknown>;
+
+function normalizeMessage(m: RawMessage) {
+  return {
+    id: String(m.id ?? ''),
+    senderId: String(m.senderId ?? m.sender_id ?? ''),
+    receiverId: String(m.receiverId ?? m.receiver_id ?? ''),
+    content: String(m.content ?? ''),
+    isRead: Boolean(m.isRead ?? m.is_read),
+    createdAt: String(m.createdAt ?? m.created_at ?? ''),
+    senderDisplayName: String(m.senderDisplayName ?? m.sender_display_name ?? ''),
+    receiverDisplayName: String(m.receiverDisplayName ?? m.receiver_display_name ?? ''),
+  };
+}
+
+const GRADIENTS = [
+  'from-blue-500 to-cyan-500',
+  'from-purple-500 to-pink-500',
+  'from-orange-500 to-red-500',
+  'from-green-500 to-emerald-500',
+  'from-violet-500 to-purple-500',
+  'from-amber-500 to-orange-500',
+];
+
 export default function Messages({ embedded = false }: MessagesProps) {
-  const [selectedChat, setSelectedChat] = useState(1);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const location = useLocation();
+  const initialPeer = (location.state as { peerId?: string } | null)?.peerId ?? null;
+
+  const [selectedPeerId, setSelectedPeerId] = useState<string | null>(initialPeer);
   const [message, setMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [peerNames, setPeerNames] = useState<Record<string, string>>({});
 
-  const conversations = [
-    {
-      id: 1,
-      name: 'Sarah Chen',
-      position: 'Senior Full Stack Developer',
-      avatar: 'SC',
-      lastMessage: 'Thank you for considering my application. I\'d love to discuss the role further.',
-      time: '2m ago',
-      unread: 2,
-      online: true,
-      status: 'typing',
-      gradient: 'from-blue-500 to-cyan-500'
+  useEffect(() => {
+    if (initialPeer) setSelectedPeerId(initialPeer);
+  }, [initialPeer]);
+
+  const { data: allMessages = [], isLoading } = useQuery({
+    queryKey: ['messages', user?.id],
+    queryFn: async () => {
+      const res = await apiFetch('/api/messages');
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []).map((m: RawMessage) => normalizeMessage(m));
     },
-    {
-      id: 2,
-      name: 'Marcus Johnson',
-      position: 'DevOps Engineer',
-      avatar: 'MJ',
-      lastMessage: 'I\'m available for an interview next week. What times work best for you?',
-      time: '15m ago',
-      unread: 0,
-      online: true,
-      status: 'read',
-      gradient: 'from-purple-500 to-pink-500'
-    },
-    {
-      id: 3,
-      name: 'Emily Rodriguez',
-      position: 'UX/UI Designer',
-      avatar: 'ER',
-      lastMessage: 'Here\'s my portfolio link with recent projects.',
-      time: '1h ago',
-      unread: 1,
-      online: false,
-      status: 'delivered',
-      gradient: 'from-orange-500 to-red-500'
-    },
-    {
-      id: 4,
-      name: 'David Kim',
-      position: 'Data Scientist',
-      avatar: 'DK',
-      lastMessage: 'Looking forward to hearing from you!',
-      time: '3h ago',
-      unread: 0,
-      online: false,
-      status: 'read',
-      gradient: 'from-green-500 to-emerald-500'
-    },
-    {
-      id: 5,
-      name: 'Priya Sharma',
-      position: 'Product Manager',
-      avatar: 'PS',
-      lastMessage: 'Could we schedule a call to discuss the product roadmap?',
-      time: '5h ago',
-      unread: 0,
-      online: true,
-      status: 'read',
-      gradient: 'from-violet-500 to-purple-500'
-    },
-    {
-      id: 6,
-      name: 'Alex Thompson',
-      position: 'Backend Developer',
-      avatar: 'AT',
-      lastMessage: 'Thank you for the opportunity!',
-      time: '1d ago',
-      unread: 0,
-      online: false,
-      status: 'read',
-      gradient: 'from-amber-500 to-orange-500'
+    enabled: !!user?.id,
+    refetchInterval: 20_000,
+  });
+
+  const conversations = useMemo(() => {
+    if (!user?.id) return [];
+    const map = new Map<string, {
+      id: string;
+      name: string;
+      position: string;
+      avatar: string;
+      lastMessage: string;
+      time: string;
+      unread: number;
+      online: boolean;
+      status: 'read' | 'typing';
+      gradient: string;
+      sortAt: string;
+    }>();
+
+    allMessages.forEach((msg, i) => {
+      const isOutbound = msg.senderId === user.id;
+      const peerId = isOutbound ? msg.receiverId : msg.senderId;
+      if (!peerId || peerId === user.id) return;
+      const displayName =
+        (isOutbound ? msg.receiverDisplayName : msg.senderDisplayName)?.trim() ||
+        peerNames[peerId]?.trim() ||
+        'Candidate';
+      const unreadAdd = msg.receiverId === user.id && !msg.isRead ? 1 : 0;
+      const existing = map.get(peerId);
+      if (!existing || msg.createdAt > existing.sortAt) {
+        map.set(peerId, {
+          id: peerId,
+          name: displayName,
+          position: 'Applicant',
+          avatar: getInitials(displayName),
+          lastMessage: msg.content,
+          time: msg.createdAt ? formatRelativeTime(msg.createdAt) : '',
+          unread: (existing?.unread ?? 0) + unreadAdd,
+          online: false,
+          status: 'read',
+          gradient: GRADIENTS[i % GRADIENTS.length],
+          sortAt: msg.createdAt,
+        });
+      } else if (existing) {
+        map.set(peerId, { ...existing, unread: existing.unread + unreadAdd });
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.sortAt.localeCompare(a.sortAt));
+  }, [allMessages, user?.id, peerNames]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const missing = new Set<string>();
+    for (const msg of allMessages) {
+      const peerId = msg.senderId === user.id ? msg.receiverId : msg.senderId;
+      const display = msg.senderId === user.id ? msg.receiverDisplayName : msg.senderDisplayName;
+      if (peerId && !display?.trim() && !peerNames[peerId]) missing.add(peerId);
     }
-  ];
+    missing.forEach(async (id) => {
+      try {
+        const res = await apiFetch(`/api/users/${id}`);
+        if (!res.ok) return;
+        const u = await res.json();
+        const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.email;
+        if (name) setPeerNames((prev) => ({ ...prev, [id]: name }));
+      } catch { /* ignore */ }
+    });
+  }, [allMessages, user?.id, peerNames]);
 
-  // Messages per conversation id so each chat shows distinct content
-  const messagesByConversation: Record<number, any[]> = {
-    1: [
-      { id: '1-1', sender: 'them', text: 'Hello! I\'m very excited about the Senior Full Stack Developer position at your company.', time: '10:30 AM', status: 'delivered' },
-      { id: '1-2', sender: 'me', text: 'Hi Sarah! Thank you for your application. We were impressed by your experience with React and Node.js.', time: '10:35 AM', status: 'read' },
-      { id: '1-3', sender: 'them', text: 'Thank you! I have over 7 years of experience building scalable web applications. I\'d love to learn more about your tech stack.', time: '10:37 AM', status: 'delivered' },
-      { id: '1-4', sender: 'me', text: 'We primarily use React, TypeScript, Node.js, and AWS. We\'re also moving towards a microservices architecture.', time: '10:40 AM', status: 'read' },
-      { id: '1-5', sender: 'them', text: 'That sounds perfect! I have extensive experience with all of those technologies. When would be a good time for an interview?', time: '10:42 AM', status: 'delivered' }
-    ],
-    2: [
-      { id: '2-1', sender: 'them', text: 'Hi, I\'m available for an interview next week. What times work best for you?', time: '9:12 AM', status: 'delivered' },
-      { id: '2-2', sender: 'me', text: 'Thanks Marcus — could you do Wednesday or Friday afternoon?', time: '9:20 AM', status: 'read' },
-      { id: '2-3', sender: 'them', text: 'Friday afternoon works great. I can do 3 PM.', time: '9:22 AM', status: 'delivered' }
-    ],
-    3: [
-      { id: '3-1', sender: 'them', text: 'Hi — here\'s my portfolio: https://portfolio.example.com. Would love feedback.', time: '11:05 AM', status: 'delivered' },
-      { id: '3-2', sender: 'me', text: 'Thanks Emily — your case studies look great. Can you share the design files for the last project?', time: '11:12 AM', status: 'read' }
-    ],
-    4: [
-      { id: '4-1', sender: 'them', text: 'I ran the data analysis for the recent task and have some questions about the feature requirements.', time: '8:30 AM', status: 'delivered' },
-      { id: '4-2', sender: 'me', text: 'Sure David — let\'s schedule 30 minutes to walk through the scope.', time: '8:45 AM', status: 'read' }
-    ],
-    5: [
-      { id: '5-1', sender: 'them', text: 'Could we schedule a call to discuss the product roadmap?', time: '2:10 PM', status: 'delivered' },
-      { id: '5-2', sender: 'me', text: 'Yes — how does Thursday 10 AM look for you?', time: '2:15 PM', status: 'read' }
-    ],
-    6: [
-      { id: '6-1', sender: 'them', text: 'Thank you for the opportunity — excited to potentially join the backend team.', time: '4:00 PM', status: 'delivered' },
-      { id: '6-2', sender: 'me', text: 'We\'ll review your profile and follow up next week.', time: '4:10 PM', status: 'read' }
-    ]
+  const { data: threadMessages = [] } = useQuery({
+    queryKey: ['messages', user?.id, selectedPeerId],
+    queryFn: async () => {
+      if (!selectedPeerId) return [];
+      const res = await apiFetch(`/api/messages?otherUserId=${selectedPeerId}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (Array.isArray(data) ? data : []).map((m: RawMessage) => normalizeMessage(m));
+    },
+    enabled: !!user?.id && !!selectedPeerId,
+    refetchInterval: 10_000,
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: async (content: string) => {
+      if (!user?.id || !selectedPeerId) throw new Error('Select a conversation first');
+      const res = await apiFetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ senderId: user.id, receiverId: selectedPeerId, content }),
+      });
+      if (!res.ok) {
+        let detail = 'Failed to send message';
+        try {
+          const err = await res.json();
+          detail = String(err.message ?? err.error ?? detail);
+        } catch { /* ignore */ }
+        throw new Error(detail);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setMessage('');
+      void queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+    onError: (e: Error) => {
+      toast({
+        title: 'Could not send message',
+        description: e.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const sendMessage = () => {
+    const text = message.trim();
+    if (!text || !selectedPeerId || sendMutation.isPending) return;
+    sendMutation.mutate(text);
   };
 
-  const currentChat = conversations.find(c => c.id === selectedChat);
-  const currentMessages = messagesByConversation[selectedChat] || [];
-  const filteredConversations = conversations.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.position.toLowerCase().includes(searchTerm.toLowerCase())
+  const currentChat = conversations.find((c) => c.id === selectedPeerId);
+  const currentMessages = threadMessages.map((msg) => ({
+    id: msg.id,
+    sender: msg.senderId === user?.id ? 'me' : 'them',
+    text: msg.content,
+    time: msg.createdAt ? formatRelativeTime(msg.createdAt) : '',
+    status: msg.isRead ? 'read' as const : 'delivered' as const,
+  }));
+  const filteredConversations = conversations.filter(
+    (c) =>
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.position.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  const getStatusIcon = (status: 'read' | 'delivered' | 'sent') => {
-    if (status === 'read') return <CheckCheck className="w-4 h-4 text-blue-400" />;
-    if (status === 'delivered') return <CheckCheck className="w-4 h-4 text-gray-500" />;
-    return <Check className="w-4 h-4 text-gray-500" />;
+  const shareJobLink = () => {
+    const jobsUrl = `${window.location.origin}/employer/jobs`;
+    void navigator.clipboard.writeText(jobsUrl).then(() => {
+      toast({ title: 'Link copied', description: 'Job management link copied — paste it in the chat.' });
+    });
   };
 
   const { theme } = useTheme();
   const darkMode =
     typeof window !== 'undefined' &&
     (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+
+  const inputClass = darkMode
+    ? 'bg-slate-800/80 border-white/10 text-white placeholder:text-slate-500 focus:border-violet-400/50 focus:ring-violet-500/25 transition-all duration-200 outline-none focus:ring-2 focus:ring-offset-0'
+    : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-indigo-400 focus:ring-indigo-500/20 transition-all duration-200 outline-none focus:ring-2 focus:ring-offset-0';
 
   return (
     <div className={`${embedded ? 'min-h-full' : 'min-h-screen'} ${embedded ? 'bg-transparent' : darkMode ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gray-50'}`}>
@@ -154,10 +233,7 @@ export default function Messages({ embedded = false }: MessagesProps) {
       <div className={`relative ${embedded ? 'w-full' : 'container mx-auto max-w-7xl'} ${embedded ? 'p-2' : 'p-6'}`}>
         {/* Header */}
         <div className="mb-6">
-          <h1 className={`text-4xl font-bold ${darkMode ? 'bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent' : 'text-gray-900'} mb-2`}>
-            Messages
-          </h1>
-          <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Connect with candidates and manage conversations</p>
+          <h1 className={employerPageTitleClass(darkMode)}>Messages</h1>
         </div>
 
         {/* Main Chat Interface */}
@@ -173,7 +249,7 @@ export default function Messages({ embedded = false }: MessagesProps) {
                   placeholder="Search conversations..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2.5 ${darkMode ? 'bg-slate-900/50 border-slate-700/50 text-gray-100 placeholder-gray-500' : 'bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-500'} border rounded-xl focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm`}
+                  className={`w-full pl-10 pr-4 py-2.5 rounded-xl border transition-all text-sm ${inputClass}`}
                 />
               </div>
             </div>
@@ -183,8 +259,8 @@ export default function Messages({ embedded = false }: MessagesProps) {
               {filteredConversations.map((conv) => (
                 <div
                   key={conv.id}
-                  onClick={() => setSelectedChat(conv.id)}
-                  className={`p-4 border-b ${darkMode ? 'border-slate-700/30' : 'border-gray-200'} cursor-pointer transition-all ${selectedChat === conv.id ? darkMode ? 'bg-slate-700/50 border-l-4 border-l-blue-500' : 'bg-blue-50 border-l-4 border-l-blue-500' : darkMode ? 'hover:bg-slate-700/30' : 'hover:bg-gray-100'}`}
+                  onClick={() => setSelectedPeerId(conv.id)}
+                  className={`p-4 border-b ${darkMode ? 'border-slate-700/30' : 'border-gray-200'} cursor-pointer transition-all ${selectedPeerId === conv.id ? darkMode ? 'bg-slate-700/50 border-l-4 border-l-blue-500' : 'bg-blue-50 border-l-4 border-l-blue-500' : darkMode ? 'hover:bg-slate-700/30' : 'hover:bg-gray-100'}`}
                 >
                   <div className="flex items-start gap-3">
                     {/* Avatar */}
@@ -192,9 +268,6 @@ export default function Messages({ embedded = false }: MessagesProps) {
                       <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${conv.gradient} flex items-center justify-center text-white font-bold shadow-lg`}>
                         {conv.avatar}
                       </div>
-                      {conv.online && (
-                        <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 ${darkMode ? 'border-slate-800' : 'border-white'} rounded-full`}></div>
-                      )}
                     </div>
 
                     <div className="flex-1 min-w-0">
@@ -205,14 +278,7 @@ export default function Messages({ embedded = false }: MessagesProps) {
                       <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'} truncate mb-1`}>{conv.position}</p>
                       <div className="flex items-center justify-between">
                         <p className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'} truncate flex-1`}>
-                          {conv.status === 'typing' ? (
-                            <span className="text-blue-400 italic flex items-center gap-1">
-                              <Circle className="w-2 h-2 fill-blue-400 animate-pulse" />
-                              typing...
-                            </span>
-                          ) : (
-                            conv.lastMessage
-                          )}
+                          {conv.lastMessage}
                         </p>
                         {conv.unread > 0 && (
                           <span className="ml-2 px-2 py-0.5 bg-blue-500 text-white text-xs rounded-full font-medium flex-shrink-0">
@@ -229,6 +295,8 @@ export default function Messages({ embedded = false }: MessagesProps) {
 
           {/* Chat Window */}
           <div className={`col-span-12 lg:col-span-8 ${darkMode ? 'bg-slate-800/50 backdrop-blur-xl border border-slate-700/50' : 'bg-white border border-gray-200'} rounded-2xl overflow-hidden flex flex-col`}>
+            {selectedPeerId ? (
+              <>
             {/* Chat Header */}
             {currentChat && (
               <div className={`p-4 border-b ${darkMode ? 'border-slate-700/50' : 'border-gray-200'} flex items-center justify-between`}>
@@ -237,9 +305,6 @@ export default function Messages({ embedded = false }: MessagesProps) {
                     <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${currentChat.gradient} flex items-center justify-center text-white font-bold shadow-lg`}>
                       {currentChat.avatar}
                     </div>
-                    {currentChat.online && (
-                      <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 ${darkMode ? 'border-slate-800' : 'border-white'} rounded-full`}></div>
-                    )}
                   </div>
                   <div>
                     <h2 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{currentChat.name}</h2>
@@ -249,16 +314,40 @@ export default function Messages({ embedded = false }: MessagesProps) {
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-2">
-                  <button className={`p-2 ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-gray-100'} rounded-lg transition-colors group`}>
-                    <Phone className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} group-hover:text-blue-400 transition-colors`} />
+                  <button
+                    type="button"
+                    title="Schedule interview"
+                    className={`p-2 ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-gray-100'} rounded-lg transition-colors group`}
+                  >
+                    <Calendar className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} group-hover:text-blue-400 transition-colors`} />
                   </button>
-                  <button className={`p-2 ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-gray-100'} rounded-lg transition-colors group`}>
-                    <Video className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} group-hover:text-purple-400 transition-colors`} />
+                  <button
+                    type="button"
+                    title="View application"
+                    className={`p-2 ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-gray-100'} rounded-lg transition-colors group`}
+                  >
+                    <Briefcase className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} group-hover:text-purple-400 transition-colors`} />
                   </button>
-                  <button className={`p-2 ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-gray-100'} rounded-lg transition-colors group`}>
-                    <Star className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} group-hover:text-yellow-400 transition-colors`} />
+                  <button
+                    type="button"
+                    title="Interview notes"
+                    className={`p-2 ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-gray-100'} rounded-lg transition-colors group`}
+                  >
+                    <ClipboardList className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} group-hover:text-amber-500 transition-colors`} />
                   </button>
-                  <button className={`p-2 ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-gray-100'} rounded-lg transition-colors group`}>
+                  <button
+                    type="button"
+                    title="Share job posting link"
+                    onClick={shareJobLink}
+                    className={`p-2 ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-gray-100'} rounded-lg transition-colors group`}
+                  >
+                    <Link2 className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} group-hover:text-emerald-400 transition-colors`} />
+                  </button>
+                  <button
+                    type="button"
+                    title="More options"
+                    className={`p-2 ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-gray-100'} rounded-lg transition-colors group`}
+                  >
                     <MoreVertical className={`w-5 h-5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} group-hover:text-gray-200 transition-colors`} />
                   </button>
                 </div>
@@ -280,14 +369,19 @@ export default function Messages({ embedded = false }: MessagesProps) {
                     </div>
                     <div className={`flex items-center gap-1 mt-1 px-2 ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}>
                       <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>{msg.time}</span>
-                      {msg.sender === 'me' && getStatusIcon(msg.status as 'read' | 'delivered' | 'sent')}
+                      {msg.sender === 'me' && (
+                        <MessageDeliveryTicks
+                          status={messageDeliveryStatus(msg.status === 'read')}
+                          onOwnBubble
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
               ))}
 
               {/* Typing Indicator */}
-              {currentChat?.status === 'typing' && (
+              {false && currentChat?.status === 'typing' && (
                 <div className="flex justify-start">
                   <div className={`${darkMode ? 'bg-slate-700/50' : 'bg-gray-200'} rounded-2xl p-4 max-w-[70%]`}>
                     <div className="flex gap-1">
@@ -302,29 +396,87 @@ export default function Messages({ embedded = false }: MessagesProps) {
 
             {/* Message Input */}
             <div className={`p-4 border-t ${darkMode ? 'border-slate-700/50' : 'border-gray-200'}`}>
-              <div className="flex items-end gap-3">
-                <div className={`flex-1 ${darkMode ? 'bg-slate-900/50 border-slate-700/50' : 'bg-gray-100 border-gray-300'} border rounded-2xl p-3 focus-within:border-blue-500/50 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all`}>
-                  <textarea
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Type your message..."
-                    rows={2}
-                    className={`w-full bg-transparent ${darkMode ? 'text-gray-100 placeholder-gray-500' : 'text-gray-900 placeholder-gray-500'} resize-none focus:outline-none text-sm`}
-                  />
-                  <div className="flex items-center gap-2 mt-2">
-                    <button className={`p-1.5 ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-gray-200'} rounded-lg transition-colors group`}>
-                      <Paperclip className={`w-4 h-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'} group-hover:text-blue-400 transition-colors`} />
-                    </button>
-                    <button className={`p-1.5 ${darkMode ? 'hover:bg-slate-700/50' : 'hover:bg-gray-200'} rounded-lg transition-colors group`}>
-                      <Smile className={`w-4 h-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'} group-hover:text-yellow-400 transition-colors`} />
-                    </button>
-                  </div>
-                </div>
-                <button className={`p-3 ${darkMode ? 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600' : 'bg-blue-500 hover:bg-blue-600'} rounded-2xl transition-all shadow-lg ${darkMode ? 'shadow-blue-500/25 hover:shadow-blue-500/40' : 'shadow-blue-500/50 hover:shadow-blue-500/60'} group`}>
-                  <Send className="w-5 h-5 text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+              <div className="flex items-end gap-2 min-w-0">
+                <button
+                  type="button"
+                  className={cn(
+                    'p-2.5 rounded-xl transition-colors shrink-0',
+                    darkMode ? 'text-gray-400 hover:bg-slate-700/50' : 'text-gray-500 hover:bg-gray-100',
+                  )}
+                  aria-label="Attach file"
+                >
+                  <Paperclip className="w-5 h-5" />
+                </button>
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Type your message..."
+                  rows={1}
+                  className={cn(
+                    'flex-1 min-w-0 px-4 py-2.5 rounded-xl resize-none text-sm outline-none transition-colors max-h-28 border',
+                    inputClass
+                  )}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className={cn(
+                    'p-2.5 rounded-xl transition-colors shrink-0 hidden sm:block',
+                    darkMode ? 'text-gray-400 hover:bg-slate-700/50' : 'text-gray-500 hover:bg-gray-100',
+                  )}
+                  aria-label="Add emoji"
+                >
+                  <Smile className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  disabled={!message.trim() || !selectedPeerId || sendMutation.isPending}
+                  onClick={sendMessage}
+                  aria-label="Send message"
+                  className={cn(
+                    'p-2.5 rounded-xl transition-all shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center',
+                    !message.trim() || !selectedPeerId
+                      ? darkMode
+                        ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : darkMode
+                        ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90 shadow-lg shadow-blue-500/25'
+                        : 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/30',
+                  )}
+                >
+                  {sendMutation.isPending ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
                 </button>
               </div>
             </div>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+                <div
+                  className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-5 ${
+                    darkMode
+                      ? 'bg-gradient-to-br from-blue-500/30 to-purple-500/20 ring-1 ring-slate-600/50'
+                      : 'bg-gradient-to-br from-blue-100 to-purple-100'
+                  }`}
+                >
+                  <Mail className={`w-8 h-8 ${darkMode ? 'text-blue-300' : 'text-blue-500'}`} />
+                </div>
+                <h3 className={`text-xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  Select a conversation
+                </h3>
+                <p className={`text-sm max-w-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Choose a chat from the sidebar to start messaging
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

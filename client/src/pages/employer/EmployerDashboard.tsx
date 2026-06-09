@@ -1,11 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from "@/components/theme-provider";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiFetch } from '@/lib/api';
+import {
+  applicantDisplayName,
+  computeApplicationStats,
+  fetchEmployerApplications,
+  fetchEmployerJobs,
+  mapToEmployerTabStatus,
+  resolveApplicantSkills,
+} from '@/lib/employer-service';
+import { formatRelativeTime } from '@/lib/notifications-service';
+import { scrollDashboardToTop } from '@/lib/scroll-to-top';
+import { cn } from '@/lib/utils';
+import { employerPageTitleClass } from '@/lib/employer-page-styles';
 import { useToast } from "@/hooks/use-toast";
-import CandidatesPage from './candidates';
 import JobManagement from './job-management';
 import ApplicationsPage from './applications';
 import MessagesPage from './messages';
@@ -15,13 +26,21 @@ import ProfilePage from './profile';
 import SettingsPage from './settings';
 
 import { ModeToggle } from "@/components/ui/dark-mode-toggle";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+} from 'recharts';
 
 import { 
-  Briefcase, Users, TrendingUp, Clock, Plus, MoreVertical, 
+  Briefcase, Users, TrendingUp, Clock, MoreVertical, 
   MapPin, DollarSign, Calendar, Eye, Settings, LogOut, Menu, X, 
-  Home, BarChart3, User, Star, ChevronDown, Edit, Pause, Play, 
-  Trash2, Copy, CheckCircle, ArrowRight, Target, Award, Zap, Mail,
-  Bell, Search, Filter, Download, Share2, UserCircle, Loader2
+  Home, BarChart3, User, Star, ChevronDown, ChevronLeft, ChevronRight, Edit, Pause, Play, 
+  Trash2, Copy, CheckCircle, ArrowRight, Target, Award, Mail,
+  Bell, Search, UserCircle
 } from 'lucide-react';
 
 interface Job {
@@ -44,82 +63,117 @@ interface Application {
   candidatePhoto?: string;
   jobTitle: string;
   appliedDate: string;
+  appliedAt?: string;
   matchScore: number;
   status: 'new' | 'reviewing' | 'shortlisted' | 'interview' | 'rejected';
   skills: string[];
 }
 
-const mockJobs: Job[] = [
-  {
-    id: '1',
-    title: 'Senior Frontend Developer',
-    department: 'Engineering',
-    location: 'San Francisco, CA',
-    type: 'Full-time',
-    salary: '$120k - $150k',
-    postedDate: '2024-01-15',
-    applications: 45,
-    newApplications: 12,
-    status: 'active',
-    views: 234
-  },
-  {
-    id: '2',
-    title: 'Product Designer',
-    department: 'Design',
-    location: 'Remote',
-    type: 'Full-time',
-    salary: '$90k - $120k',
-    postedDate: '2024-01-10',
-    applications: 67,
-    newApplications: 8,
-    status: 'active',
-    views: 189
-  },
-  {
-    id: '3',
-    title: 'Marketing Manager',
-    department: 'Marketing',
-    location: 'New York, NY',
-    type: 'Full-time',
-    salary: '$80k - $100k',
-    postedDate: '2024-01-05',
-    applications: 32,
-    newApplications: 0,
-    status: 'paused',
-    views: 156
-  }
+const PIPELINE_STAGE_META: {
+  stage: string;
+  short: string;
+  bar: string;
+  glow: string;
+  ring: string;
+}[] = [
+  { stage: 'New Applications', short: 'New', bar: 'from-sky-400 to-blue-500', glow: 'shadow-sky-500/30', ring: 'ring-sky-400/40' },
+  { stage: 'Under Review', short: 'Review', bar: 'from-violet-400 to-purple-500', glow: 'shadow-violet-500/30', ring: 'ring-violet-400/40' },
+  { stage: 'Shortlisted', short: 'Shortlist', bar: 'from-fuchsia-400 to-pink-500', glow: 'shadow-fuchsia-500/30', ring: 'ring-fuchsia-400/40' },
+  { stage: 'Interview', short: 'Interview', bar: 'from-amber-400 to-orange-500', glow: 'shadow-amber-500/30', ring: 'ring-amber-400/40' },
+  { stage: 'Hired', short: 'Hired', bar: 'from-emerald-400 to-teal-500', glow: 'shadow-emerald-500/30', ring: 'ring-emerald-400/40' },
 ];
 
-const mockApplications: Application[] = [
-  {
-    id: '1',
-    candidateName: 'Sarah Johnson',
-    jobTitle: 'Senior Frontend Developer',
-    appliedDate: '2024-01-20',
-    matchScore: 95,
-    status: 'shortlisted',
-    skills: ['React', 'TypeScript', 'Node.js']
+const ACTIVITY_STYLES: Record<string, { bg: string; text: string; ring: string; dot: string }> = {
+  blue: {
+    bg: 'bg-blue-500/15',
+    text: 'text-blue-400',
+    ring: 'ring-blue-400/25',
+    dot: 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.6)]',
   },
-  {
-    id: '2',
-    candidateName: 'Michael Chen',
-    jobTitle: 'Product Designer',
-    appliedDate: '2024-01-19',
-    matchScore: 88,
-    status: 'new',
-    skills: ['Figma', 'UI/UX', 'Prototyping']
+  purple: {
+    bg: 'bg-purple-500/15',
+    text: 'text-purple-400',
+    ring: 'ring-purple-400/25',
+    dot: 'bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.6)]',
   },
-  {
-    id: '3',
-    candidateName: 'Emily Rodriguez',
-    jobTitle: 'Senior Frontend Developer',
-    appliedDate: '2024-01-18',
-    matchScore: 92,
-    status: 'interview',
-    skills: ['React', 'Redux', 'GraphQL']
+  emerald: {
+    bg: 'bg-emerald-500/15',
+    text: 'text-emerald-400',
+    ring: 'ring-emerald-400/25',
+    dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]',
+  },
+  indigo: {
+    bg: 'bg-indigo-500/15',
+    text: 'text-indigo-400',
+    ring: 'ring-indigo-400/25',
+    dot: 'bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.6)]',
+  },
+  rose: {
+    bg: 'bg-rose-500/15',
+    text: 'text-rose-400',
+    ring: 'ring-rose-400/25',
+    dot: 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.6)]',
+  },
+};
+
+/** Shared dashboard card typography */
+const widgetTitle = 'text-lg font-extrabold tracking-tight';
+const widgetSubtitle = 'text-sm font-medium';
+const widgetBody = 'text-sm';
+const widgetMeta = 'text-sm';
+
+function WidgetShine({ darkMode }: { darkMode: boolean }) {
+  return (
+    <div
+      className={cn(
+        'pointer-events-none absolute inset-x-0 top-0 h-px',
+        darkMode
+          ? 'bg-gradient-to-r from-transparent via-white/15 to-transparent'
+          : 'bg-gradient-to-r from-transparent via-slate-300/70 to-transparent',
+      )}
+    />
+  );
+}
+
+function buildWeekActivity(applications: Application[]) {
+  const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const counts = [0, 0, 0, 0, 0, 0, 0];
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  const dayOffset = now.getDay() === 0 ? 6 : now.getDay() - 1;
+  startOfWeek.setDate(now.getDate() - dayOffset);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const prevWeekStart = new Date(startOfWeek);
+  prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+  let thisWeek = 0;
+  let prevWeek = 0;
+
+  for (const app of applications) {
+    const raw = app.appliedAt ?? app.appliedDate;
+    const applied = new Date(raw);
+    if (Number.isNaN(applied.getTime())) continue;
+
+    if (applied >= startOfWeek) {
+      const idx = applied.getDay() === 0 ? 6 : applied.getDay() - 1;
+      counts[idx] += 1;
+      thisWeek += 1;
+    } else if (applied >= prevWeekStart && applied < startOfWeek) {
+      prevWeek += 1;
+    }
   }
-];
+
+  const chart = labels.map((name, i) => ({ name, value: counts[i] }));
+  const peak = Math.max(...counts, 1);
+  const trendPct =
+    prevWeek === 0
+      ? thisWeek > 0
+        ? 100
+        : null
+      : Math.round(((thisWeek - prevWeek) / prevWeek) * 100);
+
+  return { chart, thisWeek, peak, trendPct };
+}
 
 const EmployerDashboard: React.FC = () => {
   const { theme } = useTheme();
@@ -138,13 +192,36 @@ const EmployerDashboard: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [currentJobPage, setCurrentJobPage] = useState(1);
+  const jobsPerPage = 3;
+  
+  const indexOfLastJob = currentJobPage * jobsPerPage;
+  const indexOfFirstJob = indexOfLastJob - jobsPerPage;
+  const currentJobs = jobs.slice(indexOfFirstJob, indexOfLastJob);
+  const totalJobPages = Math.ceil(jobs.length / jobsPerPage);
+
   const [applications, setApplications] = useState<Application[]>([]);
+  const [currentAppPage, setCurrentAppPage] = useState(1);
+  const appsPerPage = 3;
+  
+  const indexOfLastApp = currentAppPage * appsPerPage;
+  const indexOfFirstApp = indexOfLastApp - appsPerPage;
+  const currentApps = applications.slice(indexOfFirstApp, indexOfLastApp);
+  const totalAppPages = Math.ceil(applications.length / appsPerPage);
   const [stats, setStats] = useState({
     activeJobs: 0,
     totalApplications: 0,
     shortlisted: 0,
-    interviewed: 0
+    interviewed: 0,
+    newApplications: 0,
+    thisWeek: 0,
+    hired: 0,
   });
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [pipelineCounts, setPipelineCounts] = useState<{ stage: string; count: number }[]>([]);
+  const [recentActivity, setRecentActivity] = useState<
+    { icon: typeof Users; color: string; title: string; description: string; time: string }[]
+  >([]);
   const [profileScore, setProfileScore] = useState(0);
   const [company, setCompany] = useState({
     name: 'Your Company',
@@ -175,61 +252,110 @@ const EmployerDashboard: React.FC = () => {
   };
 
   const switchToTab = (tabId: string, state?: Record<string, unknown>) => {
-    setActiveTab(tabId);
-    const query = tabId === 'overview' ? '' : `?tab=${tabId}`;
+    const resolved = tabId === "candidates" ? "applications" : tabId;
+    setActiveTab(resolved);
+    const query = resolved === "overview" ? "" : `?tab=${resolved}`;
     navigate(`/employer/dashboard${query}`, state ? { state } : undefined);
   };
+
+  const formatNavBadge = (value: number) => (value > 99 ? "99+" : String(value));
+
+  const NavBadge = ({ value, collapsed }: { value: number; collapsed: boolean }) => (
+    <span
+      className={cn(
+        "flex items-center justify-center font-bold leading-none z-10",
+        collapsed
+          ? "absolute -top-1 -right-1 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full text-[10px] shadow-sm ring-2"
+          : "px-2 py-0.5 min-w-[1.25rem] rounded-full text-xs",
+        darkMode
+          ? "bg-blue-500 text-white ring-gray-900"
+          : "bg-blue-600 text-white ring-white",
+      )}
+      aria-hidden
+    >
+      {formatNavBadge(value)}
+    </span>
+  );
 
   const NavItem = ({ icon: Icon, label, id, badge }: any) => {
     const handleNavClick = () => {
       switchToTab(id);
-      if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      if (typeof window !== "undefined" && window.innerWidth < 1024) {
         setSidebarOpen(false);
       }
     };
 
+    const badgeCount = typeof badge === "number" && badge > 0 ? badge : undefined;
+    const tooltipText =
+      badgeCount != null ? `${label} (${formatNavBadge(badgeCount)})` : label;
+
     return (
       <button
+        type="button"
         onClick={handleNavClick}
-        title={!sidebarOpen ? label : undefined}
-        className={`w-full flex items-center ${sidebarOpen ? 'justify-between px-4' : 'justify-center px-2'} py-3 rounded-xl transition-all duration-200 group relative overflow-visible ${
+        title={!sidebarOpen ? tooltipText : undefined}
+        aria-label={tooltipText}
+        aria-current={activeTab === id ? "page" : undefined}
+        className={cn(
+          "w-full flex items-center rounded-xl transition-all duration-200 group relative overflow-visible",
+          sidebarOpen ? "justify-between px-4 py-3" : "justify-center h-11 px-0 py-0",
           activeTab === id
             ? darkMode
-              ? 'bg-blue-500/10 text-blue-400 shadow-lg shadow-blue-500/10'
-              : 'bg-blue-50 text-blue-700 shadow-lg shadow-blue-500/20'
+              ? "bg-blue-500/10 text-blue-400 shadow-lg shadow-blue-500/10"
+              : "bg-blue-50 text-blue-700 shadow-lg shadow-blue-500/20"
             : darkMode
-            ? 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-200'
-            : 'text-gray-600 hover:bg-gray-100/80 hover:text-gray-900'
-        }`}
+              ? "text-gray-200 hover:bg-gray-800/50 hover:text-white"
+              : "text-gray-700 hover:bg-gray-100/80 hover:text-gray-900",
+          !sidebarOpen &&
+            activeTab === id &&
+            (darkMode ? "ring-1 ring-inset ring-blue-500/35" : "ring-1 ring-inset ring-blue-200"),
+        )}
       >
-        <div className={`flex items-center z-10 ${sidebarOpen ? 'gap-3' : 'justify-center'}`}>
-          <Icon className="w-5 h-5" />
-          {sidebarOpen && <span className="font-medium whitespace-nowrap">{label}</span>}
-        </div>
-        {badge && (
-          <span className={`px-2 py-1 rounded-full text-xs font-bold z-10 ${
-            darkMode ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'
-          } ${
-            sidebarOpen
-              ? 'opacity-100'
-              : 'opacity-0 max-w-0 overflow-hidden px-0 py-0'
-          }`}>
-            {badge}
+        <div
+          className={cn(
+            "flex items-center z-10 min-w-0",
+            sidebarOpen ? "gap-3" : "justify-center w-full",
+          )}
+        >
+          <span
+            className={cn(
+              "relative flex shrink-0 items-center justify-center",
+              sidebarOpen ? "w-5 h-5" : "w-10 h-10",
+            )}
+          >
+            <Icon className="w-5 h-5" aria-hidden />
+            {!sidebarOpen && badgeCount != null && (
+              <NavBadge value={badgeCount} collapsed />
+            )}
           </span>
+          {sidebarOpen && (
+            <span className="font-medium whitespace-nowrap">{label}</span>
+          )}
+        </div>
+        {sidebarOpen && badgeCount != null && (
+          <NavBadge value={badgeCount} collapsed={false} />
         )}
         {!sidebarOpen && (
           <span
-            className={`pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-[90] -translate-y-1/2 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-semibold opacity-0 shadow-lg transition-all duration-150 group-hover:opacity-100 group-hover:translate-x-1 ${
-              darkMode ? 'bg-gray-800 text-gray-100 border border-gray-700' : 'bg-white text-gray-900 border border-gray-300'
-            }`}
+            className={cn(
+              "pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-[90] -translate-y-1/2 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-semibold opacity-0 shadow-lg transition-all duration-150 group-hover:opacity-100 group-hover:translate-x-1",
+              darkMode
+                ? "bg-gray-800 text-gray-100 border border-gray-700"
+                : "bg-white text-gray-900 border border-gray-300",
+            )}
           >
-            {label}
+            {tooltipText}
           </span>
         )}
         {activeTab === id && (
-          <div className={`absolute inset-0 bg-gradient-to-r ${
-            darkMode ? 'from-blue-500/5 to-indigo-500/5' : 'from-blue-500/10 to-indigo-500/10'
-          }`} />
+          <div
+            className={cn(
+              "absolute inset-0 bg-gradient-to-r",
+              darkMode
+                ? "from-blue-500/5 to-indigo-500/5"
+                : "from-blue-500/10 to-indigo-500/10",
+            )}
+          />
         )}
       </button>
     );
@@ -240,46 +366,24 @@ const EmployerDashboard: React.FC = () => {
   const { logout } = useAuth();
 
   const handleLogout = async () => {
-    const logoutToast = toast({
-      title: "Logging out...",
+    toast({
+      title: "",
+      className: "border border-emerald-500/20 bg-slate-950 text-white p-0 pr-8 overflow-hidden min-h-[64px] shadow-2xl",
+      duration: 850,
       description: (
-        <span className="inline-flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Please wait
-        </span>
+        <div className="relative w-full px-4 py-4">
+          <div className="flex items-center gap-3">
+            <span className="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center">
+              <CheckCircle className="w-6 h-6 text-white" />
+            </span>
+            <span className="text-lg leading-none font-semibold text-white">Logout Successful</span>
+          </div>
+        </div>
       ),
     });
 
-    try {
-      await logout();
-      logoutToast.update({
-        id: logoutToast.id,
-        title: "",
-        className: "border-0 bg-white text-gray-800 p-0 pr-8 overflow-hidden min-h-[72px]",
-        duration: 1800,
-        description: (
-          <div className="relative w-full px-4 py-4">
-            <div className="flex items-center gap-3">
-              <span className="w-9 h-9 rounded-full bg-green-500 flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-white" />
-              </span>
-              <span className="text-xl leading-none font-medium text-gray-600">Logout Successful</span>
-            </div>
-            <span className="absolute bottom-0 left-0 h-1 bg-green-500 animate-[logout-progress-fill_1.8s_linear_forwards]" />
-          </div>
-        ),
-      });
-    } catch (e) {
-      console.warn('Logout failed:', e);
-      logoutToast.update({
-        id: logoutToast.id,
-        title: "Logout failed",
-        description: "Something went wrong while logging out.",
-        variant: "destructive",
-      });
-      return;
-    }
-    navigate('/', { replace: true });
+    void logout().catch((e) => console.warn('Logout failed:', e));
+    window.setTimeout(() => navigate('/', { replace: true }), 450);
   };
 
   useEffect(() => {
@@ -300,6 +404,10 @@ const EmployerDashboard: React.FC = () => {
     const tab = new URLSearchParams(location.search).get('tab');
     setActiveTab(tab ?? 'overview');
   }, [location.search]);
+
+  useEffect(() => {
+    scrollDashboardToTop();
+  }, [activeTab]);
 
   // Calculate profile completion score
   const calculateProfileScore = (companyData: any, userData: any): number => {
@@ -428,96 +536,122 @@ const EmployerDashboard: React.FC = () => {
 
       setLoading(true);
       try {
-        // Fetch jobs for this employer
-        const jobsResponse = await apiFetch('/api/employer/jobs', {
-          credentials: 'include'
-        });
+        const [jobsData, applicationsData] = await Promise.all([
+          fetchEmployerJobs(),
+          fetchEmployerApplications(user.id),
+        ]);
 
-        if (!jobsResponse.ok) {
-          throw new Error('Failed to fetch jobs');
-        }
-
-        const jobsData = await jobsResponse.json();
-        
-        // Transform jobs data to match the Job interface
-        const transformedJobs: Job[] = jobsData.map((job: any) => ({
-          id: String(job.id),
+        const transformedJobs: Job[] = jobsData.map((job) => ({
+          id: job.id,
           title: job.title,
-          department: job.company?.industry || 'General',
+          department: job.company?.industry || "General",
           location: job.location,
-          type: job.jobType || 'Full-time',
-          salary: job.salaryMin && job.salaryMax 
-            ? `$${Math.round(job.salaryMin/1000)}k - $${Math.round(job.salaryMax/1000)}k`
-            : 'Not specified',
-          postedDate: job.createdAt 
+          type: job.jobType || "Full-time",
+          salary:
+            job.salaryMin && job.salaryMax
+              ? `$${Math.round(job.salaryMin / 1000)}k - $${Math.round(job.salaryMax / 1000)}k`
+              : "Not specified",
+          postedDate: job.createdAt
             ? new Date(job.createdAt).toLocaleDateString()
             : new Date().toLocaleDateString(),
           applications: job.applications || 0,
           newApplications: job.newApplications || 0,
-          status: job.isActive ? 'active' : 'paused',
-          views: job.views || 0
+          status: job.isActive ? "active" : "paused",
+          views: job.views || 0,
         }));
 
         setJobs(transformedJobs);
 
-        // Fetch applications for this employer
-        const applicationsResponse = await apiFetch(`/api/applications?employerId=${user.id}`, {
-          credentials: 'include'
+        const transformedApplications: Application[] = applicationsData.map((app) => {
+          const tabStatus = mapToEmployerTabStatus(app.status);
+          return {
+            id: String(app.id),
+            candidateName: applicantDisplayName(app.applicant),
+            candidatePhoto: app.applicant?.profilePhoto ?? undefined,
+            jobTitle: app.job?.title || "Unknown Position",
+            appliedAt: app.appliedAt ? String(app.appliedAt) : undefined,
+            appliedDate: app.appliedAt
+              ? new Date(app.appliedAt).toLocaleDateString()
+              : new Date().toLocaleDateString(),
+            matchScore: app.matchScore ?? 0,
+            status: tabStatus === "new" ? "new" : tabStatus === "reviewing" ? "reviewing" : tabStatus === "shortlisted" ? "shortlisted" : tabStatus === "interview" ? "interview" : tabStatus === "rejected" ? "rejected" : "new",
+            skills: resolveApplicantSkills(app),
+          };
         });
 
-        if (applicationsResponse.ok) {
-          const applicationsData = await applicationsResponse.json();
-          
-          // Transform applications data
-          const transformedApplications: Application[] = applicationsData.slice(0, 3).map((app: any) => {
-            const applicant = app.applicant || {};
-            const applicantName = applicant.firstName && applicant.lastName
-              ? `${applicant.firstName} ${applicant.lastName}`
-              : applicant.email || 'Unknown Candidate';
-            
-            // Get skills from applicant profile or job
-            const skills = applicant.skills || app.job?.skills || [];
-            
+        setApplications(transformedApplications);
+
+        const appStats = computeApplicationStats(applicationsData);
+        const activeJobs = transformedJobs.filter((j) => j.status === "active").length;
+
+        setStats({
+          activeJobs,
+          totalApplications: appStats.total,
+          shortlisted: appStats.shortlisted,
+          interviewed: appStats.interview,
+          newApplications: appStats.newCount,
+          thisWeek: appStats.thisWeek,
+          hired: appStats.hired,
+        });
+
+        setPipelineCounts(appStats.pipeline);
+
+        const activity = applicationsData
+          .filter((app) => mapToEmployerTabStatus(app.status) !== 'rejected')
+          .slice(0, 8)
+          .map((app) => {
+            const name = applicantDisplayName(app.applicant);
+            const jobTitle = app.job?.title || 'a role';
+            const tab = mapToEmployerTabStatus(app.status);
+            let title = 'New application received';
+            let color = 'blue';
+            if (tab === 'shortlisted') {
+              title = 'Candidate shortlisted';
+              color = 'purple';
+            } else if (tab === 'interview') {
+              title = 'Interview stage';
+              color = 'emerald';
+            } else if (tab === 'hired') {
+              title = 'Candidate hired';
+              color = 'indigo';
+            }
             return {
-              id: String(app.id),
-              candidateName: applicantName,
-              candidatePhoto: applicant.profilePhoto,
-              jobTitle: app.job?.title || 'Unknown Position',
-              appliedDate: app.appliedAt 
-                ? new Date(app.appliedAt).toLocaleDateString()
-                : new Date().toLocaleDateString(),
-              matchScore: Math.floor(Math.random() * (95 - 80 + 1) + 80), // TODO: Calculate real match score
-              status: app.status || 'new',
-              skills: Array.isArray(skills) ? skills : []
+              icon: Users,
+              color,
+              title,
+              description: `${name} — ${jobTitle}`,
+              time: formatRelativeTime(app.appliedAt),
             };
-          });
+          })
+          .slice(0, 3);
+        setRecentActivity(activity);
 
-          setApplications(transformedApplications);
-
-          // Calculate stats
-          const activeJobs = transformedJobs.filter(j => j.status === 'active').length;
-          const totalApplications = applicationsData.length;
-          const shortlisted = applicationsData.filter((app: any) => app.status === 'shortlisted').length;
-          const interviewed = applicationsData.filter((app: any) => app.status === 'interview').length;
-
-          setStats({
-            activeJobs,
-            totalApplications,
-            shortlisted,
-            interviewed
-          });
+        const messagesRes = await apiFetch("/api/messages", { credentials: "include" });
+        if (messagesRes.ok) {
+          const messages = await messagesRes.json();
+          const unread = (Array.isArray(messages) ? messages : []).filter(
+            (m: { receiverId?: string; receiver_id?: string; isRead?: boolean; is_read?: boolean }) =>
+              String(m.receiverId ?? m.receiver_id) === String(user.id) &&
+              !(m.isRead ?? m.is_read),
+          ).length;
+          setUnreadMessages(unread);
         }
-
       } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
-        // Keep empty state on error; DB/API is source of truth
+        console.error("Failed to fetch dashboard data:", error);
         setJobs([]);
+        setApplications([]);
         setStats({
           activeJobs: 0,
           totalApplications: 0,
           shortlisted: 0,
-          interviewed: 0
+          interviewed: 0,
+          newApplications: 0,
+          thisWeek: 0,
+          hired: 0,
         });
+        setPipelineCounts([]);
+        setRecentActivity([]);
+        setUnreadMessages(0);
       } finally {
         setLoading(false);
       }
@@ -525,6 +659,23 @@ const EmployerDashboard: React.FC = () => {
 
     fetchDashboardData();
   }, [user?.id]);
+
+  const weekActivity = useMemo(() => buildWeekActivity(applications), [applications]);
+
+  const pipelineRows = useMemo(() => {
+    const source =
+      pipelineCounts.length > 0
+        ? pipelineCounts
+        : PIPELINE_STAGE_META.map((m) => ({ stage: m.stage, count: 0 }));
+    const byStage = new Map(source.map((r) => [r.stage, r.count]));
+    return PIPELINE_STAGE_META.map((meta) => ({
+      ...meta,
+      count: byStage.get(meta.stage) ?? 0,
+    }));
+  }, [pipelineCounts]);
+
+  const pipelineTotal = pipelineRows.reduce((sum, r) => sum + r.count, 0);
+  const pipelineMax = Math.max(...pipelineRows.map((r) => r.count), 1);
 
   if (loading) {
     return (
@@ -538,13 +689,23 @@ const EmployerDashboard: React.FC = () => {
   }
 
   return (
-    <div className={`min-h-screen w-screen transition-colors duration-300 fixed inset-0 ${darkMode ? 'bg-gradient-to-br from-gray-900 via-gray-900 to-gray-950' : 'bg-gradient-to-br from-slate-50 via-indigo-50/35 to-violet-100/35'} overflow-x-hidden`}>
+    <div className={`min-h-screen w-screen transition-colors duration-300 fixed inset-0 ${darkMode ? 'bg-gradient-to-br from-gray-900 via-gray-900 to-gray-950' : 'bg-gradient-to-br from-slate-50 via-indigo-50/40 to-violet-100/40'} overflow-x-hidden`}>
+      {/* Subtle Dot Grid Pattern */}
+      <div 
+        className="absolute inset-0 pointer-events-none" 
+        style={{ 
+          backgroundImage: darkMode 
+            ? 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)' 
+            : 'radial-gradient(circle at 1px 1px, rgba(79,70,229,0.07) 1px, transparent 0)',
+          backgroundSize: '24px 24px'
+        }} 
+      />
       {/* Enhanced Animated background */}
-      <div className={`fixed inset-0 overflow-hidden pointer-events-none ${darkMode ? 'opacity-100' : 'opacity-30'}`}>
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-        <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute top-1/4 left-1/3 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1.5s' }}></div>
+      <div className={`fixed inset-0 overflow-hidden pointer-events-none ${darkMode ? 'opacity-100' : 'opacity-70'}`}>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-purple-500/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute -bottom-40 right-1/3 w-80 h-80 bg-cyan-500/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute top-1/4 left-1/3 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1.5s' }}></div>
       </div>
 
       {/* Enhanced Navbar */}
@@ -588,62 +749,54 @@ const EmployerDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className={`flex items-center gap-2 rounded-2xl p-1.5 border ${
-              darkMode ? 'bg-gray-900/30 border-white/10' : 'bg-white/60 border-gray-200'
-            }`}>
-              <div className="flex items-center gap-1">
-                <button className={`relative p-2.5 rounded-xl transition-all duration-200 ${
-                  darkMode 
-                    ? 'text-gray-400 hover:text-white hover:bg-gray-800/80' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/80'
-                }`}>
-                  <Mail className="w-5 h-5" />
-                  <span className="absolute top-1.5 right-1.5 block h-2 w-2 rounded-full bg-blue-500 ring-2 ring-gray-50 dark:ring-gray-900"></span>
-                </button>
-                
-                <button className={`p-2.5 rounded-xl transition-all duration-200 ${
-                  darkMode 
-                    ? 'text-gray-400 hover:text-white hover:bg-gray-800/80' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/80'
-                }`}>
-                  <Bell className="w-5 h-5" />
-                </button>
+            {/* Right Side Actions - Minimal & Premium */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <button className={`relative p-2.5 rounded-full transition-all duration-300 ${
+                darkMode 
+                  ? 'text-gray-400 hover:text-white hover:bg-white/10' 
+                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+              }`}>
+                <Mail className="w-5 h-5" />
+                <span className="absolute top-2 right-2 block h-2 w-2 rounded-full bg-blue-500 ring-2 ring-gray-900 dark:ring-gray-900"></span>
+              </button>
+              
+              <button className={`p-2.5 rounded-full transition-all duration-300 ${
+                darkMode 
+                  ? 'text-gray-400 hover:text-white hover:bg-white/10' 
+                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+              }`}>
+                <Bell className="w-5 h-5" />
+              </button>
+
+              <div className={`w-px h-6 mx-1 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}></div>
+
+              <div className="flex items-center">
+                <ModeToggle />
               </div>
 
-              {/* Company Info + Direct Logout */}
+              {/* Minimal Profile Avatar */}
               <button
                 onClick={() => switchToTab('profile')}
-                className={`ml-1 flex items-center rounded-xl text-sm p-2 gap-2.5 transition-all duration-200 border ${
-                  darkMode
-                    ? 'bg-gray-800/80 border-gray-700 hover:bg-gray-800'
-                    : 'bg-white/80 border-gray-200 hover:bg-white shadow-sm'
-                }`}
-                title="Open profile"
+                className="ml-1 relative group focus:outline-none"
+                title={`${company.name} Profile`}
               >
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-md">
+                <div className={`h-9 w-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shadow-md transition-transform duration-300 group-hover:scale-105 group-hover:shadow-lg ${darkMode ? 'ring-2 ring-gray-800' : 'ring-2 ring-white'}`}>
                   {company.logo}
-                </div>
-                <div className="hidden xl:block text-left max-w-[140px]">
-                  <p className={`text-sm font-semibold truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>{company.name}</p>
-                  <p className={`text-xs truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{company.plan} Plan</p>
                 </div>
               </button>
 
               <button
                 onClick={handleLogout}
-                className={`ml-1 px-3 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-colors ${
+                className={`ml-3 px-3.5 py-2 rounded-xl flex items-center gap-2 font-bold text-sm transition-all duration-300 shadow-sm ${
                   darkMode
-                    ? 'text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20'
-                    : 'text-red-600 bg-red-50 hover:bg-red-100 border border-red-200'
+                    ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:text-red-300'
+                    : 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 hover:text-red-700'
                 }`}
+                title="Logout"
               >
                 <LogOut className="w-4 h-4" />
-                <span className="hidden md:inline">Logout</span>
+                Logout
               </button>
-
-              <div className={`ml-1 rounded-xl ${darkMode ? 'bg-gray-800/70' : 'bg-white/80'}`}>
-                <ModeToggle />
-              </div>
             </div>
           </div> {/* Added missing closing div */}
         </div>
@@ -682,7 +835,8 @@ const EmployerDashboard: React.FC = () => {
                 </div>
               </div>
               
-              {/* Profile Completion Score */}
+              {/* Profile Completion Score — from company + contact fields */}
+              {profileScore > 0 && (
               <div className={`mt-4 p-4 rounded-xl border ${darkMode ? 'bg-gradient-to-br from-green-500/10 to-emerald-600/10 border-green-500/20' : 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200'} backdrop-blur-sm`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -703,9 +857,10 @@ const EmployerDashboard: React.FC = () => {
                   }}
                   className={`w-full mt-2 py-1.5 text-xs rounded-lg transition-all font-medium ${darkMode ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400' : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700'}`}
                 >
-                  Complete Profile
+                  {profileScore >= 100 ? 'View Profile' : 'Complete Profile'}
                 </button>
               </div>
+              )}
             </div>
               </>
             ) : (
@@ -722,51 +877,23 @@ const EmployerDashboard: React.FC = () => {
               <div className="space-y-2">
                 <NavItem icon={Home} label="Overview" id="overview" />
                 <NavItem icon={Briefcase} label="Job Postings" id="jobs" badge={stats.activeJobs} />
-                <NavItem icon={Users} label="Applications" id="applications" badge="12" />
-                <NavItem icon={Star} label="Candidates" id="candidates" />
-                <NavItem icon={Mail} label="Messages" id="messages" badge="3" />
+                <NavItem icon={Users} label="Applications" id="applications" badge={stats.totalApplications > 0 ? stats.totalApplications : undefined} />
+                <NavItem icon={Mail} label="Messages" id="messages" badge={unreadMessages > 0 ? unreadMessages : undefined} />
                 <NavItem icon={BarChart3} label="Analytics" id="analytics" />
                 <NavItem icon={TrendingUp} label="Stories" id="stories" />
                 <NavItem icon={UserCircle} label="Profile" id="profile" />
                 <NavItem icon={Settings} label="Settings" id="settings" />
               </div>
             </div>
-
-            {/* Quick Actions */}
-            {sidebarOpen && (
-            <div>
-              <h3 className={`text-xs font-semibold uppercase tracking-wider mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                Quick Actions
-              </h3>
-              <div className="space-y-3">
-                <button
-                  onClick={() => switchToTab('jobs', { openCreate: true })}
-                  className="w-full px-4 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
-                >
-                  <Plus className="w-5 h-5" />
-                  Post New Job
-                </button>
-                <button className={`w-full px-4 py-3 rounded-xl border-2 border-dashed transition-all duration-200 flex items-center justify-center gap-2 ${
-                  darkMode 
-                    ? 'border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300' 
-                    : 'border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700'
-                }`}>
-                  <Share2 className="w-4 h-4" />
-                  Share Dashboard
-                </button>
-              </div>
-            </div>
-            )}
           </div>
         </aside>
 
         {/* Enhanced Main Content */}
-        <main className="flex-1 px-6 py-8 overflow-y-auto min-h-[calc(100vh-4rem)]">
-          {activeTab === 'candidates' ? (
-            <div className="w-full">
-              <CandidatesPage embedded />
-            </div>
-          ) : activeTab === 'jobs' ? (
+        <main
+          data-dashboard-scroll-root
+          className="flex-1 px-6 py-8 overflow-y-auto min-h-[calc(100vh-4rem)]"
+        >
+          {activeTab === 'jobs' ? (
             <div className="w-full">
               <JobManagement embedded />
             </div>
@@ -795,44 +922,21 @@ const EmployerDashboard: React.FC = () => {
               <SettingsPage embedded />
             </div>
           ) : (
-          <div className="w-full space-y-7">
+          <div className="w-full space-y-5">
             {/* Enhanced Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <h1 className={`text-3xl sm:text-4xl font-extrabold tracking-tight mb-2 bg-gradient-to-r ${darkMode ? 'from-white to-gray-300' : 'from-gray-900 to-gray-700'} bg-clip-text text-transparent`}>
-                  {t("employer.dashboard.overview")}
-                </h1>
-                <p className={`text-base sm:text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Welcome back! Here's what's happening with your hiring today.
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button className={`px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 flex items-center gap-2 ${
-                  darkMode 
-                    ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' 
-                    : 'bg-white hover:bg-gray-100 text-gray-700 shadow-sm'
-                }`}>
-                  <Filter className="w-4 h-4" />
-                  Filter
-                </button>
-                <button className={`px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 flex items-center gap-2 ${
-                  darkMode 
-                    ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' 
-                    : 'bg-white hover:bg-gray-100 text-gray-700 shadow-sm'
-                }`}>
-                  <Download className="w-4 h-4" />
-                  Export
-                </button>
-              </div>
+            <div>
+              <h1 className={employerPageTitleClass(darkMode)}>
+                {t("employer.dashboard.overview")}
+              </h1>
             </div>
 
             {/* Enhanced Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
               {[
-                { icon: Briefcase, label: 'Active Jobs', value: stats.activeJobs, change: '+12%', color: 'blue', trend: 'up' },
-                { icon: Users, label: 'Total Applications', value: stats.totalApplications, change: '45 this week', color: 'purple', trend: 'up' },
-                { icon: Star, label: 'Shortlisted', value: stats.shortlisted, change: '8 ready', color: 'emerald', trend: 'up' },
-                { icon: TrendingUp, label: 'Interviewed', value: stats.interviewed, change: '3 offers', color: 'amber', trend: 'up' }
+                { icon: Briefcase, label: 'Active Jobs', value: stats.activeJobs, change: stats.activeJobs > 0 ? `${stats.activeJobs} live` : 'Post a job', color: 'blue', trend: 'up' as const },
+                { icon: Users, label: 'Total Applications', value: stats.totalApplications, change: stats.thisWeek > 0 ? `${stats.thisWeek} this week` : 'No new apps', color: 'purple', trend: 'up' as const },
+                { icon: Star, label: 'Shortlisted', value: stats.shortlisted, change: stats.shortlisted > 0 ? `${stats.shortlisted} in pipeline` : '—', color: 'emerald', trend: 'up' as const },
+                { icon: TrendingUp, label: 'Hired', value: stats.hired, change: stats.interviewed > 0 ? `${stats.interviewed} interviewing` : '—', color: 'amber', trend: 'up' as const }
               ].map((stat, index) => (
                 <div 
                   key={index}
@@ -892,36 +996,56 @@ const EmployerDashboard: React.FC = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3 lg:gap-4">
               {/* Enhanced Active Jobs Section */}
-              <div className="lg:col-span-2 space-y-8">
-                <div className={`rounded-2xl backdrop-blur-sm border transition-all duration-300 ${premiumSurface}`}>
-                  <div className="p-5 border-b border-gray-200 dark:border-gray-700">
+              <div className="grid h-full min-h-0 grid-rows-[auto_minmax(14rem,1fr)] gap-3 lg:col-span-2">
+                <div
+                  className={cn(
+                    'relative flex flex-col overflow-hidden rounded-2xl border backdrop-blur-sm transition-all duration-300',
+                    darkMode
+                      ? 'border-blue-500/20 bg-gradient-to-br from-slate-900/95 via-blue-950/25 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(59,130,246,0.45)]'
+                      : 'border-blue-100 bg-gradient-to-br from-white via-blue-50/40 to-white shadow-[0_20px_50px_-28px_rgba(59,130,246,0.18)]',
+                  )}
+                >
+                  <WidgetShine darkMode={darkMode} />
+                  <div
+                    className={cn(
+                      'relative border-b px-5 py-4',
+                      darkMode ? 'border-white/[0.06]' : 'border-blue-100/80',
+                    )}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={`p-3 rounded-xl ${
-                          darkMode ? 'bg-blue-500/20' : 'bg-blue-100'
-                        }`}>
-                          <Briefcase className={`w-6 h-6 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+                        <div className="rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 shadow-lg shadow-blue-500/30">
+                          <Briefcase className="h-5 w-5 text-white" />
                         </div>
                         <div>
-                          <h2 className={`text-xl font-extrabold tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}>Active Job Postings</h2>
-                          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Manage and track your job listings</p>
+                          <h2 className={cn(widgetTitle, darkMode ? 'text-white' : 'text-gray-900')}>
+                            Active Job Postings
+                          </h2>
+                          <p className={cn(widgetSubtitle, darkMode ? 'text-blue-200/70' : 'text-blue-700/80')}>
+                            Manage and track your job listings
+                          </p>
                         </div>
                       </div>
                       <button
                         onClick={() => switchToTab('jobs')}
-                        className="text-blue-600 hover:text-blue-700 font-semibold text-sm flex items-center gap-2 group"
+                        className={cn(
+                          'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors group',
+                          darkMode
+                            ? 'text-blue-300 hover:bg-white/5 hover:text-blue-200'
+                            : 'text-blue-600 hover:bg-blue-50 hover:text-blue-700',
+                        )}
                       >
                         View All
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                       </button>
                     </div>
                   </div>
 
-                  <div className="p-5 space-y-4">
+                  <div className="relative space-y-2.5 p-4 sm:p-5">
                     {jobs.length === 0 ? (
-                      <div className={`text-center py-12 rounded-xl border border-dashed ${darkMode ? 'border-gray-700 bg-gray-800/20' : 'border-indigo-200 bg-gradient-to-b from-white to-slate-50'}`}>
+                      <div className={`text-center py-8 rounded-xl border border-dashed ${darkMode ? 'border-gray-700 bg-gray-800/20' : 'border-indigo-200 bg-gradient-to-b from-white to-slate-50'}`}>
                         <Briefcase className={`w-12 h-12 mx-auto mb-4 ${darkMode ? 'text-gray-600' : 'text-gray-500'}`} />
                         <p className={`text-lg font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-800'}`}>No job postings yet</p>
                         <p className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-600'} mt-2`}>Create your first listing to start collecting candidates.</p>
@@ -933,170 +1057,418 @@ const EmployerDashboard: React.FC = () => {
                         </button>
                       </div>
                     ) : (
-                      jobs.map(job => (
+                      currentJobs.map(job => (
                       <div
                         key={job.id}
-                        className={`rounded-xl p-5 transition-all duration-300 border backdrop-blur-sm group hover:shadow-lg ${premiumInset}`}
+                        className={cn(
+                          'group relative overflow-hidden rounded-xl border p-3.5 transition-all duration-300',
+                          darkMode
+                            ? 'border-white/[0.07] bg-white/[0.03] hover:border-blue-400/30 hover:bg-white/[0.06] hover:shadow-[0_8px_24px_-12px_rgba(59,130,246,0.35)]'
+                            : 'border-slate-200/90 bg-white/80 hover:border-blue-200 hover:shadow-md hover:shadow-blue-100/50',
+                        )}
                       >
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className={`text-lg font-bold ${darkMode ? 'text-white group-hover:text-blue-400' : 'text-gray-900 group-hover:text-blue-600'} transition-colors`}>
+                        <div
+                          className={cn(
+                            'absolute inset-y-0 left-0 w-1 rounded-l-xl bg-gradient-to-b',
+                            job.status === 'active'
+                              ? 'from-blue-400 to-indigo-500'
+                              : job.status === 'paused'
+                                ? 'from-amber-400 to-orange-500'
+                                : 'from-slate-400 to-slate-500',
+                          )}
+                        />
+                        <div className="flex flex-col gap-3 pl-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                              <h3
+                                className={cn(
+                                  'truncate text-base font-bold transition-colors',
+                                  darkMode ? 'text-white group-hover:text-blue-300' : 'text-gray-900 group-hover:text-blue-600',
+                                )}
+                              >
                                 {job.title}
                               </h3>
-                              <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(job.status)}`}>
+                              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold ${getStatusColor(job.status)}`}>
                                 {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
                               </span>
                             </div>
-                            <div className={`flex items-center gap-4 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                              <span className="flex items-center gap-1.5">
-                                <MapPin className="w-4 h-4" />
+                            <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-1', widgetMeta, darkMode ? 'text-slate-400' : 'text-slate-600')}>
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-3.5 h-3.5 shrink-0" />
                                 {job.location}
                               </span>
-                              <span className="flex items-center gap-1.5">
-                                <DollarSign className="w-4 h-4" />
+                              <span className="flex items-center gap-1">
+                                <DollarSign className="w-3.5 h-3.5 shrink-0" />
                                 {job.salary}
                               </span>
-                              <span className="flex items-center gap-1.5">
-                                <Calendar className="w-4 h-4" />
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3.5 h-3.5 shrink-0" />
                                 {job.postedDate}
                               </span>
-                            </div>
-                          </div>
-                          
-                          <div className="relative group/menu">
-                            <button className={`p-2 rounded-lg transition-colors ${
-                              darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
-                            }`}>
-                              <MoreVertical className="w-5 h-5" />
-                            </button>
-                            <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl border py-2 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all duration-200 z-10 backdrop-blur-sm ${
-                              darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-                            }`}>
-                              {[
-                                { icon: Eye, label: 'View Details' },
-                                { icon: Edit, label: 'Edit Job' },
-                                { icon: job.status === 'active' ? Pause : Play, label: job.status === 'active' ? 'Pause Job' : 'Resume Job' },
-                                { icon: Copy, label: 'Duplicate' },
-                                { icon: Trash2, label: 'Delete Job', destructive: true }
-                              ].map((action, index) => (
-                                <button
-                                  key={index}
-                                  className={`w-full px-4 py-2.5 text-left flex items-center gap-3 text-sm transition-colors ${
-                                    action.destructive
-                                      ? darkMode 
-                                        ? 'text-red-400 hover:bg-red-500/10' 
-                                        : 'text-red-600 hover:bg-red-50'
-                                      : darkMode 
-                                        ? 'text-gray-300 hover:bg-gray-700' 
-                                        : 'text-gray-700 hover:bg-gray-50'
-                                  }`}
-                                >
-                                  <action.icon className="w-4 h-4" />
-                                  {action.label}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-6">
-                            <div className="flex items-center gap-2">
-                              <Users className={`w-5 h-5 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} />
-                              <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                <span className="font-semibold">{job.applications}</span> applications
+                              <span className="flex items-center gap-1">
+                                <Users className="w-3.5 h-3.5 shrink-0" />
+                                <span className="font-semibold">{job.applications}</span> apps
                               </span>
-                            </div>
-                            {job.newApplications > 0 && (
-                              <span className="bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-400 text-xs font-semibold px-2.5 py-1 rounded-full">
-                                {job.newApplications} new
-                              </span>
-                            )}
-                            <div className="flex items-center gap-2">
-                              <Eye className={`w-5 h-5 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} />
-                              <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              {job.newApplications > 0 && (
+                                <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-500/20 dark:text-blue-400">
+                                  {job.newApplications} new
+                                </span>
+                              )}
+                              <span className="flex items-center gap-1">
+                                <Eye className="w-3.5 h-3.5 shrink-0" />
                                 {job.views} views
                               </span>
                             </div>
                           </div>
-                          
                           <button
                             onClick={() => switchToTab('applications', { jobId: job.id })}
-                            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-medium text-sm flex items-center gap-2 shadow-lg hover:shadow-xl"
+                            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-md shadow-blue-500/25 transition-all hover:from-blue-500 hover:to-indigo-500 hover:shadow-lg"
                           >
                             View Applications
-                            <ArrowRight className="w-4 h-4" />
+                            <ArrowRight className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       </div>
                       ))
                     )}
+                    
+                    {totalJobPages > 1 && (
+                      <div className="flex items-center justify-between pt-3 mt-1 border-t border-gray-200 dark:border-gray-700/50">
+                        <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          Showing <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{indexOfFirstJob + 1}</span> to <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{Math.min(indexOfLastJob, jobs.length)}</span> of <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{jobs.length}</span> jobs
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setCurrentJobPage(p => Math.max(1, p - 1))}
+                            disabled={currentJobPage === 1}
+                            className={`p-2 rounded-lg border transition-colors ${
+                              currentJobPage === 1
+                                ? darkMode ? 'border-gray-700/50 text-gray-600 bg-gray-800/20' : 'border-gray-200 text-gray-400 bg-gray-50'
+                                : darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white' : 'border-gray-300 text-gray-700 hover:bg-white hover:shadow-sm'
+                            }`}
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          
+                          <div className="flex items-center px-1">
+                            {Array.from({ length: Math.min(5, totalJobPages) }).map((_, i) => {
+                              let pageNum = i + 1;
+                              if (totalJobPages > 5 && currentJobPage > 3) {
+                                pageNum = currentJobPage - 2 + i;
+                                if (pageNum > totalJobPages) pageNum = totalJobPages - 4 + i;
+                              }
+                              return (
+                                <button
+                                  key={pageNum}
+                                  onClick={() => setCurrentJobPage(pageNum)}
+                                  className={`w-8 h-8 rounded-lg text-sm font-bold transition-all ${
+                                    currentJobPage === pageNum
+                                      ? 'bg-blue-600 text-white shadow-md'
+                                      : darkMode ? 'text-gray-400 hover:bg-gray-700 hover:text-white' : 'text-gray-600 hover:bg-white hover:shadow-sm'
+                                  }`}
+                                >
+                                  {pageNum}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          <button
+                            onClick={() => setCurrentJobPage(p => Math.min(totalJobPages, p + 1))}
+                            disabled={currentJobPage === totalJobPages}
+                            className={`p-2 rounded-lg border transition-colors ${
+                              currentJobPage === totalJobPages
+                                ? darkMode ? 'border-gray-700/50 text-gray-600 bg-gray-800/20' : 'border-gray-200 text-gray-400 bg-gray-50'
+                                : darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white' : 'border-gray-300 text-gray-700 hover:bg-white hover:shadow-sm'
+                            }`}
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Recent Activity Timeline */}
-                <div className={`rounded-2xl backdrop-blur-sm border p-5 ${premiumSurface}`}>
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className={`p-3 rounded-xl ${darkMode ? 'bg-amber-500/20' : 'bg-amber-100'}`}>
-                      <Clock className={`w-6 h-6 ${darkMode ? 'text-amber-400' : 'text-amber-600'}`} />
+                <div className="grid min-h-0 grid-cols-1 items-stretch gap-3 xl:grid-cols-2">
+                  {/* Recent Activity Timeline */}
+                  <div
+                    className={cn(
+                      'relative flex h-full min-h-[14rem] flex-col rounded-2xl border p-5 sm:p-6',
+                      darkMode
+                        ? 'border-amber-500/20 bg-gradient-to-br from-slate-900/95 via-amber-950/20 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(245,158,11,0.35)]'
+                        : 'border-amber-100 bg-gradient-to-br from-white via-amber-50/30 to-white shadow-[0_20px_50px_-28px_rgba(245,158,11,0.15)]',
+                    )}
+                  >
+                    <WidgetShine darkMode={darkMode} />
+                    <div className="relative mb-4 flex items-center gap-3">
+                      <div className="rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 p-2.5 shadow-lg shadow-amber-500/30">
+                        <Clock className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h2 className={cn(widgetTitle, darkMode ? 'text-white' : 'text-gray-900')}>
+                          Recent Activity
+                        </h2>
+                        <p className={cn(widgetSubtitle, darkMode ? 'text-amber-200/70' : 'text-amber-700/80')}>
+                          Latest pipeline updates
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h2 className={`text-xl font-extrabold tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}>Recent Activity</h2>
-                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Latest updates from your hiring pipeline</p>
-                    </div>
-                  </div>
 
-                  <div className="space-y-4">
-                    {[
-                      { icon: Users, color: 'blue', title: 'New application received', description: 'Sarah Johnson applied for Senior Frontend Developer', time: '2 minutes ago' },
-                      { icon: CheckCircle, color: 'emerald', title: 'Interview scheduled', description: 'Michael Chen - Product Designer position', time: '1 hour ago' },
-                      { icon: Star, color: 'purple', title: 'Candidate shortlisted', description: 'Emily Rodriguez added to shortlist', time: '3 hours ago' },
-                      { icon: Briefcase, color: 'indigo', title: 'Job posting published', description: 'Senior Frontend Developer is now live', time: '2 days ago' }
-                    ].map((activity, index) => (
-                      <div key={index} className="flex items-start gap-4 group">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                          darkMode 
-                            ? `bg-${activity.color}-500/20 group-hover:bg-${activity.color}-500/30` 
-                            : `bg-${activity.color}-100 group-hover:bg-${activity.color}-200`
-                        } transition-colors`}>
-                          <activity.icon className={`w-6 h-6 ${
-                            darkMode ? `text-${activity.color}-400` : `text-${activity.color}-600`
-                          }`} />
+                  <div className="relative flex flex-1 flex-col justify-start space-y-0">
+                    {recentActivity.length === 0 && (
+                      <div
+                        className={cn(
+                          'rounded-xl border border-dashed px-4 py-6 text-center',
+                          darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-amber-200/80 bg-amber-50/30',
+                        )}
+                      >
+                        <Clock className={cn('mx-auto mb-2 h-7 w-7', darkMode ? 'text-gray-600' : 'text-amber-400')} />
+                        <p className={cn('text-sm font-medium', darkMode ? 'text-gray-400' : 'text-gray-600')}>No activity yet</p>
+                      </div>
+                    )}
+                    {recentActivity.map((activity, index) => {
+                      const style = ACTIVITY_STYLES[activity.color] ?? ACTIVITY_STYLES.blue;
+                      const isLast = index === recentActivity.length - 1;
+                      return (
+                      <div key={index} className="relative flex flex-1 gap-3">
+                        {!isLast && (
+                          <div
+                            className={cn(
+                              'absolute left-[15px] top-8 bottom-0 w-px',
+                              darkMode ? 'bg-gradient-to-b from-white/15 to-transparent' : 'bg-gradient-to-b from-amber-200 to-transparent',
+                            )}
+                          />
+                        )}
+                        <div
+                          className={cn(
+                            'relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-2 mt-1',
+                            style.bg,
+                            style.ring,
+                          )}
+                        >
+                          <span className={cn('h-2 w-2 rounded-full', style.dot)} />
                         </div>
-                        <div className="flex-1">
-                          <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                            {activity.title}
+                        <div
+                          className={cn(
+                            'group min-w-0 flex-1 rounded-xl border px-3 py-2.5 transition-all hover:shadow-sm',
+                            darkMode
+                              ? 'border-white/[0.06] bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.05]'
+                              : 'border-slate-100 bg-white/70 hover:border-amber-100 hover:bg-white',
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <p className={cn('font-semibold leading-tight', widgetBody, darkMode ? 'text-white' : 'text-gray-900')}>
+                              {activity.title}
+                            </p>
+                            <activity.icon className={cn('h-4 w-4 shrink-0', style.text)} />
+                          </div>
+                          {activity.description.includes(' — ') ? (
+                            <p className={cn('mt-1 leading-relaxed', widgetBody)}>
+                              <span className={cn('font-bold', style.text)}>{activity.description.split(' — ')[0]}</span>
+                              <span className={darkMode ? 'text-gray-500' : 'text-gray-500'}> applied for </span>
+                              <span className={cn('font-medium', darkMode ? 'text-gray-300' : 'text-gray-700')}>
+                                {activity.description.split(' — ')[1]}
+                              </span>
+                            </p>
+                          ) : (
+                            <p className={cn('mt-1', widgetBody, darkMode ? 'text-gray-400' : 'text-gray-600')}>
+                              {activity.description}
+                            </p>
+                          )}
+                          <p className={cn('mt-1.5 flex items-center gap-1 font-medium', widgetMeta, darkMode ? 'text-gray-500' : 'text-gray-400')}>
+                            <Clock className="h-3 w-3" />
+                            {activity.time}
                           </p>
-                          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {activity.description}
-                          </p>
-                          <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'} mt-1`}>{activity.time}</p>
                         </div>
                       </div>
-                    ))}
+                    );})}
+                  </div>
+                </div>
+
+                  {/* Hiring Performance */}
+                  <div
+                    className={cn(
+                      'relative flex h-full min-h-[14rem] flex-col rounded-2xl border p-5 sm:p-6',
+                      darkMode
+                        ? 'border-emerald-500/20 bg-gradient-to-br from-slate-900/95 via-emerald-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(16,185,129,0.45)]'
+                        : 'border-emerald-100 bg-gradient-to-br from-white via-emerald-50/40 to-white shadow-[0_20px_50px_-28px_rgba(16,185,129,0.2)]',
+                    )}
+                  >
+                    <WidgetShine darkMode={darkMode} />
+                    <div className="relative mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 p-2.5 shadow-lg ${darkMode ? 'shadow-emerald-500/25' : 'shadow-emerald-500/30'}`}
+                        >
+                          <TrendingUp className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <h2 className={cn(widgetTitle, darkMode ? 'text-white' : 'text-gray-900')}>
+                            Hiring Performance
+                          </h2>
+                          <p className={cn(widgetSubtitle, darkMode ? 'text-emerald-200/70' : 'text-emerald-700/80')}>
+                            Applications received this week
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="relative flex min-h-0 flex-1 flex-col gap-4">
+                      <div className="grid shrink-0 grid-cols-3 gap-3">
+                        {[
+                          {
+                            label: 'This week',
+                            value: weekActivity.thisWeek,
+                            accent: darkMode ? 'text-white' : 'text-gray-900',
+                          },
+                          {
+                            label: 'Daily avg',
+                            value:
+                              weekActivity.thisWeek > 0
+                                ? (weekActivity.thisWeek / 7).toFixed(1)
+                                : '0',
+                            accent: darkMode ? 'text-emerald-300' : 'text-emerald-700',
+                          },
+                          {
+                            label: 'Peak day',
+                            value: weekActivity.peak,
+                            accent: darkMode ? 'text-teal-300' : 'text-teal-700',
+                          },
+                        ].map((metric) => (
+                          <div
+                            key={metric.label}
+                            className={cn(
+                              'rounded-xl border px-3 py-3 sm:px-4 sm:py-3.5',
+                              darkMode
+                                ? 'border-white/10 bg-white/[0.04]'
+                                : 'border-emerald-100/80 bg-white/80',
+                            )}
+                          >
+                            <p
+                              className={cn(
+                                'text-xs font-bold uppercase tracking-wider',
+                                darkMode ? 'text-gray-400' : 'text-gray-500',
+                              )}
+                            >
+                              {metric.label}
+                            </p>
+                            <p className={cn('mt-1.5 text-2xl font-black tabular-nums tracking-tight sm:text-3xl', metric.accent)}>
+                              {metric.value}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div
+                        className={cn(
+                          'relative min-h-[180px] flex-1 overflow-hidden rounded-xl px-2 py-3 sm:min-h-[200px] sm:px-4 sm:py-4',
+                          darkMode ? 'bg-emerald-500/[0.04] ring-1 ring-white/[0.06]' : 'bg-emerald-500/[0.05] ring-1 ring-emerald-100/80',
+                        )}
+                      >
+                        {weekActivity.thisWeek === 0 && (
+                          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+                            <p className={cn('text-sm font-medium sm:text-base', darkMode ? 'text-gray-500' : 'text-gray-500')}>
+                              No applications yet this week
+                            </p>
+                          </div>
+                        )}
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={weekActivity.chart} margin={{ top: 10, right: 12, left: -12, bottom: 4 }}>
+                            <defs>
+                              <linearGradient id="hiringPerfFill" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor={darkMode ? '#34d399' : '#10b981'} stopOpacity={0.45} />
+                                <stop offset="100%" stopColor={darkMode ? '#34d399' : '#10b981'} stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              vertical={false}
+                              stroke={darkMode ? 'rgba(148,163,184,0.12)' : 'rgba(15,23,42,0.06)'}
+                            />
+                            <XAxis
+                              dataKey="name"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fill: darkMode ? '#94a3b8' : '#64748b', fontSize: 13, fontWeight: 600 }}
+                              dy={8}
+                            />
+                            <RechartsTooltip
+                              contentStyle={{
+                                backgroundColor: darkMode ? '#0f172a' : '#ffffff',
+                                borderRadius: '10px',
+                                border: darkMode ? '1px solid rgba(52,211,153,0.25)' : '1px solid #d1fae5',
+                                boxShadow: '0 12px 28px -8px rgba(0,0,0,0.35)',
+                              }}
+                              itemStyle={{ color: darkMode ? '#6ee7b7' : '#059669', fontWeight: 700 }}
+                              labelStyle={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600 }}
+                              formatter={(value: number) => [`${value} apps`, 'Applications']}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="value"
+                              stroke={darkMode ? '#34d399' : '#059669'}
+                              strokeWidth={2.5}
+                              fill="url(#hiringPerfFill)"
+                              dot={{
+                                r: 3,
+                                fill: darkMode ? '#10b981' : '#059669',
+                                stroke: darkMode ? '#ecfdf5' : '#ffffff',
+                                strokeWidth: 2,
+                              }}
+                              activeDot={{ r: 5 }}
+                              animationDuration={1200}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Enhanced Sidebar Content */}
-              <div className="space-y-8">
+              <div className="grid h-full min-h-0 grid-rows-[auto_minmax(14rem,1fr)] gap-3">
                 {/* Recent Applications */}
-                <div className={`rounded-2xl backdrop-blur-sm border p-5 ${premiumSurface}`}>
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className={`p-3 rounded-xl ${darkMode ? 'bg-purple-500/20' : 'bg-purple-100'}`}>
-                      <Users className={`w-6 h-6 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+                <div
+                  className={cn(
+                    'relative flex flex-col overflow-hidden rounded-2xl border p-4 sm:p-5',
+                    darkMode
+                      ? 'border-violet-500/20 bg-gradient-to-br from-slate-900/95 via-violet-950/25 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(139,92,246,0.45)]'
+                      : 'border-violet-100 bg-gradient-to-br from-white via-violet-50/35 to-white shadow-[0_20px_50px_-28px_rgba(139,92,246,0.16)]',
+                  )}
+                >
+                  <WidgetShine darkMode={darkMode} />
+                  <div className="relative mb-4 flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="shrink-0 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 p-2.5 shadow-lg shadow-violet-500/30">
+                        <Users className="h-4 w-4 text-white" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className={cn('truncate', widgetTitle, darkMode ? 'text-white' : 'text-gray-900')}>
+                          Recent Applications
+                        </h3>
+                        <p className={cn(widgetSubtitle, darkMode ? 'text-violet-200/70' : 'text-violet-700/80')}>
+                          Latest submissions
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className={`text-lg font-extrabold tracking-tight ${darkMode ? 'text-white' : 'text-gray-900'}`}>Recent Applications</h3>
-                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Latest candidate submissions</p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => switchToTab('applications')}
+                      className={cn(
+                        'shrink-0 rounded-lg px-2 py-1 text-xs font-semibold transition-colors',
+                        darkMode ? 'text-violet-300 hover:bg-white/5 hover:text-violet-200' : 'text-violet-600 hover:bg-violet-50',
+                      )}
+                    >
+                      View all
+                    </button>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="relative space-y-2.5">
                     {applications.length === 0 ? (
-                      <div className={`text-center py-8 rounded-xl border border-dashed ${darkMode ? 'border-gray-700 bg-gray-800/20' : 'border-indigo-200 bg-gradient-to-b from-white to-slate-50'}`}>
-                        <Users className={`w-10 h-10 mx-auto mb-3 ${darkMode ? 'text-gray-600' : 'text-gray-500'}`} />
+                      <div className={`text-center py-5 rounded-xl border border-dashed ${darkMode ? 'border-gray-700 bg-gray-800/20' : 'border-indigo-200 bg-gradient-to-b from-white to-slate-50'}`}>
+                        <Users className={`w-8 h-8 mx-auto mb-2 ${darkMode ? 'text-gray-600' : 'text-gray-500'}`} />
                         <p className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-800'}`}>No applications yet</p>
                         <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>Applications will appear here once candidates apply.</p>
                         <button
@@ -1109,150 +1481,201 @@ const EmployerDashboard: React.FC = () => {
                         </button>
                       </div>
                     ) : (
-                      applications.map(app => (
+                      currentApps.map(app => (
                       <div
                         key={app.id}
-                        className={`rounded-xl p-4 transition-all duration-300 cursor-pointer group border backdrop-blur-sm ${premiumInset}`}
+                        onClick={() => switchToTab('applications', { appId: app.id })}
+                        className={cn(
+                          'group cursor-pointer rounded-xl border p-3 transition-all duration-200',
+                          darkMode
+                            ? 'border-white/[0.07] bg-white/[0.03] hover:border-violet-400/30 hover:bg-white/[0.06] hover:shadow-[0_8px_24px_-12px_rgba(139,92,246,0.35)]'
+                            : 'border-slate-200/90 bg-white/75 hover:border-violet-200 hover:bg-white hover:shadow-md hover:shadow-violet-100/40',
+                        )}
                       >
-                        <div className="flex items-start gap-3 mb-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg flex-shrink-0">
-                            {app.candidateName.split(' ').map(n => n[0]).join('')}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className={`font-bold ${darkMode ? 'text-white group-hover:text-blue-400' : 'text-gray-900 group-hover:text-blue-600'} transition-colors truncate`}>
-                              {app.candidateName}
-                            </h4>
-                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'} truncate`}>{app.jobTitle}</p>
-                          </div>
-                          <div className={`text-xs font-bold px-2 py-1 rounded-lg ${
-                            darkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700'
-                          }`}>
-                            {app.matchScore}%
-                          </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          {app.skills.slice(0, 2).map(skill => (
+                        <div className="flex items-center gap-3">
+                          <div className="relative shrink-0">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-xs font-bold text-white shadow-md ring-2 ring-violet-400/30">
+                              {app.candidateName.split(' ').map(n => n[0]).join('')}
+                            </div>
                             <span
-                              key={skill}
-                              className={`text-xs px-2 py-1 rounded-md backdrop-blur-sm ${
-                                darkMode ? 'bg-gray-600 text-gray-300' : 'bg-white text-gray-700'
-                              }`}
+                              className={cn(
+                                'absolute -bottom-1 -right-1 rounded-md px-1 py-px text-[9px] font-bold tabular-nums',
+                                darkMode ? 'bg-violet-500/90 text-white' : 'bg-violet-600 text-white',
+                              )}
                             >
-                              {skill}
+                              {app.matchScore}%
                             </span>
-                          ))}
-                          {app.skills.length > 2 && (
-                            <span className={`text-xs px-2 py-1 rounded-md backdrop-blur-sm ${
-                              darkMode ? 'bg-gray-600 text-gray-400' : 'bg-white text-gray-500'
-                            }`}>
-                              +{app.skills.length - 2}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${getStatusColor(app.status)}`}>
-                            {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
-                          </span>
-                          <button
-                            onClick={() => switchToTab('applications', { appId: app.id })}
-                            className="text-blue-600 hover:text-blue-700 text-xs font-semibold flex items-center gap-1 group"
-                          >
-                            View
-                            <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-                          </button>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-1 flex items-center justify-between gap-2">
+                              <h4
+                                className={cn(
+                                  'truncate font-bold transition-colors',
+                                  widgetBody,
+                                  darkMode ? 'text-white group-hover:text-violet-300' : 'text-gray-900 group-hover:text-violet-700',
+                                )}
+                              >
+                                {app.candidateName}
+                              </h4>
+                              <span className={`shrink-0 rounded-md border px-2 py-0.5 text-xs font-semibold ${getStatusColor(app.status)}`}>
+                                {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+                              </span>
+                            </div>
+                            <p className={cn('truncate', widgetMeta, darkMode ? 'text-slate-400' : 'text-slate-600')}>{app.jobTitle}</p>
+                            <div className={cn('mt-2 h-1 overflow-hidden rounded-full', darkMode ? 'bg-white/5' : 'bg-slate-100')}>
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-500"
+                                style={{ width: `${Math.min(app.matchScore, 100)}%` }}
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
                       ))
                     )}
                   </div>
 
-                  <button
-                    onClick={() => switchToTab('applications')}
-                    className={`w-full mt-6 py-3 rounded-xl font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 border ${
-                      darkMode 
-                        ? 'bg-gray-700/30 border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 text-gray-300' 
-                        : 'bg-gray-50/80 border-gray-200 hover:bg-gray-100/80 hover:border-gray-300 text-gray-700'
-                    }`}
-                  >
-                    View All Applications
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                  {totalAppPages > 1 && (
+                    <div className="flex items-center justify-center mt-2 pt-2 border-t border-gray-200 dark:border-gray-700/50">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setCurrentAppPage(p => Math.max(1, p - 1))}
+                          disabled={currentAppPage === 1}
+                          className={`p-1.5 rounded-lg border transition-colors ${
+                            currentAppPage === 1
+                              ? darkMode ? 'border-gray-700/50 text-gray-600 bg-gray-800/20' : 'border-gray-200 text-gray-400 bg-gray-50'
+                              : darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white' : 'border-gray-300 text-gray-700 hover:bg-white hover:shadow-sm'
+                          }`}
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        
+                        <span className={`text-xs font-semibold px-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          {currentAppPage} / {totalAppPages}
+                        </span>
+
+                        <button
+                          onClick={() => setCurrentAppPage(p => Math.min(totalAppPages, p + 1))}
+                          disabled={currentAppPage === totalAppPages}
+                          className={`p-1.5 rounded-lg border transition-colors ${
+                            currentAppPage === totalAppPages
+                              ? darkMode ? 'border-gray-700/50 text-gray-600 bg-gray-800/20' : 'border-gray-200 text-gray-400 bg-gray-50'
+                              : darkMode ? 'border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white' : 'border-gray-300 text-gray-700 hover:bg-white hover:shadow-sm'
+                          }`}
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
 
                 {/* Hiring Pipeline */}
-                <div className={`rounded-2xl p-5 text-white ${
-                  darkMode
-                    ? 'bg-gradient-to-b from-slate-900/95 to-slate-900/90 border border-indigo-400/20 shadow-[0_20px_50px_-25px_rgba(79,70,229,0.45)]'
-                    : 'bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-500 ring-1 ring-indigo-300/40 shadow-xl'
-                }`}>
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className={`p-3 rounded-xl ${darkMode ? 'bg-indigo-500/15 border border-indigo-400/25' : 'bg-white/20 backdrop-blur-sm'}`}>
-                      <Target className="w-6 h-6" />
+                <div
+                  className={cn(
+                    'relative flex h-full min-h-[14rem] flex-col rounded-2xl border p-5 sm:p-6',
+                    darkMode
+                      ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]'
+                      : 'border-indigo-100 bg-gradient-to-br from-white via-indigo-50/50 to-white shadow-[0_20px_50px_-28px_rgba(99,102,241,0.2)]',
+                  )}
+                >
+                  <WidgetShine darkMode={darkMode} />
+                  <div className="relative mb-3 flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30">
+                        <Target className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className={cn(widgetTitle, darkMode ? 'text-white' : 'text-gray-900')}>
+                          Hiring Pipeline
+                        </h3>
+                        <p className={cn(widgetSubtitle, darkMode ? 'text-indigo-200/70' : 'text-indigo-700/80')}>
+                          Live candidate flow
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      className={`text-right rounded-xl px-3 py-2 ${
+                        darkMode ? 'bg-white/[0.05] border border-white/10' : 'bg-indigo-50 border border-indigo-100'
+                      }`}
+                    >
+                      <p className={cn('text-xs font-bold uppercase tracking-wider', darkMode ? 'text-gray-500' : 'text-gray-500')}>
+                        In pipeline
+                      </p>
+                      <p className={`text-2xl font-black tabular-nums ${darkMode ? 'text-white' : 'text-indigo-950'}`}>
+                        {pipelineTotal}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-1 flex-col justify-start space-y-3 mt-2">
+                    {pipelineRows.map((row) => {
+                      const pct = pipelineTotal > 0 ? Math.round((row.count / pipelineTotal) * 100) : 0;
+                      const barWidth = Math.max((row.count / pipelineMax) * 100, row.count > 0 ? 8 : 0);
+                      return (
+                        <div key={row.stage} className="group flex items-center gap-3">
+                          <div className="flex items-center gap-2 w-32 shrink-0">
+                            <span
+                              className={`w-2 h-2 rounded-full shrink-0 bg-gradient-to-r ${row.bar} ring-2 ${row.ring}`}
+                            />
+                            <span
+                              className={`truncate text-sm font-semibold sm:text-base ${darkMode ? 'text-slate-200' : 'text-gray-700'}`}
+                            >
+                              {row.stage}
+                            </span>
+                          </div>
+                          
+                          <div
+                            className={`flex-1 h-2.5 overflow-hidden rounded-full ${
+                              darkMode ? 'bg-white/[0.06]' : 'bg-slate-100'
+                            }`}
+                          >
+                            <div
+                              className={`h-full rounded-full bg-gradient-to-r ${row.bar} transition-all duration-500 ease-out shadow-sm ${row.glow}`}
+                              style={{ width: `${barWidth}%` }}
+                            />
+                          </div>
+                          
+                          <div className="flex items-center justify-end gap-2 w-20 shrink-0">
+                            {pipelineTotal > 0 && (
+                              <span className={`text-xs font-bold tabular-nums ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                {pct}%
+                              </span>
+                            )}
+                            <span
+                              className={`min-w-[2rem] rounded-lg bg-gradient-to-r px-2 py-0.5 text-center text-xs font-black tabular-nums text-white shadow-md sm:text-sm ${row.bar} ${row.glow}`}
+                            >
+                              {row.count}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className={cn("mt-1 mb-2 p-3.5 rounded-xl flex items-start gap-3 border", darkMode ? "bg-indigo-500/10 border-indigo-500/20" : "bg-indigo-50/80 border-indigo-100")}>
+                    <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5">
+                      <Award className="w-4 h-4" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-extrabold tracking-tight">Hiring Pipeline</h3>
-                      <p className={`text-sm ${darkMode ? 'text-slate-300/90' : 'text-white/80'}`}>Track your candidate flow</p>
+                      <p className={cn("text-[10px] font-bold uppercase tracking-wider mb-0.5", darkMode ? "text-indigo-300" : "text-indigo-700")}>Pipeline Insight</p>
+                      <p className={cn("text-[13px] font-medium leading-snug", darkMode ? "text-indigo-100/80" : "text-indigo-900/80")}>
+                        <span className={darkMode ? "text-white font-bold" : "text-indigo-950 font-bold"}>24%</span> of your candidates reached the interview stage. Great conversion!
+                      </p>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    {[
-                      { stage: 'New Applications', count: 24 },
-                      { stage: 'Under Review', count: 18 },
-                      { stage: 'Shortlisted', count: 12 },
-                      { stage: 'Interview', count: 8 },
-                      { stage: 'Offer Extended', count: 3 }
-                    ].map((item, index) => (
-                      <div key={index} className="flex items-center justify-between group">
-                        <span className={`text-sm font-medium transition-colors ${darkMode ? 'text-slate-200 group-hover:text-white' : 'text-white/90 group-hover:text-white'}`}>
-                          {item.stage}
-                        </span>
-                        <span className={`backdrop-blur-sm px-3 py-1.5 rounded-lg font-bold text-sm transition-all ${
-                          darkMode
-                            ? 'bg-slate-700/60 text-indigo-100 border border-indigo-300/20 group-hover:bg-slate-700/80'
-                            : 'bg-white/30 group-hover:bg-white/40'
-                        }`}>
-                          {item.count}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <button className={`w-full mt-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
-                    darkMode
-                      ? 'bg-indigo-500/15 text-indigo-100 border border-indigo-300/25 hover:bg-indigo-500/25'
-                      : 'bg-white/95 text-indigo-700 hover:bg-white shadow-lg hover:shadow-xl'
-                  }`}>
+                  <button
+                    type="button"
+                    onClick={() => switchToTab('analytics')}
+                    className={`mt-auto flex w-full items-center justify-center gap-1.5 rounded-lg py-2.5 text-sm font-semibold transition-all duration-200 sm:py-3 ${
+                      darkMode
+                        ? 'bg-gradient-to-r from-indigo-500/20 to-violet-500/20 text-indigo-100 border border-indigo-400/30 hover:from-indigo-500/30 hover:to-violet-500/30 hover:border-indigo-300/40'
+                        : 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:from-indigo-700 hover:to-violet-700 shadow-md hover:shadow-lg'
+                    }`}
+                  >
                     View Pipeline Analytics
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Premium Tip */}
-                <div className={`rounded-2xl p-5 text-white ${
-                  darkMode
-                    ? 'bg-gradient-to-b from-slate-900/95 to-slate-900/90 border border-rose-400/20 shadow-[0_20px_50px_-25px_rgba(244,63,94,0.35)]'
-                    : 'bg-gradient-to-br from-rose-500 via-fuchsia-500 to-pink-500 ring-1 ring-rose-300/40 shadow-xl'
-                }`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${darkMode ? 'bg-rose-500/15 border border-rose-300/25' : 'bg-white/20 backdrop-blur-sm'}`}>
-                        <Zap className="w-5 h-5" />
-                      </div>
-                      <h3 className="text-lg font-extrabold tracking-tight">Pro Tip</h3>
-                    </div>
-                  </div>
-                  <p className={`text-sm mb-4 leading-relaxed ${darkMode ? 'text-slate-200/90' : 'text-white/90'}`}>
-                    Jobs with detailed descriptions get <span className="font-bold">2.5x more</span> quality applications. Add videos and team photos to boost engagement!
-                  </p>
-                  <button className={`w-full py-3 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
-                    darkMode
-                      ? 'bg-rose-500/15 text-rose-100 border border-rose-300/25 hover:bg-rose-500/25'
-                      : 'bg-white/95 text-rose-600 hover:bg-white shadow-lg hover:shadow-xl'
-                  }`}>
-                    Improve Job Posts
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -1264,23 +1687,25 @@ const EmployerDashboard: React.FC = () => {
       </div>
 
       {showLogoutConfirmation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl text-center">
-            <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Are you sure?</h2>
-            <p className="text-gray-600 dark:text-gray-300 mb-8">You will be logged out of your account.</p>
-            <div className="flex justify-center gap-4">
-              <button
-                onClick={() => setShowLogoutConfirmation(false)}
-                className="px-6 py-2 rounded-md text-white bg-green-500 hover:bg-green-600 transition-colors"
-              >
-                Stay
-              </button>
-              <button
-                onClick={handleLogout}
-                className="px-6 py-2 rounded-md text-white bg-red-500 hover:bg-red-600 transition-colors"
-              >
-                Logout
-              </button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl text-center">
+              <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Are you sure?</h2>
+              <p className="text-gray-600 dark:text-gray-300 mb-8">You will be logged out of your account.</p>
+              <div className="flex justify-center gap-4">
+                <button
+                  onClick={() => setShowLogoutConfirmation(false)}
+                  className="px-6 py-2 rounded-md text-white bg-green-500 hover:bg-green-600 transition-colors"
+                >
+                  Stay
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="px-6 py-2 rounded-md text-white bg-red-500 hover:bg-red-600 transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
             </div>
           </div>
         </div>

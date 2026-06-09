@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { scrollDashboardToTop } from '@/lib/scroll-to-top';
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 import { 
   User, 
   Bell, 
@@ -45,7 +48,10 @@ import {
   HeartHandshake,
   Monitor,
   MoreVertical,
-  Plus
+  Plus,
+  Trash2,
+  AlertTriangle,
+  EyeOff
 } from 'lucide-react';
 
 // Type definitions
@@ -83,13 +89,34 @@ interface EmployerSettingsProps {
 // Main Settings Component
 const EmployerSettings: React.FC<EmployerSettingsProps> = ({ embedded = false }) => {
   const { theme } = useTheme();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    scrollDashboardToTop();
+  }, []);
+
+  const selectSection = (sectionId: string) => {
+    setActiveSection(sectionId);
+    scrollDashboardToTop();
+  };
+
   const isDarkMode =
     typeof window !== 'undefined' &&
     (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
   const [activeSection, setActiveSection] = useState<string>('notifications');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [showSaveSuccess, setShowSaveSuccess] = useState<boolean>(false);
+
+  // Delete account modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
+  const [exportLoading, setExportLoading] = useState(false);
 
   // Initial state with real user data
   const [profile, setProfile] = useState<EmployerProfile>({
@@ -208,6 +235,86 @@ const EmployerSettings: React.FC<EmployerSettingsProps> = ({ embedded = false })
     setHasUnsavedChanges(false);
   };
 
+  // Export user data
+  const handleExportData = async () => {
+    setExportLoading(true);
+    try {
+      const response = await fetch('/api/me/export');
+      if (!response.ok) throw new Error('Failed to export data');
+      const data = await response.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `employer_data_export_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({
+        title: 'Export successful',
+        description: 'Your data has been downloaded as a JSON file.',
+      });
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({
+        title: 'Export failed',
+        description: 'Could not export your data. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  // Delete account with password verification
+  const handleDeleteAccount = async () => {
+    if (!deletePassword.trim()) {
+      setDeleteError('Password is required.');
+      return;
+    }
+    setDeleteLoading(true);
+    setDeleteError('');
+    try {
+      const response = await fetch('/api/me/account', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: deletePassword }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const msg = (body as { message?: string }).message;
+        if (response.status === 401) {
+          setDeleteError(msg || 'Incorrect password. Please try again.');
+        } else {
+          setDeleteError(msg || 'Failed to delete account. Please try again.');
+        }
+        return;
+      }
+      await logout();
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('Delete account failed:', error);
+      setDeleteError('An unexpected error occurred. Please try again.');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const openDeleteModal = () => {
+    setShowDeleteModal(true);
+    setDeleteStep(1);
+    setDeletePassword('');
+    setDeleteError('');
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setDeleteStep(1);
+    setDeletePassword('');
+    setDeleteError('');
+  };
+
   // Enhanced Navigation items with better icons
   const navItems = [
     { id: 'notifications', label: 'Notifications', icon: Bell, color: 'from-purple-500 to-pink-500', description: 'Alerts & preferences' },
@@ -281,37 +388,15 @@ const EmployerSettings: React.FC<EmployerSettingsProps> = ({ embedded = false })
           </div>
         )}
 
-        {/* Enhanced Header */}
-        <header className={`flex flex-col items-center justify-center mb-8 ${embedded ? 'p-5' : 'p-8'} rounded-2xl backdrop-blur-xl border transition-all duration-300 ${
-          isDarkMode 
-            ? 'bg-gray-800/50 border-gray-700/50 shadow-2xl shadow-blue-500/10' 
-            : 'bg-white/80 border-gray-200/50 shadow-xl'
-        }`}>
-          <div className="flex items-center space-x-4 mb-4">
-            <div className={`p-4 rounded-2xl ${
-              isDarkMode 
-                ? 'bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg shadow-blue-500/30' 
-                : 'bg-gradient-to-br from-blue-600 to-cyan-600 shadow-lg'
-            }`}>
-              <Rocket className="w-8 h-8 text-white" />
-            </div>
-            <div className="text-center">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                Employer Portal
-              </h1>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                Manage your account settings and preferences
-              </p>
-            </div>
-          </div>
-          
-          {hasUnsavedChanges && (
+        {/* Unsaved changes indicator */}
+        {hasUnsavedChanges && (
+          <div className="flex items-center justify-center mb-4">
             <div className="flex items-center space-x-2 px-4 py-2 rounded-full bg-amber-500/20 border border-amber-500/50 animate-pulse">
               <Zap className="w-4 h-4 text-amber-500" />
               <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Unsaved changes</span>
             </div>
-          )}
-        </header>
+          </div>
+        )}
 
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Enhanced Sidebar Navigation */}
@@ -333,7 +418,7 @@ const EmployerSettings: React.FC<EmployerSettingsProps> = ({ embedded = false })
                 return (
                   <li key={item.id}>
                     <button
-                      onClick={() => setActiveSection(item.id)}
+                      onClick={() => selectSection(item.id)}
                       className={`group w-full flex items-center justify-between px-4 py-4 rounded-xl transition-all duration-300 ${
                         isActive
                           ? `bg-gradient-to-r ${item.color} text-white shadow-lg scale-105`
@@ -648,6 +733,237 @@ const EmployerSettings: React.FC<EmployerSettingsProps> = ({ embedded = false })
                       <Bell className="w-4 h-4 text-green-500 mt-0.5" />
                       <span>Enable login alerts for new devices</span>
                     </div>
+                  </div>
+                </div>
+
+                {/* Data & Privacy — Danger Zone */}
+                <div className={`p-6 rounded-xl border-2 mt-8 ${
+                  isDarkMode ? 'border-red-500/30 bg-red-500/5' : 'border-red-200 bg-red-50'
+                }`}>
+                  <div className="flex items-center space-x-3 mb-4">
+                    <AlertTriangle className="w-6 h-6 text-red-500" />
+                    <h3 className="text-lg font-semibold text-red-500">Data & Privacy</h3>
+                  </div>
+                  <p className={`text-sm mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Export your data or permanently delete your account. These actions cannot be undone.
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={handleExportData}
+                      disabled={exportLoading}
+                      className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 disabled:opacity-50 ${
+                        isDarkMode
+                          ? 'bg-gray-700 hover:bg-gray-600 text-white border border-gray-600'
+                          : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm'
+                      }`}
+                    >
+                      <Download className="w-4 h-4" />
+                      {exportLoading ? 'Exporting...' : 'Export My Data'}
+                    </button>
+                    <button
+                      onClick={openDeleteModal}
+                      className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 ${
+                        isDarkMode
+                          ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30'
+                          : 'bg-red-50 hover:bg-red-100 text-red-600 border border-red-200'
+                      }`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete Account
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Delete Account Modal */}
+            {showDeleteModal && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={closeDeleteModal}>
+                <div
+                  className={`relative w-full max-w-lg mx-4 rounded-2xl overflow-hidden shadow-2xl border ${
+                    isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'
+                  }`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Modal Header — Red gradient */}
+                  <div className="h-2 bg-gradient-to-r from-red-500 to-rose-600" />
+                  <div className="p-6">
+                    <div className="flex items-start gap-4 mb-5">
+                      <div className={`p-3 rounded-xl shrink-0 ${
+                        isDarkMode ? 'bg-red-500/10' : 'bg-red-100'
+                      }`}>
+                        <AlertTriangle className="w-7 h-7 text-red-500" />
+                      </div>
+                      <div>
+                        <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          Delete Your Account
+                        </h3>
+                        <p className={`text-sm mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          This is a permanent and irreversible action.
+                        </p>
+                      </div>
+                      <button
+                        onClick={closeDeleteModal}
+                        className={`ml-auto p-2 rounded-lg transition-colors ${
+                          isDarkMode ? 'hover:bg-slate-800 text-gray-400' : 'hover:bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {deleteStep === 1 && (
+                      <>
+                        {/* Consequences List */}
+                        <div className={`p-4 rounded-xl mb-5 border ${
+                          isDarkMode ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-100'
+                        }`}>
+                          <p className={`text-sm font-semibold mb-3 ${
+                            isDarkMode ? 'text-red-400' : 'text-red-600'
+                          }`}>
+                            By deleting your account, the following will happen:
+                          </p>
+                          <ul className={`text-sm space-y-2.5 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                            <li className="flex items-start gap-2">
+                              <span className="text-red-500 font-bold mt-0.5">•</span>
+                              All your personal information will be permanently anonymized.
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="text-red-500 font-bold mt-0.5">•</span>
+                              Your active job postings will be deactivated and removed.
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="text-red-500 font-bold mt-0.5">•</span>
+                              All candidate applications and hiring history will be lost.
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="text-red-500 font-bold mt-0.5">•</span>
+                              Your messages and conversations will no longer be accessible.
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="text-red-500 font-bold mt-0.5">•</span>
+                              Subscription and billing information will be cancelled.
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="text-red-500 font-bold mt-0.5">•</span>
+                              This action <strong>cannot be undone</strong> — there is no recovery.
+                            </li>
+                          </ul>
+                        </div>
+
+                        <p className={`text-sm mb-5 ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                        }`}>
+                          We recommend exporting your data before proceeding.
+                        </p>
+
+                        <div className="flex gap-3">
+                          <button
+                            onClick={closeDeleteModal}
+                            className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all ${
+                              isDarkMode
+                                ? 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200'
+                            }`}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => setDeleteStep(2)}
+                            className="flex-1 px-4 py-3 rounded-xl font-semibold bg-red-600 hover:bg-red-700 text-white transition-all shadow-lg shadow-red-500/20"
+                          >
+                            I understand, continue
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {deleteStep === 2 && (
+                      <>
+                        <p className={`text-sm mb-4 ${
+                          isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                        }`}>
+                          Please enter your account password to confirm the deletion.
+                        </p>
+
+                        {/* Password input */}
+                        <div className="relative mb-4">
+                          <Lock className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 ${
+                            isDarkMode ? 'text-gray-500' : 'text-gray-400'
+                          }`} />
+                          <input
+                            type={showDeletePassword ? 'text' : 'password'}
+                            value={deletePassword}
+                            onChange={(e) => { setDeletePassword(e.target.value); setDeleteError(''); }}
+                            placeholder="Enter your password"
+                            className={`w-full pl-11 pr-12 py-3.5 rounded-xl border-2 transition-all duration-300 focus:ring-2 focus:outline-none ${
+                              deleteError
+                                ? isDarkMode
+                                  ? 'border-red-500 bg-red-500/5 text-white focus:ring-red-500'
+                                  : 'border-red-500 bg-red-50 text-gray-900 focus:ring-red-500'
+                                : isDarkMode
+                                  ? 'bg-slate-800 border-slate-700 text-white placeholder-gray-500 focus:border-red-500 focus:ring-red-500'
+                                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-red-500 focus:ring-red-500'
+                            }`}
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && deletePassword.trim()) handleDeleteAccount();
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowDeletePassword(!showDeletePassword)}
+                            className={`absolute right-3.5 top-1/2 -translate-y-1/2 ${
+                              isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
+                            }`}
+                          >
+                            {showDeletePassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
+
+                        {/* Error message */}
+                        {deleteError && (
+                          <div className={`flex items-center gap-2 px-4 py-3 rounded-xl mb-4 text-sm font-medium ${
+                            isDarkMode
+                              ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                              : 'bg-red-50 text-red-600 border border-red-100'
+                          }`}>
+                            <AlertTriangle className="w-4 h-4 shrink-0" />
+                            {deleteError}
+                          </div>
+                        )}
+
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => { setDeleteStep(1); setDeleteError(''); setDeletePassword(''); }}
+                            className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all ${
+                              isDarkMode
+                                ? 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200'
+                            }`}
+                          >
+                            Back
+                          </button>
+                          <button
+                            onClick={handleDeleteAccount}
+                            disabled={deleteLoading || !deletePassword.trim()}
+                            className="flex-1 px-4 py-3 rounded-xl font-semibold bg-red-600 hover:bg-red-700 text-white transition-all shadow-lg shadow-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                          >
+                            {deleteLoading ? (
+                              <>
+                                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                                Deleting...
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="w-4 h-4" />
+                                Permanently Delete
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
