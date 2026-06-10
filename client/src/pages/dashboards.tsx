@@ -6,6 +6,27 @@ import { Users, Briefcase, TrendingUp, MessageCircle, Activity, ClipboardList, E
 import { useEffect, useState } from "react";
 import { PieChart as LucidePieChart } from "lucide-react";
 
+const AnimatedCounter = ({ value, duration = 1200 }: { value: number; duration?: number }) => {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let startTimestamp: number | null = null;
+    const step = (timestamp: number) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      // easeOutQuad transition for extremely premium feel
+      const easeProgress = progress * (2 - progress);
+      setCount(Math.floor(easeProgress * value));
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      }
+    };
+    window.requestAnimationFrame(step);
+  }, [value, duration]);
+
+  return <>{count.toLocaleString()}</>;
+};
+
 const Dashboards = () => {
   const COLORS = ['#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6', '#EF4444'];
 
@@ -57,7 +78,7 @@ const Dashboards = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch("/api/dashboard");
+        const response = await fetch("/api/admin/platform-dashboard");
         if (!response.ok) {
           throw new Error(`Failed to fetch dashboard data: ${response.status}`);
         }
@@ -84,20 +105,60 @@ const Dashboards = () => {
 
   const renderPieChart = (data: PieChartData[], height: number = 300) => (
     <ResponsiveContainer width="100%" height={height}>
-      <RechartsPieChart>
+      <RechartsPieChart margin={{ top: 15, right: 0, bottom: 15, left: 0 }}>
+        <defs>
+          <linearGradient id="textGradient" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#8B5CF6" />
+            <stop offset="100%" stopColor="#EC4899" />
+          </linearGradient>
+        </defs>
         <Pie
           data={data}
           cx="50%"
           cy="50%"
-          outerRadius={90}
+          startAngle={180}
+          endAngle={-180}
+          outerRadius={75}
           fill="#8884d8"
           dataKey="value"
           labelLine={false}
           label={(props) => {
-            const { value, payload } = props;
+            const { x, y, textAnchor, value, payload } = props;
             const numericValue = value as number;
             const typedPayload = payload as { name: string; value: number };
-            return `${typedPayload.name}: ${((numericValue / (data.reduce((a, b) => a + b.value, 0))) * 100).toFixed(0)}%`;
+            const percentText = `${((numericValue / (data.reduce((a, b) => a + b.value, 0))) * 100).toFixed(0)}%`;
+            
+            // Adjust coordinates to prevent cut-offs and move text upwards
+            let adjustedX = x;
+            let adjustedY = y;
+            
+            if (textAnchor === "end") {
+              // Left side labels
+              adjustedX = x + 10; // Shift closer to pie to prevent left-side cutoff
+              adjustedY = y - 10; // Move above slightly for perfect visibility
+            } else {
+              // Right side labels (like Marketing)
+              adjustedX = x - 10; // Shift closer to pie to prevent right-side cutoff and keep inside the card
+              adjustedY = y - 6;  // Move above slightly
+            }
+            
+            return (
+              <text
+                x={adjustedX}
+                y={adjustedY}
+                textAnchor={textAnchor}
+                fontFamily="'Outfit', sans-serif"
+                fontWeight={700}
+                fontSize={14}
+              >
+                <tspan className="fill-slate-700 dark:fill-slate-200">
+                  {typedPayload.name}:{" "}
+                </tspan>
+                <tspan fill="url(#textGradient)">
+                  {percentText}
+                </tspan>
+              </text>
+            );
           }}
         >
           {data.map((entry: PieChartData, index: number) => (
@@ -112,11 +173,12 @@ const Dashboards = () => {
         <Tooltip 
           contentStyle={{ 
             backgroundColor: 'rgba(255, 255, 255, 0.98)', 
-            color: '#333',
             border: 'none',
             borderRadius: '12px',
             boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
-          }} 
+          }}
+          itemStyle={{ color: '#1f2937', fontWeight: 600 }}
+          labelStyle={{ color: '#4b5563', fontWeight: 700 }}
         />
       </RechartsPieChart>
     </ResponsiveContainer>   
@@ -141,7 +203,7 @@ const Dashboards = () => {
       scale: 1,
       transition: { 
         duration: 0.5,
-        ease: "easeOut"
+        ease: "easeOut" as const
       }
     }
   };
@@ -229,7 +291,9 @@ const Dashboards = () => {
                               border: 'none',
                               borderRadius: '12px',
                               boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
-                            }} 
+                            }}
+                            itemStyle={{ color: '#1f2937', fontWeight: 600 }}
+                            labelStyle={{ color: '#4b5563', fontWeight: 700 }}
                           />
                           <Bar dataKey="users" fill="url(#colorBar)" radius={[8, 8, 0, 0]} />
                           <defs>
@@ -261,32 +325,40 @@ const Dashboards = () => {
                 </motion.div>
 
                 <motion.div variants={cardVariants}>
-                  <Card className="overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-gradient-to-br from-purple-500 via-pink-500 to-purple-600 text-white hover:-translate-y-1">
+                  <Card className="overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
                     <CardHeader className="pb-3">
-                      <CardTitle className="flex items-center gap-3 text-xl text-white">
-                        <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl">
-                          <Activity className="h-5 w-5" />
+                      <CardTitle className="flex items-center gap-3 text-xl">
+                        <div className="p-2.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-lg">
+                          <Activity className="h-5 w-5 text-white" />
                         </div>
                         <span>Quick Stats</span>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        <div className="flex justify-between items-center p-4 bg-white/20 backdrop-blur-sm rounded-xl hover:bg-white/30 transition-all">
-                          <span className="font-medium">Total Users</span>
-                          <span className="text-2xl font-bold">{quickStatsData.totalUsers.toLocaleString()}</span>
+                        <div className="flex justify-between items-center p-4 rounded-xl transition-all bg-gray-50 hover:bg-gray-100 dark:bg-white/10 dark:hover:bg-white/15">
+                          <span className="font-medium text-gray-700 dark:text-gray-200">Total Users</span>
+                          <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent dark:from-purple-300 dark:to-pink-300">
+                            <AnimatedCounter value={quickStatsData.totalUsers} />
+                          </span>
                         </div>
-                        <div className="flex justify-between items-center p-4 bg-white/20 backdrop-blur-sm rounded-xl hover:bg-white/30 transition-all">
-                          <span className="font-medium">Active Jobs</span>
-                          <span className="text-2xl font-bold">{quickStatsData.activeJobs}</span>
+                        <div className="flex justify-between items-center p-4 rounded-xl transition-all bg-gray-50 hover:bg-gray-100 dark:bg-white/10 dark:hover:bg-white/15">
+                          <span className="font-medium text-gray-700 dark:text-gray-200">Active Jobs</span>
+                          <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent dark:from-purple-300 dark:to-pink-300">
+                            <AnimatedCounter value={quickStatsData.activeJobs} />
+                          </span>
                         </div>
-                        <div className="flex justify-between items-center p-4 bg-white/20 backdrop-blur-sm rounded-xl hover:bg-white/30 transition-all">
-                          <span className="font-medium">Applications Today</span>
-                          <span className="text-2xl font-bold">{quickStatsData.applicationsToday}</span>
+                        <div className="flex justify-between items-center p-4 rounded-xl transition-all bg-gray-50 hover:bg-gray-100 dark:bg-white/10 dark:hover:bg-white/15">
+                          <span className="font-medium text-gray-700 dark:text-gray-200">Applications Today</span>
+                          <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent dark:from-purple-300 dark:to-pink-300">
+                            <AnimatedCounter value={quickStatsData.applicationsToday} />
+                          </span>
                         </div>
-                        <div className="flex justify-between items-center p-4 bg-white/20 backdrop-blur-sm rounded-xl hover:bg-white/30 transition-all">
-                          <span className="font-medium">Successful Matches</span>
-                          <span className="text-2xl font-bold">{quickStatsData.successfulMatches}</span>
+                        <div className="flex justify-between items-center p-4 rounded-xl transition-all bg-gray-50 hover:bg-gray-100 dark:bg-white/10 dark:hover:bg-white/15">
+                          <span className="font-medium text-gray-700 dark:text-gray-200">Successful Matches</span>
+                          <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent dark:from-purple-300 dark:to-pink-300">
+                            <AnimatedCounter value={quickStatsData.successfulMatches} />
+                          </span>
                         </div>
                       </div>
                     </CardContent>
@@ -322,7 +394,9 @@ const Dashboards = () => {
                               border: 'none',
                               borderRadius: '12px',
                               boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
-                            }} 
+                            }}
+                            itemStyle={{ color: '#1f2937', fontWeight: 600 }}
+                            labelStyle={{ color: '#4b5563', fontWeight: 700 }}
                           />
                           <Bar dataKey="value" radius={[0, 8, 8, 0]}>
                             {applicationStatusData.map((entry, index) => (
@@ -413,6 +487,8 @@ const Dashboards = () => {
                               borderRadius: '12px',
                               boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
                             }}
+                            itemStyle={{ color: '#1f2937', fontWeight: 600 }}
+                            labelStyle={{ color: '#4b5563', fontWeight: 700 }}
                           />
                           <Area 
                             type="monotone" 
@@ -450,7 +526,9 @@ const Dashboards = () => {
                               border: 'none',
                               borderRadius: '12px',
                               boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
-                            }} 
+                            }}
+                            itemStyle={{ color: '#1f2937', fontWeight: 600 }}
+                            labelStyle={{ color: '#4b5563', fontWeight: 700 }}
                           />
                           <Bar dataKey="value" radius={[8, 8, 0, 0]}>
                             {jobCategoriesData.map((entry, index) => (
@@ -493,6 +571,8 @@ const Dashboards = () => {
                               borderRadius: '12px',
                               boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
                             }}
+                            itemStyle={{ color: '#1f2937', fontWeight: 600 }}
+                            labelStyle={{ color: '#4b5563', fontWeight: 700 }}
                           />
                           <Legend />
                           <Line 

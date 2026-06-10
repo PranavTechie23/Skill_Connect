@@ -120,7 +120,7 @@ export default function Home() {
               <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white leading-tight drop-shadow-lg">
                 <TextType
                   as="span"
-                  className="align-middle"
+                  className="align-middle notranslate"
                   text={[t("home.headline")]}
                   typingSpeed={105}
                   pauseDuration={5500}
@@ -191,9 +191,9 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8 sm:mb-12">
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
-              Services for Every Need
+              {t("home.servicesTitle", { defaultValue: "Services for Every Need" }) || "Services for Every Need"}
             </h2>
-            <p className="mt-2 sm:mt-3 text-gray-700 dark:text-gray-300 text-base sm:text-lg">From skilled trades to creative work — discover opportunities tailored to your skills.</p>
+            <p className="mt-2 sm:mt-3 text-gray-700 dark:text-gray-300 text-base sm:text-lg">{t("home.servicesDesc", { defaultValue: "From skilled trades to creative work — discover opportunities tailored to your skills." }) || "From skilled trades to creative work — discover opportunities tailored to your skills."}</p>
           </div>
           <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {[ 
@@ -229,11 +229,10 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 items-center">
             <div>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-green-600 to-blue-600 dark:from-green-400 dark:to-blue-400 bg-clip-text text-transparent mb-4 sm:mb-6">
-                🎯 Skills-Based Matching That Actually Works
+                {t("home.skillsBasedTitle") || "🎯 Skills-Based Matching That Actually Works"}
               </h2>
               <p className="text-lg sm:text-xl text-gray-700 dark:text-gray-300 mb-4 sm:mb-8">
-                Our intelligent matching algorithm connects you with opportunities based on your actual skills,
-                not just keywords. Build a comprehensive skills profile and let employers find you.
+                {t("home.skillsBasedDesc") || "Our intelligent matching algorithm connects you with opportunities based on your actual skills, not just keywords. Build a comprehensive skills profile and let employers find you."}
               </p>
               <div className="space-y-4 sm:space-y-6">
                 <div className="flex items-start p-3 sm:p-4 bg-white/90 dark:bg-slate-700/90 rounded-xl hover:bg-white dark:hover:bg-slate-600 transition-all shadow-sm dark:shadow-slate-700/50">
@@ -241,8 +240,8 @@ export default function Home() {
                     <BarChart2 className="text-white h-4 sm:h-5 w-4 sm:w-5" />
                   </div>
                   <div>
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1 sm:mb-2">Skill Assessment Tools</h3>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">Take quick assessments to validate your skills and stand out to employers.</p>
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1 sm:mb-2">{t("home.skillAssessment") || "Skill Assessment Tools"}</h3>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">{t("home.skillAssessmentDesc") || "Take quick assessments to validate your skills and stand out to employers."}</p>
                   </div>
                 </div>
                 <div className="flex items-start p-3 sm:p-4 bg-white/70 dark:bg-slate-700/70 rounded-xl hover:bg-white/90 dark:hover:bg-slate-600/90 transition-all shadow-sm dark:shadow-slate-700/50">
@@ -250,8 +249,8 @@ export default function Home() {
                     <Target className="text-white h-4 sm:h-5 w-4 sm:w-5" />
                   </div>
                   <div>
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1 sm:mb-2">Intelligent Recommendations</h3>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">Get personalized job recommendations based on your skill profile and preferences.</p>
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1 sm:mb-2">{t("home.intelligentRec") || "Intelligent Recommendations"}</h3>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">{t("home.intelligentRecDesc") || "Get personalized job recommendations based on your skill profile and preferences."}</p>
                   </div>
                 </div>
                 <div className="flex items-start p-3 sm:p-4 bg-white/70 dark:bg-slate-700/70 rounded-xl hover:bg-white/90 dark:hover:bg-slate-600/90 transition-all shadow-sm dark:shadow-slate-700/50">
@@ -259,8 +258,8 @@ export default function Home() {
                     <GraduationCap className="text-white h-4 sm:h-5 w-4 sm:w-5" />
                   </div>
                   <div>
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1 sm:mb-2">Skill Development Paths</h3>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">Discover what skills to learn next to advance your career in your chosen field.</p>
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1 sm:mb-2">{t("home.skillDev") || "Skill Development Paths"}</h3>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base">{t("home.skillDevDesc") || "Discover what skills to learn next to advance your career in your chosen field."}</p>
                   </div>
                 </div>
               </div>
@@ -291,9 +290,9 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-6 sm:mb-12">
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold bg-gradient-to-r from-pink-600 to-red-600 dark:from-pink-400 dark:to-red-400 bg-clip-text text-transparent">
-              💬 Stories from Our Community
+              {t("home.communityStories") || "💬 Stories from Our Community"}
             </h2>
-            <p className="mt-2 sm:mt-3 text-gray-700 dark:text-gray-300 text-base sm:text-lg">Real results from local employers and talent.</p>
+            <p className="mt-2 sm:mt-3 text-gray-700 dark:text-gray-300 text-base sm:text-lg">{t("home.communityDesc") || "Real results from local employers and talent."}</p>
           </div>
           <div className="grid gap-4 sm:gap-6 md:grid-cols-1 lg:grid-cols-3">
             {[ 
@@ -341,11 +340,11 @@ export default function Home() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="rounded-2xl sm:rounded-3xl p-6 sm:p-10 lg:p-14 bg-gradient-to-r from-orange-600 via-pink-500 to-orange-400 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800 text-white text-center shadow-xl dark:shadow-slate-700/50">
-            <h2 className="text-2xl sm:text-3xl lg:text-5xl font-extrabold tracking-tight">Build Your Future Now</h2>
-            <p className="mt-2 sm:mt-4 text-base sm:text-lg text-white/90 max-w-md sm:max-w-2xl mx-auto">Join a growing network of local talent and employers. Post jobs, apply with confidence, and get matched by skills — not just keywords.</p>
+            <h2 className="text-2xl sm:text-3xl lg:text-5xl font-extrabold tracking-tight">{t("home.buildFuture") || "Build Your Future Now"}</h2>
+            <p className="mt-2 sm:mt-4 text-base sm:text-lg text-white/90 max-w-md sm:max-w-2xl mx-auto">{t("home.buildFutureDesc") || "Join a growing network of local talent and employers. Post jobs, apply with confidence, and get matched by skills — not just keywords."}</p>
             <div className="mt-4 sm:mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/signup"><Button size="lg" variant="secondary" className="px-4 sm:px-8 py-2 sm:py-3">Get Started</Button></Link>
-              <Link to="/jobs"><Button size="lg" variant="outline" className="px-4 sm:px-8 py-2 sm:py-3 text-pink-600 bg-yellow-100 hover:bg-yellow/80">Browse Jobs</Button></Link>
+              <Link to="/signup"><Button size="lg" variant="secondary" className="px-4 sm:px-8 py-2 sm:py-3">{t("home.getStarted") || "Get Started"}</Button></Link>
+              <Link to="/jobs"><Button size="lg" variant="outline" className="px-4 sm:px-8 py-2 sm:py-3 text-pink-600 bg-yellow-100 hover:bg-yellow/80">{t("home.browseJobs") || "Browse Jobs"}</Button></Link>
             </div>
           </div>
         </div>
@@ -361,8 +360,8 @@ export default function Home() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-6 sm:mb-12">
-            <h1 className="text-4xl sm:text-4xl lg:text-4xl font-extrabold text-blue-900 dark:text-blue-300">Trusted Skilled Professionals</h1>
-            <p className="mt-2 sm:mt-3 text-red-600 dark:text-red-400 text-base sm:text-lg">Book top-rated, verified workers in your area</p>
+            <h1 className="text-4xl sm:text-4xl lg:text-4xl font-extrabold text-blue-900 dark:text-blue-300">{t("home.trustedPros") || "Trusted Skilled Professionals"}</h1>
+            <p className="mt-2 sm:mt-3 text-red-600 dark:text-red-400 text-base sm:text-lg">{t("home.trustedProsDesc") || "Book top-rated, verified workers in your area"}</p>
           </div>
           <div className="flex justify-center">
             <ChromaGrid 
@@ -402,8 +401,7 @@ export default function Home() {
             <div>
               <h3 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2 sm:mb-4">SkillConnect</h3>
               <p className="text-gray-600 dark:text-gray-300 mb-4 sm:mb-6 max-w-xs mx-auto text-sm sm:text-base">
-                Connecting talent with perfect opportunities through skills-based matching.
-                Build your community, grow your career.
+                {t("home.heroSubtext") || "Connecting talent with perfect opportunities through skills-based matching. Build your community, grow your career."}
               </p>
             </div>
             <div>
@@ -426,8 +424,8 @@ export default function Home() {
               © {new Date().getFullYear()} SkillConnect. All rights reserved.
             </p>
             <div className="flex space-x-4 sm:space-x-6">
-              <a href="#" className="hover:text-gray-900 dark:hover:text-white">Privacy Policy</a>
-              <a href="#" className="hover:text-gray-900 dark:hover:text-white">Terms of Service</a>
+              <Link to="/privacy-policy" className="hover:text-gray-900 dark:hover:text-white">Privacy Policy</Link>
+              <Link to="/terms-of-service" className="hover:text-gray-900 dark:hover:text-white">Terms of Service</Link>
               <Link to="/about" className="hover:text-gray-900 dark:hover:text-white">Contact</Link>
             </div>
           </div>

@@ -15,14 +15,14 @@ const FeatureCard = ({ icon: Icon, title, description, index }: { icon: React.El
         transition={{ delay: 0.1 + index * 0.1, duration: 0.5 }}
         className="h-full"
     >
-        <div className="relative h-full flex flex-col rounded-3xl border border-slate-200/50 dark:border-purple-500/20 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl overflow-hidden transition-all duration-300 hover:-translate-y-2 hover:shadow-xl dark:hover:shadow-[0_0_30px_rgba(168,85,247,0.15)] group">
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent dark:from-purple-500/10 pointer-events-none" />
+        <div className="relative h-full flex flex-col rounded-2xl border border-slate-200/60 dark:border-purple-500/15 bg-white/70 dark:bg-zinc-900/25 shadow-[0_12px_36px_rgba(17,24,39,0.05)] overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_54px_rgba(168,85,247,0.12)] group">
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-purple-500/5 via-transparent to-transparent opacity-100" />
             <CardContent className="pt-8 pb-8 px-6 text-center flex flex-col h-full relative z-10">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-100 to-indigo-100 dark:from-purple-900/40 dark:to-indigo-900/40 flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300 shadow-sm">
-                    <Icon className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                <div className="w-14 h-14 rounded-2xl bg-purple-50 dark:bg-purple-900/20 border border-purple-100/70 dark:border-purple-500/15 flex items-center justify-center mx-auto mb-5 transition-transform duration-300 group-hover:scale-[1.03] shadow-sm">
+                    <Icon className="w-7 h-7 text-purple-600 dark:text-purple-400" />
                 </div>
-                <h3 className="text-xl font-bold mb-3 text-slate-800 dark:text-white">{title}</h3>
-                <p className="text-slate-600 dark:text-zinc-400 leading-relaxed">{description}</p>
+                <h3 className="text-base sm:text-lg font-semibold mb-2 text-slate-800 dark:text-white">{title}</h3>
+                <p className="text-[13px] text-slate-600 dark:text-zinc-400 leading-relaxed">{description}</p>
             </CardContent>
         </div>
     </motion.div>
@@ -50,8 +50,8 @@ const AboutUs = () => {
   const { t } = useLanguage();
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-hidden">
-      <div className="container mx-auto px-4 pt-4 pb-12 relative">
+    <div className="min-h-screen bg-gradient-to-b from-white via-purple-50/40 to-white dark:from-zinc-950 dark:via-purple-950/15 dark:to-zinc-950 text-foreground overflow-hidden">
+      <div className="container mx-auto px-4 pt-16 pb-12 relative">
         {/* Dynamic background accents */}
         <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-96 h-96 bg-purple-500/10 dark:bg-purple-500/5 blur-[120px] rounded-full pointer-events-none" />
         <div className="absolute bottom-0 left-0 translate-y-1/4 -translate-x-1/4 w-96 h-96 bg-blue-500/10 dark:bg-blue-500/5 blur-[120px] rounded-full pointer-events-none" />
@@ -60,29 +60,31 @@ const AboutUs = () => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-center mb-20 relative z-10 pt-0"
+          className="text-center mb-12 relative z-10 pt-0"
         >
-          <div className="inline-block px-4 py-1.5 mb-6 rounded-full bg-purple-100 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-400 text-sm font-bold tracking-wide uppercase">
-            {t("about.title")}
+          <div className="inline-block px-4 py-1.5 mb-4 rounded-full bg-purple-100 dark:bg-purple-900/25 border border-purple-200/70 dark:border-purple-500/20 text-purple-700 dark:text-purple-300 text-sm font-bold tracking-wide uppercase shadow-sm">
+            {t("about.skillsBased")}
           </div>
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight mb-8 bg-gradient-to-r from-slate-900 via-purple-800 to-slate-900 dark:from-white dark:via-purple-400 dark:to-white bg-clip-text text-transparent">
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4 bg-gradient-to-r from-slate-900 via-purple-800 to-slate-900 dark:from-white dark:via-purple-400 dark:to-white bg-clip-text text-transparent">
             {t("about.title")}
           </h1>
-          <p className="text-xl sm:text-2xl text-slate-600 dark:text-zinc-400 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-lg sm:text-xl lg:text-2xl text-slate-600 dark:text-zinc-400 max-w-3xl mx-auto leading-relaxed">
             {t("about.subtitle")}
           </p>
         </motion.section>
 
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-24 relative z-10">
-          {[
-            { icon: Users, title: t("about.globalFocus"), description: t("about.globalFocusDesc") },
-            { icon: Briefcase, title: t("about.skillsBased"), description: t("about.skillsBasedDesc") },
-            { icon: Globe, title: t("about.communityBuilding"), description: t("about.communityBuildingDesc") },
-            { icon: Heart, title: t("about.inclusivePlatform"), description: t("about.inclusivePlatformDesc") },
-          ].map((item, index) => (
-            <FeatureCard key={index} {...item} index={index} />
-          ))}
-        </section>
+        <div className="relative z-10 rounded-[2rem] border border-slate-200/60 dark:border-purple-500/10 bg-white/55 dark:bg-zinc-900/20 backdrop-blur-sm px-3 py-3 shadow-[0_30px_80px_rgba(99,102,241,0.08)]">
+          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-0">
+            {[
+              { icon: Users, title: t("about.globalFocus"), description: t("about.globalFocusDesc") },
+              { icon: Briefcase, title: t("about.skillsBased"), description: t("about.skillsBasedDesc") },
+              { icon: Globe, title: t("about.communityBuilding"), description: t("about.communityBuildingDesc") },
+              { icon: Heart, title: t("about.inclusivePlatform"), description: t("about.inclusivePlatformDesc") },
+            ].map((item, index) => (
+              <FeatureCard key={index} {...item} index={index} />
+            ))}
+          </section>
+        </div>
 
         <motion.section
           initial={{ opacity: 0, scale: 0.98 }}

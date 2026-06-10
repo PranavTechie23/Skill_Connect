@@ -49,14 +49,30 @@ const signupSchema = z.object({
 }).refine(data => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
-}).refine(data => {
+}).superRefine((data, ctx) => {
   if (data.userType === "Employer") {
-    return !!data.companyName && !!data.location && !!data.telephoneNumber;
+    if (!data.companyName?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Company name is required.",
+        path: ["companyName"],
+      });
+    }
+    if (!data.location?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Location is required.",
+        path: ["location"],
+      });
+    }
+    if (!data.telephoneNumber?.trim() || data.telephoneNumber.trim().length !== 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Telephone number must be exactly 10 digits.",
+        path: ["telephoneNumber"],
+      });
+    }
   }
-  return true;
-}, {
-  message: "Required fields missing for employer registration",
-  path: ["companyName"],
 });
 
 type SignupFormData = z.infer<typeof signupSchema>;
@@ -94,6 +110,10 @@ export default function Signup() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  useEffect(() => {
+    form.register("userType");
+  }, [form]);
 
   // Debounced email check
   useEffect(() => {
@@ -239,8 +259,12 @@ export default function Signup() {
           : [],
       ];
 
-    const isValid = await form.trigger(fieldsToValidate[step]);
-    if (!isValid) return;
+    const fields = fieldsToValidate[step];
+    const isValid = await form.trigger(fields);
+    if (!isValid) {
+      console.log("Validation failed for step", step, "Errors:", form.formState.errors);
+      return;
+    }
 
     // If we're on the first step (email/password), do an additional email check
     if (step === 0) {
@@ -453,11 +477,13 @@ export default function Signup() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <Label>First Name</Label>
-          <Input {...form.register("firstName")} placeholder="John" />
+          <Input {...form.register("firstName")} placeholder="John" className={form.formState.errors.firstName ? "border-destructive" : ""} />
+          {form.formState.errors.firstName && <p className="text-sm text-destructive mt-1">{form.formState.errors.firstName.message}</p>}
         </div>
         <div>
           <Label>Last Name</Label>
-          <Input {...form.register("lastName")} placeholder="Doe" />
+          <Input {...form.register("lastName")} placeholder="Doe" className={form.formState.errors.lastName ? "border-destructive" : ""} />
+          {form.formState.errors.lastName && <p className="text-sm text-destructive mt-1">{form.formState.errors.lastName.message}</p>}
         </div>
       </div>
 
@@ -470,7 +496,9 @@ export default function Signup() {
               <button
                 key={r}
                 type="button"
-                onClick={() => form.setValue("userType", r)}
+                onClick={() => {
+                  form.setValue("userType", r, { shouldValidate: true });
+                }}
                 role="radio"
                 aria-checked={active}
                 aria-pressed={active}
@@ -525,17 +553,20 @@ export default function Signup() {
     <div className="space-y-3">
       <div>
         <Label>Company Name</Label>
-        <Input {...form.register("companyName")} placeholder="Tech Corp" />
+        <Input {...form.register("companyName")} placeholder="Tech Corp" className={form.formState.errors.companyName ? "border-destructive" : ""} />
+        {form.formState.errors.companyName && <p className="text-sm text-destructive mt-1">{form.formState.errors.companyName.message}</p>}
       </div>
 
       <div>
         <Label>Location</Label>
-        <Input {...form.register("location")} placeholder="City, Country" />
+        <Input {...form.register("location")} placeholder="City, Country" className={form.formState.errors.location ? "border-destructive" : ""} />
+        {form.formState.errors.location && <p className="text-sm text-destructive mt-1">{form.formState.errors.location.message}</p>}
       </div>
 
       <div>
         <Label>Telephone Number</Label>
-        <Input {...form.register("telephoneNumber")} placeholder="1234567890" type="tel" maxLength={10} />
+        <Input {...form.register("telephoneNumber")} placeholder="1234567890" type="tel" maxLength={10} className={form.formState.errors.telephoneNumber ? "border-destructive" : ""} />
+        {form.formState.errors.telephoneNumber && <p className="text-sm text-destructive mt-1">{form.formState.errors.telephoneNumber.message}</p>}
       </div>
 
       <div>

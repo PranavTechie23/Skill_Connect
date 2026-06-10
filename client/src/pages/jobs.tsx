@@ -1,7 +1,8 @@
 import JobCard from "@/components/job-card";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { QuickApplyModal } from "@/components/quick-apply-modal";
+import { CompanyProfileModal } from "@/components/company-profile-modal";
 import JobSearch from "@/components/job-search";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -11,9 +12,6 @@ import { Sparkles } from "lucide-react";
 import {
   motion,
   useInView,
-  useScroll,
-  useTransform,
-  useSpring,
   AnimatePresence,
 } from "framer-motion";
 import {
@@ -23,21 +21,14 @@ import {
   IndianRupee,
   TrendingUp,
   Zap,
-  Code,
-  Palette,
-  Database,
-  Smartphone,
-  Cloud,
-  LucideIcon,
-  Crown,
   ArrowRight,
   Building,
   BarChart3,
-  Layers,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetch } from "@/lib/api";
+import { hasActiveJobFilters, normalizeJobTypeFilter } from "@/lib/job-filters";
 import {
   Pagination,
   PaginationContent,
@@ -68,7 +59,7 @@ interface Job {
   employerId: string;
   isActive: boolean;
   createdAt: string;
-  company?: { name: string };
+  company?: { id?: string; name: string };
   employer?: { firstName: string; lastName: string };
   matchScore?: number;
   matchReasons?: string[];
@@ -89,7 +80,11 @@ const OBSIDIAN_CSS = `
     -webkit-overflow-scrolling: touch;
     
     /* Theme Variables - Default Light */
-    --obs-bg: radial-gradient(circle at top, rgba(129,140,248,.10) 0%, transparent 55%), hsl(var(--background));
+    --obs-bg: #f3f4f6;
+    --jobs-surface: #ffffff;
+    --jobs-surface-border: rgba(15, 23, 42, 0.08);
+    --jobs-row-hover: rgba(248, 250, 252, 0.95);
+    --jobs-row-border: rgba(15, 23, 42, 0.06);
     --obs-text: hsl(var(--foreground));
     --obs-feat-bg: linear-gradient(160deg, #ffffff 0%, #eef2ff 60%, #faf5ff 100%);
     --obs-feat-border: linear-gradient(135deg, rgba(129,140,248,.35) 0%, rgba(196,181,253,.25) 40%, rgba(248,250,252,1) 100%);
@@ -108,6 +103,10 @@ const OBSIDIAN_CSS = `
   }
 
   .dark .obs-root {
+    --jobs-surface: rgba(14, 14, 22, 0.88);
+    --jobs-surface-border: rgba(255, 255, 255, 0.07);
+    --jobs-row-hover: rgba(255, 255, 255, 0.03);
+    --jobs-row-border: rgba(255, 255, 255, 0.06);
     --obs-bg: linear-gradient(160deg, #07070f 0%, #0c0b1a 50%, #080714 100%);
     --obs-text: #e2e8f0;
     --obs-feat-bg: linear-gradient(160deg, #0d0d1f 0%, #0a0a18 100%);
@@ -280,9 +279,348 @@ const OBSIDIAN_CSS = `
     animation: pulse-ring 2.5s ease-out infinite;
   }
 
-  /* ── Job card wrapper ── */
-  .obs-job-wrap { transition: transform .3s cubic-bezier(.4,0,.2,1); }
-  .obs-job-wrap:hover { transform: translateY(-5px); }
+  /* ── Premium jobs list ── */
+  .jobs-list-panel {
+    border-radius: 24px;
+    padding: 0;
+    overflow: hidden;
+    background: var(--jobs-surface);
+    border: 1px solid var(--jobs-surface-border);
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.6) inset,
+      0 20px 50px -24px rgba(15,23,42,0.12);
+  }
+  .dark .jobs-list-panel {
+    box-shadow: 0 24px 64px -32px rgba(0,0,0,0.55);
+  }
+
+  .jobs-list-header {
+    padding: 2rem 2rem 1.5rem;
+    border-bottom: 1px solid var(--jobs-row-border);
+  }
+
+  .jobs-list-header-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .jobs-trending-header {
+    border-bottom: none;
+    padding-bottom: 0.75rem;
+  }
+
+  .jobs-unified-divider {
+    height: 1px;
+    margin: 0.25rem 2rem 0;
+    background: linear-gradient(90deg, transparent, var(--jobs-row-border), transparent);
+  }
+
+  .jobs-category-block {
+    padding: 0 0.75rem 0.25rem;
+  }
+
+  .jobs-category-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 1.25rem 0.35rem;
+  }
+
+  .jobs-category-name {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #6366f1;
+  }
+  .dark .jobs-category-name { color: #a5b4fc; }
+
+  .jobs-category-count {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: #94a3b8;
+  }
+
+  .jobs-trending-list {
+    padding-top: 0;
+    padding-bottom: 0.25rem;
+  }
+
+  .job-list-row-ranked {
+    gap: 0.75rem;
+  }
+
+  .job-list-rank {
+    width: 2rem;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Sora', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #94a3b8;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .job-list-rank-top {
+    color: #6366f1;
+  }
+  .dark .job-list-rank-top { color: #a5b4fc; }
+
+  .jobs-list-eyebrow {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 0.5rem;
+  }
+  .dark .jobs-list-eyebrow { color: #64748b; }
+
+  .jobs-list-title {
+    font-family: 'Sora', sans-serif;
+    font-size: clamp(1.375rem, 2.8vw, 1.75rem);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: #0f172a;
+    line-height: 1.15;
+  }
+  .dark .jobs-list-title { color: #f8fafc; }
+
+  .jobs-list-meta {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.875rem;
+    color: #64748b;
+    margin-top: 0.5rem;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+  .dark .jobs-list-meta { color: #94a3b8; }
+
+  .jobs-premium-list {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 0.75rem 0.75rem;
+  }
+
+  .job-list-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid transparent;
+  }
+  .job-list-row:hover {
+    background: var(--jobs-row-hover);
+    border-color: var(--jobs-row-border);
+    box-shadow: 0 4px 20px -12px rgba(15,23,42,0.08);
+  }
+  .dark .job-list-row:hover {
+    box-shadow: 0 8px 28px -16px rgba(0,0,0,0.4);
+  }
+
+  .job-list-avatar {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Sora', sans-serif;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    letter-spacing: -0.02em;
+  }
+
+  .job-list-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+  }
+
+  .job-list-copy { min-width: 0; flex: 1; }
+
+  .job-list-title {
+    font-family: 'Sora', sans-serif;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+    line-height: 1.35;
+    transition: color 0.15s ease;
+  }
+  .dark .job-list-title { color: #f1f5f9; }
+  .job-list-row:hover .job-list-title { color: #312e81; }
+  .dark .job-list-row:hover .job-list-title { color: #e0e7ff; }
+
+  .job-list-sub {
+    margin-top: 0.25rem;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+  }
+
+  .job-list-company {
+    font-weight: 500;
+    color: #475569;
+  }
+  .dark .job-list-company { color: #cbd5e1; }
+
+  .job-list-sep {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    flex-shrink: 0;
+  }
+  .dark .job-list-sep { background: #475569; }
+
+  .job-list-meta {
+    color: #94a3b8;
+    font-weight: 400;
+  }
+  .dark .job-list-meta { color: #64748b; }
+
+  .job-list-actions {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex-shrink: 0;
+  }
+
+  .job-list-time {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .dark .job-list-time { color: #64748b; }
+
+  .job-list-apply {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.45rem 0.95rem;
+    border-radius: 999px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: #334155;
+    background: transparent;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .job-list-row:hover .job-list-apply,
+  .job-list-apply:hover,
+  .job-list-apply:focus-visible {
+    color: #fff;
+    background: #0f172a;
+    border-color: #0f172a;
+    box-shadow: 0 4px 14px -4px rgba(15, 23, 42, 0.35);
+  }
+  .dark .job-list-apply {
+    color: #e2e8f0;
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+  .dark .job-list-row:hover .job-list-apply,
+  .dark .job-list-apply:hover {
+    background: #f8fafc;
+    color: #0f172a;
+    border-color: #f8fafc;
+    box-shadow: 0 4px 14px -4px rgba(0, 0, 0, 0.4);
+  }
+
+  @media (max-width: 768px) {
+    .job-list-body { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+    .job-list-actions { width: 100%; justify-content: space-between; }
+    .jobs-list-header { padding: 1.5rem 1.25rem 1.25rem; }
+    .jobs-premium-list { padding: 0.25rem 0.5rem 0.5rem; }
+    .job-list-row { padding: 0.875rem 1rem; }
+  }
+
+  .job-card-surface {
+    background: var(--jobs-surface);
+    border: 1px solid var(--jobs-surface-border);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .job-card-surface:hover {
+    border-color: rgba(15,23,42,0.12);
+    box-shadow: 0 12px 32px -20px rgba(15,23,42,0.12);
+  }
+
+  .jobs-pagination {
+    margin: 0;
+    padding: 1.25rem 2rem 1.75rem;
+    border-top: 1px solid var(--jobs-row-border);
+    background: linear-gradient(180deg, transparent, rgba(248,250,252,0.5));
+  }
+  .dark .jobs-pagination {
+    background: linear-gradient(180deg, transparent, rgba(255,255,255,0.02));
+  }
+
+  .jobs-page-btn {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 500;
+    font-size: 0.8125rem;
+    border-radius: 999px;
+    min-width: 2.25rem;
+    height: 2.25rem;
+    padding: 0 0.65rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+    color: #64748b;
+    background: transparent;
+  }
+  .jobs-page-btn:hover:not(.is-active) {
+    background: #f1f5f9;
+    color: #334155;
+  }
+  .jobs-page-btn.is-active {
+    background: #0f172a;
+    color: #fff;
+  }
+  .dark .jobs-page-btn { color: #94a3b8; }
+  .dark .jobs-page-btn:hover:not(.is-active) {
+    background: rgba(255,255,255,0.06);
+    color: #e2e8f0;
+  }
+  .dark .jobs-page-btn.is-active {
+    background: #f8fafc;
+    color: #0f172a;
+  }
+
+  .obs-root-light .obs-divider {
+    background: transparent;
+    margin: 3rem 0;
+    height: 0;
+  }
 
   /* ── Featured guest card ── */
   .obs-feat-card {
@@ -409,21 +747,14 @@ const OBSIDIAN_CSS = `
     background: rgba(99,102,241,0.08);
     color: #4f46e5;
   }
-`;
 
-/* ─── Job icon map ─────────────────────────────────────────────── */
-const jobIcons: Record<string, LucideIcon> = {
-  software: Code, developer: Code, engineer: Code, frontend: Palette,
-  backend: Database, fullstack: Code, mobile: Smartphone, cloud: Cloud,
-  devops: Zap, design: Palette, data: Database, ai: Zap, machine: Zap,
-  web: Code, application: Code, senior: TrendingUp, junior: Code,
-  lead: TrendingUp, principal: TrendingUp,
-};
-const getJobIcon = (title: string): LucideIcon => {
-  const t = title.toLowerCase();
-  for (const [k, v] of Object.entries(jobIcons)) if (t.includes(k)) return v;
-  return Briefcase;
-};
+  /* Light mode performance pass:
+     disable non-essential infinite animations that can hurt scroll smoothness */
+  .obs-root-light .obs-badge-pulse::after,
+  .obs-root-light .obs-ticker-track {
+    animation: none !important;
+  }
+`;
 
 /* ─── Animated Counter ─────────────────────────────────────────── */
 const AnimatedCounter = ({ value, duration = 2000 }: { value: number; duration?: number }) => {
@@ -454,6 +785,19 @@ const TICKER_ITEMS = [
   "Engineering", "Design", "Product", "Data Science", "DevOps", "AI/ML",
 ];
 
+function jobCategoryLabel(jobType?: string): string {
+  if (!jobType?.trim()) return "Other Roles";
+  const normalized = jobType.toLowerCase().replace(/[-_]/g, " ");
+  if (normalized.includes("remote")) return "Remote";
+  if (normalized.includes("full")) return "Full-time";
+  if (normalized.includes("part")) return "Part-time";
+  if (normalized.includes("contract")) return "Contract";
+  if (normalized.includes("intern")) return "Internship";
+  return jobType
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    COMPONENT
 ═══════════════════════════════════════════════════════════════════ */
@@ -464,12 +808,13 @@ export default function Jobs() {
   const isDark = theme === "dark" || (theme === "system" && typeof window !== 'undefined' && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
   const [filters, setFilters] = useState({ location: "", skills: [] as string[], jobType: "", search: "" });
+  const [filterResetToken, setFilterResetToken] = useState(0);
   const [page, setPage] = useState(1);
-  const [randomizedJobs, setRandomizedJobs] = useState<Job[]>([]);
-  const [overallStats, setOverallStats] = useState({ totalLocations: 0, totalJobTypes: 0, avgSalary: 0 });
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showQuickApply, setShowQuickApply] = useState(false);
   const [selectedJobForDetail, setSelectedJobForDetail] = useState<Job | null>(null);
+  const [companyProfileId, setCompanyProfileId] = useState<string | null>(null);
+  const [companyProfileName, setCompanyProfileName] = useState("");
   const [headlineIndex, setHeadlineIndex] = useState(0);
 
   useEffect(() => {
@@ -484,15 +829,17 @@ export default function Jobs() {
   const jobsRef = useRef<HTMLDivElement>(null);
   const isStatsInView = useInView(statsRef, { once: true, margin: "-40px" });
   const isJobsInView = useInView(jobsRef, { once: true, margin: "-80px" });
-  const { scrollYProgress } = useScroll();
-  const smoothY = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
-  const heroOpacity = useTransform(smoothY, [0, 0.12], [1, 0]);
-  const heroScale = useTransform(smoothY, [0, 0.12], [1, 0.88]);
 
+  const isMounted = useRef(false);
   useEffect(() => {
-    // Standard page-to-top on pagination.
-    // The global ScrollToTop handles initial route mount, so we only need this for 'page' state changes.
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    if (!isMounted.current) {
+      isMounted.current = true;
+      return;
+    }
+    if (jobsRef.current) {
+      const y = jobsRef.current.getBoundingClientRect().top + window.scrollY - 80;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    }
   }, [page]);
 
   /* ── inject CSS ── */
@@ -503,11 +850,25 @@ export default function Jobs() {
     return () => { document.head.removeChild(el); };
   }, []);
 
+  // Ensure page scroll is never locked on this route.
+  // Some modal libraries can temporarily set overflow hidden on body/html.
+  useEffect(() => {
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "auto";
+    document.documentElement.style.overflow = "auto";
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, []);
+
   /* ── helpers ── */
   const buildQS = (f: typeof filters, p: number, n: number) => {
     const params = new URLSearchParams();
     if (f.location) params.append("location", f.location);
-    if (f.jobType) params.append("jobType", f.jobType);
+    if (f.jobType) params.append("jobType", normalizeJobTypeFilter(f.jobType));
     if (f.search) params.append("search", f.search);
     f.skills.forEach((s) => params.append("skills", s));
     params.append("page", String(p));
@@ -516,19 +877,6 @@ export default function Jobs() {
   };
 
   /* ── queries ── */
-  const { data: overallData } = useQuery<JobsApiResponse>({
-    queryKey: ["/api/jobs/overall", { ...filters }],
-    queryFn: async () => {
-      try {
-        const r = await apiFetch(`/api/jobs?${buildQS(filters, 1, 1000)}`);
-        if (!r.ok) throw new Error("overall fetch failed");
-        const d = await r.json();
-        return { jobs: d.jobs ?? [], totalCount: d.totalCount ?? 0 };
-      } catch { return { jobs: [], totalCount: 0 }; }
-    },
-    staleTime: 600_000,
-  });
-
   const isProfessional = user?.userType === "Professional" || user?.userType === "job_seeker";
   const { data: recommendedData } = useQuery({
     queryKey: ["/api/jobs/recommended"],
@@ -539,55 +887,112 @@ export default function Jobs() {
   const recommendedJobs = (recommendedData?.jobs ?? []) as Job[];
 
   const isGuest = !user;
-  const { data: featuredForGuestsData } = useQuery<JobsApiResponse>({
-    queryKey: ["/api/jobs/featured-guests"],
+  const TRENDING_PREVIEW = 10;
+
+  const { data: trendingData } = useQuery<JobsApiResponse>({
+    queryKey: ["/api/jobs/trending", TRENDING_PREVIEW],
     queryFn: async () => {
-      const r = await apiFetch(`/api/jobs?page=1&itemsPerPage=4`);
-      if (!r.ok) throw new Error("featured fetch failed");
+      const r = await apiFetch(`/api/jobs?page=1&itemsPerPage=${TRENDING_PREVIEW}`);
+      if (!r.ok) throw new Error("trending fetch failed");
       const d = await r.json();
       return { jobs: d.jobs ?? [], totalCount: d.totalCount ?? 0 };
     },
     staleTime: 300_000,
-    enabled: isGuest,
   });
-  const featuredForGuests = (featuredForGuestsData?.jobs ?? []) as Job[];
+  const trendingJobs = (trendingData?.jobs ?? []) as Job[];
+  const catalogTotal = trendingData?.totalCount ?? 0;
 
-  const { data, isLoading } = useQuery<JobsApiResponse>({
+  const { data: marketSnapshot } = useQuery({
+    queryKey: ["/api/jobs/market-snapshot"],
+    queryFn: async () => {
+      const r = await apiFetch("/api/jobs?page=1&itemsPerPage=100");
+      if (!r.ok) throw new Error("snapshot fetch failed");
+      const d = await r.json();
+      const sample = (d.jobs ?? []) as Job[];
+      return {
+        totalCount: d.totalCount ?? 0,
+        totalLocations: new Set(sample.map((j) => j.location)).size,
+        totalJobTypes: new Set(sample.map((j) => j.jobType)).size,
+        avgSalary: sample.length > 0
+          ? Math.round(sample.reduce((a, j) => a + (j.salaryMin + j.salaryMax) / 2, 0) / sample.length / 1000)
+          : 0,
+      };
+    },
+    staleTime: 120_000,
+  });
+
+  const { data, isLoading, isError, refetch } = useQuery<JobsApiResponse>({
     queryKey: ["/api/jobs", { ...filters, page, itemsPerPage }],
     queryFn: async () => {
       const r = await apiFetch(`/api/jobs?${buildQS(filters, page, itemsPerPage)}`);
-      if (!r.ok) throw new Error("jobs fetch failed");
+      if (!r.ok) {
+        const errBody = await r.json().catch(() => ({}));
+        throw new Error(
+          typeof errBody?.message === "string" ? errBody.message : "jobs fetch failed"
+        );
+      }
       const d = await r.json();
       return { jobs: d.jobs ?? [], totalCount: d.totalCount ?? 0 };
     },
     staleTime: 30_000,
   });
 
-  /* ── effects ── */
-  useEffect(() => {
-    if (!overallData?.jobs) return;
-    const all = overallData.jobs;
-    setOverallStats({
-      totalLocations: new Set(all.map((j) => j.location)).size,
-      totalJobTypes: new Set(all.map((j) => j.jobType)).size,
-      avgSalary: all.length > 0 ? Math.round(all.reduce((a, j) => a + (j.salaryMin + j.salaryMax) / 2, 0) / all.length / 1000) : 0,
-    });
-  }, [overallData]);
-
-  useEffect(() => {
-    if (data?.jobs) setRandomizedJobs([...data.jobs].sort(() => Math.random() - 0.5));
-  }, [data?.jobs]);
-
-  const jobs = randomizedJobs;
+  const jobs = data?.jobs ?? [];
   const totalJobs = data?.totalCount ?? 0;
+  const filtersActive = hasActiveJobFilters(filters);
   const totalPages = Math.max(1, Math.ceil(totalJobs / itemsPerPage));
+  const showTrendingPreview = !filtersActive && trendingJobs.length > 0;
+
+  const trendingByCategory = useMemo(() => {
+    const map = new Map<string, Job[]>();
+    for (const job of trendingJobs) {
+      const cat = jobCategoryLabel(job.jobType);
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(job);
+    }
+    return Array.from(map.entries()).sort(
+      (a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])
+    );
+  }, [trendingJobs]);
+
+  const trendingIds = useMemo(
+    () => new Set(trendingJobs.map((j) => j.id)),
+    [trendingJobs]
+  );
+
+  const listJobs = useMemo(() => {
+    if (filtersActive || page > 1) return jobs;
+    return jobs.filter((j) => !trendingIds.has(j.id));
+  }, [jobs, filtersActive, page, trendingIds]);
+
+  const scrollToJobResults = () => {
+    if (jobsRef.current) {
+      const y = jobsRef.current.getBoundingClientRect().top + window.scrollY - 88;
+      window.scrollTo({ top: y, behavior: "smooth" });
+    }
+  };
+
+  const scrollToAvailableJobs = () => {
+    const el = document.getElementById("available-jobs");
+    if (el) {
+      const y = el.getBoundingClientRect().top + window.scrollY - 88;
+      window.scrollTo({ top: y, behavior: "smooth" });
+    }
+  };
+
+  const snapshot = marketSnapshot ?? {
+    totalCount: catalogTotal || totalJobs,
+    totalLocations: 0,
+    totalJobTypes: 0,
+    avgSalary: 0,
+  };
 
   /* ── stat cards config ── */
   const statCards = [
-    { icon: Briefcase, label: t("jobs.totalJobs"), value: totalJobs, suffix: "+", gradient: "from-indigo-500 to-violet-600", textCls: "obs-text-violet", delay: 0 },
-    { icon: MapPin, label: t("jobs.locations"), value: overallStats.totalLocations, suffix: "+", gradient: "from-blue-500 to-cyan-500", textCls: "obs-text-blue", delay: 0.07 },
-    { icon: Clock, label: t("jobs.jobTypes"), value: overallStats.totalJobTypes, suffix: "+", gradient: "from-purple-500 to-pink-500", textCls: "obs-text-violet", delay: 0.14 },
-    { icon: IndianRupee, label: t("jobs.avgSalary"), value: overallStats.avgSalary, suffix: "k+", gradient: "from-amber-400 to-orange-500", textCls: "obs-text-amber", delay: 0.21, isCurrency: true },
+    { icon: Briefcase, label: t("jobs.totalJobs"), value: snapshot.totalCount, suffix: "", gradient: "from-indigo-500 to-violet-600", textCls: "obs-text-violet", delay: 0 },
+    { icon: MapPin, label: t("jobs.locations"), value: snapshot.totalLocations, suffix: "+", gradient: "from-blue-500 to-cyan-500", textCls: "obs-text-blue", delay: 0.07 },
+    { icon: Clock, label: t("jobs.jobTypes"), value: snapshot.totalJobTypes, suffix: "+", gradient: "from-purple-500 to-pink-500", textCls: "obs-text-violet", delay: 0.14 },
+    { icon: IndianRupee, label: t("jobs.avgSalary"), value: snapshot.avgSalary, suffix: "k+", gradient: "from-amber-400 to-orange-500", textCls: "obs-text-amber", delay: 0.21, isCurrency: true },
   ];
 
    /* ════════════════════════════════════════════════════════════════
@@ -607,7 +1012,7 @@ export default function Jobs() {
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem" }}>
 
           {/* ── HERO ── */}
-          <motion.div style={{ opacity: heroOpacity, scale: heroScale }} className="text-center mb-16 relative">
+          <div className="text-center mb-16 relative">
             {/* Dot grid decoration */}
             <div className="obs-dot-grid" style={{ position: "absolute", top: -40, left: "50%", transform: "translateX(-50%)", width: "100%", height: 320, pointerEvents: "none" }} />
 
@@ -626,7 +1031,7 @@ export default function Jobs() {
                   <Zap className="w-4 h-4" style={{ color: "var(--obs-badge-icon)", fill: "var(--obs-badge-icon)", opacity: 0.9 }} />
                 </motion.div>
                 <span style={{ fontSize: ".875rem", fontWeight: 700, color: "var(--obs-badge-text)", letterSpacing: ".02em" }}>
-                  <AnimatedCounter value={totalJobs} duration={1800} /> live opportunities
+                  <AnimatedCounter value={snapshot.totalCount || catalogTotal} duration={1800} /> live opportunities
                 </span>
               </div>
             </motion.div>
@@ -690,7 +1095,7 @@ export default function Jobs() {
             </motion.p>
 
             {/* Removed CTA pills as requested */}
-          </motion.div>
+          </div>
 
           {/* ── TICKER ── */}
           <motion.div
@@ -742,6 +1147,7 @@ export default function Jobs() {
                   <motion.div key={job.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .4, delay: i * .05 }} className="obs-job-wrap">
                     <JobCard
                       job={job}
+                      variant="card"
                       setSelectedJob={(j) => { setSelectedJob(j); setShowQuickApply(true); }}
                       setShowQuickApply={setShowQuickApply}
                       onCardClick={() => setSelectedJobForDetail(job)}
@@ -753,22 +1159,20 @@ export default function Jobs() {
           )}
 
           {/* ── SEARCH ── */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .5, delay: .6 }} style={{ marginBottom: "3rem", position: "relative", zIndex: 20 }}>
-            <div style={{ borderRadius: 20, padding: 1, background: "linear-gradient(135deg, rgba(99,102,241,.2), rgba(139,92,246,.15), rgba(99,102,241,.15))" }}>
-              <div style={{ borderRadius: 19 }}>
-                <JobSearch
-                  onSearch={(sf) => {
-                    setFilters(c => ({ ...c, location: sf.location, jobType: sf.jobType, search: sf.search }));
-                    setPage(1);
-                  }}
-                />
-              </div>
-            </div>
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .45, delay: .5 }} style={{ marginBottom: "2rem", position: "relative", zIndex: 20 }}>
+            <JobSearch
+              resetToken={filterResetToken}
+              onSearch={(sf) => {
+                setFilters(c => ({ ...c, location: sf.location, jobType: sf.jobType, search: sf.search }));
+                setPage(1);
+              }}
+              onAfterSearch={scrollToJobResults}
+            />
           </motion.div>
 
           {/* ── STATS BENTO ── */}
           <div ref={statsRef}>
-            {!isLoading && totalJobs > 0 && (
+            {!isLoading && snapshot.totalCount > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 40 }}
                 animate={isStatsInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
@@ -812,263 +1216,128 @@ export default function Jobs() {
             )}
           </div>
 
-          {/* ── GUEST FEATURED JOBS ── */}
-          {isGuest && featuredForGuests.length > 0 && (
-            <motion.div initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .55 }} style={{ marginBottom: "3.5rem" }}>
-              {/* Gradient border wrapper */}
-              <div
-                style={{
-                  borderRadius: 24,
-                  padding: 1,
-                   background:
-                    isDark
-                      ? "linear-gradient(135deg, rgba(139,92,246,.5) 0%, rgba(99,102,241,.25) 40%, rgba(245,158,11,.2) 100%)"
-                      : "linear-gradient(135deg, rgba(129,140,248,.35) 0%, rgba(196,181,253,.25) 40%, rgba(248,250,252,1) 100%)",
-                  boxShadow: "0 0 80px -30px rgba(99,102,241,.25)",
-                }}
-              >
-                <div
-                  style={{
-                    borderRadius: 23,
-                     background:
-                      isDark
-                        ? "linear-gradient(160deg, #0d0d1f 0%, #0a0a18 100%)"
-                        : "linear-gradient(160deg, #ffffff 0%, #eef2ff 60%, #faf5ff 100%)",
-                    padding: "2.5rem",
-                    position: "relative",
-                    overflow: "hidden",
-                  }}
-                >
-                  {/* Inner orb */}
-                  <div style={{ position: "absolute", top: -80, right: -80, width: 320, height: 320, borderRadius: "50%", background: "radial-gradient(circle, rgba(139,92,246,.12) 0%, transparent 70%)", filter: "blur(40px)", pointerEvents: "none" }} />
-                  <div style={{ position: "absolute", bottom: -60, left: -60, width: 260, height: 260, borderRadius: "50%", background: "radial-gradient(circle, rgba(245,158,11,.07) 0%, transparent 70%)", filter: "blur(35px)", pointerEvents: "none" }} />
-
-                  <div style={{ position: "relative" }}>
-                    {/* Header */}
-                    <div style={{ display: "flex", alignItems: "center", gap: ".75rem", marginBottom: ".75rem" }}>
-                      <span className="obs-section-badge-violet obs-section-badge">
-                        <Crown className="w-3.5 h-3.5" />
-                        {t("jobs.curatedForYou")}
-                      </span>
-                      <span style={{ fontSize: ".875rem", color: "#475569" }}>{t("jobs.topPicks")}</span>
-                    </div>
-                     <h2
-                      className="obs-display obs-gradient-text"
-                      style={{
-                        fontSize: "clamp(1.5rem,4vw,2.25rem)",
-                        fontWeight: 800,
-                        letterSpacing: "-.03em",
-                        marginBottom: ".5rem",
-                        background: isDark ? "linear-gradient(135deg, #f1f5f9 0%, #a5b4fc 100%)" : "linear-gradient(135deg, #0f172a 0%, #4f46e5 100%)",
-                      }}
-                    >
-                      {t("jobs.bestRecommended")}
-                    </h2>
-                    <p style={{ color: "#64748b", fontSize: ".9rem", marginBottom: "2rem", maxWidth: 480 }}>
-                      {t("jobs.createAccountToApply")}
-                    </p>
-
-                    {/* Cards grid */}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))", gap: "1rem", marginBottom: "2rem" }}>
-                      {featuredForGuests.slice(0, 6).map((job: Job, i: number) => {
-                        const JobIcon = getJobIcon(job.title);
-                        return (
-                          <motion.div
-                            key={job.id}
-                            initial={{ opacity: 0, y: 14 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: .35, delay: i * .065 }}
-                            className="obs-feat-card"
-                            style={{ padding: "1.25rem" }}
-                          >
-                            <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem" }}>
-                              <div
-                                style={{
-                                  flexShrink: 0,
-                                  width: 44,
-                                  height: 44,
-                                  borderRadius: 12,
-                                  background:
-                                    theme === "dark"
-                                      ? "linear-gradient(135deg, #6366f1, #8b5cf6)"
-                                      : "linear-gradient(135deg, #4f46e5, #a855f7)",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  boxShadow: "0 6px 20px -6px rgba(99,102,241,.5)",
-                                }}
-                              >
-                                <JobIcon className="w-5 h-5 text-white" />
-                              </div>
-                              <div style={{ minWidth: 0, flex: 1 }}>
-                                <h3
-                                   style={{
-                                    fontWeight: 700,
-                                    color: isDark ? "#e2e8f0" : "#0f172a",
-                                    fontSize: ".9rem",
-                                    marginBottom: ".2rem",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap"
-                                  }}
-                                >
-                                  {job.title}
-                                </h3>
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: ".75rem", color: "#64748b", marginBottom: "0.5rem" }}>
-                                  <span style={{ display: "flex", alignItems: "center", gap: "0.25rem", textTransform: "capitalize" }}>
-                                    <Clock className="w-3 h-3" /> {job.jobType?.replace("-", " ")}
-                                  </span>
-                                </div>
-                                {job.skills?.length > 0 && (
-                                  <div style={{ display: "flex", flexWrap: "wrap", gap: ".35rem" }}>
-                                    {job.skills.slice(0, 2).map((s: string, si: number) => (
-                                      <span key={si} style={{ padding: ".2rem .6rem", borderRadius: 999, fontSize: ".72rem", fontWeight: 600, background: "rgba(99,102,241,.15)", border: "1px solid rgba(99,102,241,.25)", color: "#a5b4fc" }}>
-                                        {s}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </motion.div>
-                        );
-                      })}
-                    </div>
-
-                     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "1rem", borderRadius: 20, padding: "2rem", background: isDark ? "rgba(99,102,241,0.08)" : "rgba(99,102,241,0.05)", border: isDark ? "1px solid rgba(139,92,246,0.3)" : "1px solid rgba(99,102,241,0.2)", position: "relative", overflow: "hidden", boxShadow: "0 20px 40px -20px rgba(99,102,241,0.4)" }}>
-                      {/* Premium shimmer flare */}
-                      <div className="obs-btn-shimmer" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", opacity: 0.1, pointerEvents: "none" }} />
-
-                      <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", position: "relative" }}>
-                        <div style={{ width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg, #8b5cf6, #6366f1, #d946ef)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 10px 25px -5px rgba(139,92,246,0.6)" }}>
-                          <Crown className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                          <p style={{ fontWeight: 800, fontSize: "1.1rem", color: isDark ? "#f8fafc" : "#1e293b", marginBottom: ".2rem", letterSpacing: "-.01em" }}>{t("jobs.joinSkillConnect")}</p>
-                          <p style={{ fontSize: ".85rem", fontWeight: 500, color: isDark ? "#94a3b8" : "#64748b" }}>{t("jobs.getRecommendations")}</p>
-                        </div>
-                      </div>
-
-                      <div style={{ display: "flex", alignItems: "center", gap: ".85rem", position: "relative" }}>
-                        <Link
-                          to="/login"
-                          style={{ display: "inline-flex", alignItems: "center", gap: ".5rem", padding: ".75rem 1.5rem", borderRadius: 12, fontWeight: 700, fontSize: ".875rem", background: isDark ? "rgba(255,255,255,.05)" : "rgba(0,0,0,.04)", border: isDark ? "1px solid rgba(255,255,255,.1)" : "1px solid rgba(0,0,0,.08)", color: isDark ? "#cbd5e1" : "#475569", textDecoration: "none", transition: "all .2s" }}
-                        >
-                          {t("nav.signIn")} <ArrowRight className="w-4 h-4" />
-                        </Link>
-                        <Link
-                          to="/signup"
-                          className="obs-btn-shimmer"
-                          style={{ display: "inline-flex", alignItems: "center", gap: ".5rem", padding: ".75rem 1.75rem", borderRadius: 12, fontWeight: 800, fontSize: ".92rem", color: "#fff", textDecoration: "none", boxShadow: "0 12px 30px -10px rgba(99,102,241,.6)", transition: "transform .3s ease" }}
-                        >
-                          {t("jobs.signUpFree")}
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* ── DIVIDER ── */}
-          <div className="obs-divider" />
-
-          {/* ── ALL JOBS ── */}
+          {/* ── UNIFIED JOBS LIST (Trending + Available) ── */}
           <div ref={jobsRef}>
             <motion.div
-              initial={{ opacity: 0, y: 32 }}
+              initial={{ opacity: 0, y: 24 }}
               animate={isJobsInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: .65, ease: [.22, 1, .36, 1] }}
+              transition={{ duration: .5, ease: [.22, 1, .36, 1] }}
+              className="jobs-list-panel"
             >
-              {/* Section header */}
-               <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
-                <div className="space-y-3">
-                  <motion.div 
-                    initial={{ opacity: 0, x: -20 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5 }}
-                  >
-                    <span className="obs-section-badge-violet obs-section-badge">
-                      <Layers className="w-3.5 h-3.5" />
-                      {t("jobs.allPositions") || "All Positions"}
-                    </span>
-                  </motion.div>
-                  
-                  <motion.h2
-                    className="obs-display text-3xl md:text-4xl font-extrabold tracking-tight"
-                    initial={{ opacity: 0, x: -30 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.6, delay: 0.1 }}
-                    style={{ color: "var(--obs-modal-header)" }}
-                  >
-                    {t("jobs.availableOpportunities")}
-                  </motion.h2>
-                  
-                  <motion.p
-                    initial={{ opacity: 0 }}
-                    whileInView={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.2 }}
-                    className="text-[14px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-2"
-                  >
-                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                    {totalJobs > 0
-                      ? t("jobs.showingCount", { count: Math.min(itemsPerPage, jobs.length), total: totalJobs })
-                      : t("jobs.noJobsMatching")}
-                  </motion.p>
-                </div>
+              {showTrendingPreview && (
+                <>
+                  <div className="jobs-list-header jobs-trending-header">
+                    <div className="jobs-list-header-row" style={{ width: "100%" }}>
+                      <div>
+                        <p className="jobs-list-eyebrow">{t("jobs.topPicks")}</p>
+                        <h2 className="jobs-list-title">{t("jobs.bestRecommended")}</h2>
+                        <p className="jobs-list-meta">
+                          {trendingJobs.length} highlighted · {catalogTotal.toLocaleString()} total on SkillConnect
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={scrollToAvailableJobs}
+                        className="job-list-apply"
+                        style={{ opacity: 1, transform: "none" }}
+                      >
+                        Browse all
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
 
-                {jobs.length > 0 && (
-                  <motion.div
-                    whileInView={{ x: [30, 0], opacity: [0, 1] }}
-                    transition={{ duration: .45, delay: .1 }}
-                    style={{ display: "flex", alignItems: "center", gap: ".4rem", fontSize: ".8rem", color: "#475569", fontWeight: 500 }}
-                  >
-                    <motion.div animate={{ rotate: 360 }} transition={{ duration: 5, repeat: Infinity, ease: "linear" }}>
-                      <TrendingUp className="w-4 h-4" style={{ color: "#6366f1" }} />
-                    </motion.div>
-                    {t("jobs.sortedByRelevance")}
-                  </motion.div>
-                )}
-              </div>
-
-              {/* Grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(310px, 1fr))", gap: "1.25rem" }}>
-                <AnimatePresence>
-                  {isLoading
-                    ? Array.from({ length: 6 }).map((_, i) => (
-                      <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * .05 }}>
-                        <div className="obs-glass" style={{ borderRadius: 20, padding: "1.5rem" }}>
-                          <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
-                            <Skeleton style={{ width: 44, height: 44, borderRadius: 12, background: theme === "dark" ? "rgba(255,255,255,.07)" : "rgba(0,0,0,0.06)" }} />
-                            <div style={{ flex: 1 }}>
-                              <Skeleton style={{ height: 20, width: "75%", marginBottom: 8, borderRadius: 8, background: theme === "dark" ? "rgba(255,255,255,.07)" : "rgba(0,0,0,0.06)" }} />
-                              <Skeleton style={{ height: 14, width: "50%", marginBottom: 16, borderRadius: 8, background: theme === "dark" ? "rgba(255,255,255,.05)" : "rgba(0,0,0,0.04)" }} />
-                              <div style={{ display: "flex", gap: 8 }}>
-                                {[60, 60, 60].map((w, j) => <Skeleton key={j} style={{ height: 14, width: w, borderRadius: 8, background: theme === "dark" ? "rgba(255,255,255,.05)" : "rgba(0,0,0,0.04)" }} />)}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))
-                    : jobs.length > 0
-                      ? jobs.map((job: any, i: number) => (
-                        <motion.div
-                          key={job.id}
-                          initial={{ opacity: 0, y: 20, scale: .97 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          transition={{ duration: .4, delay: Math.min(i, .8) * .05, type: "spring", stiffness: 90 }}
-                          viewport={{ once: true, margin: "-40px" }}
-                          className="obs-job-wrap"
-                        >
+                  {trendingByCategory.map(([category, categoryJobs]) => (
+                    <div key={category} className="jobs-category-block">
+                      <div className="jobs-category-head">
+                        <span className="jobs-category-name">{category}</span>
+                        <span className="jobs-category-count">{categoryJobs.length} roles</span>
+                      </div>
+                      <div className="jobs-premium-list jobs-trending-list">
+                        {categoryJobs.map((job, index) => (
                           <JobCard
+                            key={`trend-${job.id}`}
                             job={job}
+                            variant="list"
+                            rank={index + 1}
                             setSelectedJob={(j) => { setSelectedJob(j); setShowQuickApply(true); }}
                             setShowQuickApply={setShowQuickApply}
                             onCardClick={() => setSelectedJobForDetail(job)}
                           />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="jobs-unified-divider" />
+                </>
+              )}
+
+              <div id="available-jobs" className="jobs-list-header">
+                <div>
+                  {totalJobs > 0 && (
+                    <p className="jobs-list-eyebrow">
+                      {totalJobs.toLocaleString()} open roles
+                    </p>
+                  )}
+                  <h2 className="jobs-list-title">{t("jobs.availableOpportunities")}</h2>
+                  <p className="jobs-list-meta">
+                    {isError
+                      ? t("jobs.loadJobsError")
+                      : totalJobs > 0
+                        ? `${t("jobs.showingCount", { count: listJobs.length, total: totalJobs })} · ${t("jobs.sortedByRelevance")}`
+                        : filtersActive
+                          ? t("jobs.noJobsMatching")
+                          : t("jobs.noJobsAvailable")}
+                  </p>
+                </div>
+              </div>
+
+              <div className="jobs-premium-list">
+                <AnimatePresence>
+                  {isLoading
+                    ? Array.from({ length: 8 }).map((_, i) => (
+                      <motion.div key={i} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * .04 }} className="job-list-row">
+                        <Skeleton className="w-11 h-11 rounded-[14px] shrink-0" style={{ background: theme === "dark" ? "rgba(255,255,255,.06)" : "#f1f5f9" }} />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-48 max-w-full rounded-md" style={{ background: theme === "dark" ? "rgba(255,255,255,.07)" : "#e2e8f0" }} />
+                          <Skeleton className="h-3 w-72 max-w-full rounded-md" style={{ background: theme === "dark" ? "rgba(255,255,255,.05)" : "#f1f5f9" }} />
+                        </div>
+                      </motion.div>
+                    ))
+                    : isError
+                      ? (
+                        <motion.div
+                          key="error"
+                          initial={{ opacity: 0, scale: .95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          style={{ gridColumn: "1 / -1" }}
+                        >
+                          <div className="obs-empty">
+                            <h3 className="obs-display" style={{ fontSize: "1.5rem", fontWeight: 700, color: theme === "dark" ? "#f1f5f9" : "#0f172a", marginBottom: ".75rem" }}>
+                              {t("jobs.loadJobsError")}
+                            </h3>
+                            <button
+                              type="button"
+                              onClick={() => refetch()}
+                              className="obs-btn-shimmer"
+                              style={{ padding: ".7rem 1.75rem", borderRadius: 12, fontWeight: 700, color: "#fff", fontSize: ".9rem", cursor: "pointer" }}
+                            >
+                              Retry
+                            </button>
+                          </div>
                         </motion.div>
+                      )
+                      : listJobs.length > 0
+                      ? listJobs.map((job: Job) => (
+                          <JobCard
+                            key={job.id}
+                            job={job}
+                            variant="list"
+                            setSelectedJob={(j) => { setSelectedJob(j); setShowQuickApply(true); }}
+                            setShowQuickApply={setShowQuickApply}
+                            onCardClick={() => setSelectedJobForDetail(job)}
+                          />
                       ))
                       : (
                         <motion.div
@@ -1082,18 +1351,25 @@ export default function Jobs() {
                               <Briefcase className="w-9 h-9" style={{ color: theme === "dark" ? "#334155" : "#94a3b8" }} />
                             </div>
                             <h3 className="obs-display" style={{ fontSize: "1.5rem", fontWeight: 700, color: theme === "dark" ? "#f1f5f9" : "#0f172a", marginBottom: ".75rem" }}>
-                              {t("jobs.noJobsMatching") || "No jobs found"}
+                              {filtersActive ? t("jobs.noJobsMatching") : t("jobs.noJobsAvailable")}
                             </h3>
                             <p style={{ color: theme === "dark" ? "#64748b" : "#475569", fontSize: ".9rem", marginBottom: "1.75rem", maxWidth: 380, margin: "0 auto 1.75rem" }}>
-                              We couldn't find any jobs matching your filters. Try broadening your search.
+                              {t("jobs.broadenSearch")}
                             </p>
+                            {filtersActive && (
                             <button
-                              onClick={() => { setFilters({ location: "", skills: [], jobType: "", search: "" }); setPage(1); }}
+                              type="button"
+                              onClick={() => {
+                                setFilters({ location: "", skills: [], jobType: "", search: "" });
+                                setFilterResetToken((n) => n + 1);
+                                setPage(1);
+                              }}
                               className="obs-btn-shimmer"
                               style={{ padding: ".7rem 1.75rem", borderRadius: 12, fontWeight: 700, color: "#fff", fontSize: ".9rem", cursor: "pointer", boxShadow: "0 8px 24px -8px rgba(99,102,241,.5)" }}
                             >
-                              View All Jobs
+                              {t("jobs.viewAllJobs")}
                             </button>
+                            )}
                           </div>
                         </motion.div>
                       )
@@ -1103,76 +1379,81 @@ export default function Jobs() {
 
               {/* ── PAGINATION ── */}
               {totalPages > 1 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: .5 }}
-                  style={{ marginTop: "3rem" }}
-                >
-                  <div className="obs-glass" style={{ borderRadius: 20, padding: "1.5rem" }}>
-                    <Pagination>
-                      <PaginationContent style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-                        <PaginationItem>
-                          <PaginationPrevious
-                            onClick={() => setPage(Math.max(1, page - 1))}
-                            style={{ color: page === 1 ? (theme === "dark" ? "#1e293b" : "#cbd5e1") : "#6366f1", pointerEvents: page === 1 ? "none" : "auto", opacity: page === 1 ? .4 : 1, fontWeight: 800, fontSize: "1rem" }}
-                          />
-                        </PaginationItem>
+                <div className="jobs-pagination">
+                  <Pagination>
+                    <PaginationContent style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setPage(Math.max(1, page - 1))}
+                          style={{
+                            color: page === 1 ? (isDark ? "#334155" : "#cbd5e1") : (isDark ? "#a5b4fc" : "#4f46e5"),
+                            pointerEvents: page === 1 ? "none" : "auto",
+                            opacity: page === 1 ? 0.45 : 1,
+                            fontWeight: 600,
+                            fontSize: "0.875rem",
+                          }}
+                        />
+                      </PaginationItem>
 
-                        <div style={{ display: "flex", alignItems: "center", gap: ".5rem" }}>
-                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                            let pn = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i;
-                            return (
-                              <PaginationItem key={pn}>
-                                <PaginationLink
-                                  onClick={() => setPage(pn)}
-                                  isActive={pn === page}
-                                  style={{
-                                    fontWeight: 700, fontSize: ".875rem",
-                                    borderRadius: 10, width: 38, height: 38,
-                                    display: "flex", alignItems: "center", justifyContent: "center",
-                                    background: pn === page ? "linear-gradient(135deg,#6366f1,#7c3aed)" : "transparent",
-                                    color: pn === page ? "#fff" : isDark ? "#64748b" : "#475569",
-                                    border: pn === page ? "none" : isDark ? "1px solid rgba(255,255,255,.07)" : "1px solid rgba(0,0,0,0.08)",
-                                    boxShadow: pn === page ? "0 6px 20px -6px rgba(99,102,241,.6)" : "none",
-                                    cursor: "pointer",
-                                    transition: "all .2s",
-                                  }}
-                                >
-                                  {pn}
-                                </PaginationLink>
-                              </PaginationItem>
-                            );
-                          })}
-                          {totalPages > 5 && page < totalPages - 2 && (
-                            <>
-                              <span style={{ color: "#334155" }}>···</span>
-                              <PaginationItem>
-                                <PaginationLink
-                                  onClick={() => setPage(totalPages)}
-                                  style={{ fontWeight: 700, color: "#64748b", fontSize: ".875rem", cursor: "pointer" }}
-                                >
-                                  {totalPages}
-                                </PaginationLink>
-                              </PaginationItem>
-                            </>
-                          )}
-                        </div>
+                      <div className="hidden md:flex" style={{ alignItems: "center", gap: "0.35rem" }}>
+                        {(function() {
+                          const total = totalPages;
+                          const current = page;
+                          if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+                          if (current <= 3) return [1, 2, 3, '...', total];
+                          if (current >= total - 2) return [1, '...', total - 2, total - 1, total];
+                          return [1, '...', current, '...', total];
+                        })().map((pn, idx) => {
+                          if (pn === '...') {
+                            return <span key={`ell-${idx}`} className="jobs-list-meta" style={{ padding: "0 6px" }}>...</span>;
+                          }
+                          return (
+                            <PaginationItem key={pn}>
+                              <PaginationLink
+                                onClick={() => setPage(pn as number)}
+                                isActive={pn === page}
+                                className={`jobs-page-btn${pn === page ? " is-active" : ""}`}
+                              >
+                                {pn}
+                              </PaginationLink>
+                            </PaginationItem>
+                          );
+                        })}
+                      </div>
 
-                        <PaginationItem>
-                           <PaginationNext
-                            onClick={() => setPage(Math.min(totalPages, page + 1))}
-                            style={{ color: page === totalPages ? (isDark ? "#1e293b" : "#cbd5e1") : "#6366f1", pointerEvents: page === totalPages ? "none" : "auto", opacity: page === totalPages ? .4 : 1, fontWeight: 800, fontSize: "1rem" }}
-                          />
-                        </PaginationItem>
-                      </PaginationContent>
-                    </Pagination>
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setPage(Math.min(totalPages, page + 1))}
+                          style={{
+                            color: page === totalPages ? (isDark ? "#334155" : "#cbd5e1") : (isDark ? "#a5b4fc" : "#4f46e5"),
+                            pointerEvents: page === totalPages ? "none" : "auto",
+                            opacity: page === totalPages ? 0.45 : 1,
+                            fontWeight: 600,
+                            fontSize: "0.875rem",
+                          }}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
 
-                    <p style={{ textAlign: "center", fontSize: ".8rem", color: "#334155", marginTop: ".75rem" }}>
-                      Page {page} of {totalPages} · {totalJobs.toLocaleString()} total opportunities
-                    </p>
+                  <p className="jobs-list-meta" style={{ textAlign: "center", marginTop: "0.75rem" }}>
+                    Page {page} of {totalPages} · {totalJobs.toLocaleString()} total opportunities
+                  </p>
+                </div>
+              )}
+
+              {isGuest && !filtersActive && (
+                <div style={{ padding: "1rem 1.5rem 1.25rem", borderTop: "1px solid var(--jobs-row-border)", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
+                  <p style={{ fontSize: "0.875rem", color: "#64748b", margin: 0 }}>{t("jobs.createAccountToApply")}</p>
+                  <div style={{ display: "flex", gap: "0.65rem" }}>
+                    <Link to="/login" className="job-list-apply" style={{ opacity: 1, transform: "none", background: "transparent", color: "#334155", border: "1px solid rgba(15,23,42,0.12)" }}>
+                      {t("nav.signIn")}
+                    </Link>
+                    <Link to="/signup" className="job-list-apply" style={{ opacity: 1, transform: "none", textDecoration: "none" }}>
+                      {t("jobs.signUpFree")}
+                    </Link>
                   </div>
-                </motion.div>
+                </div>
               )}
             </motion.div>
           </div>
@@ -1180,14 +1461,15 @@ export default function Jobs() {
       </div >
 
       {/* ── JOB DETAIL MODAL ── */}
-      < Dialog open={!!selectedJobForDetail} onOpenChange={(o) => !o && setSelectedJobForDetail(null)}>
+      <Dialog open={!!selectedJobForDetail} onOpenChange={(o) => !o && setSelectedJobForDetail(null)}>
         <DialogContent
           style={{
-            maxWidth: 680,
+            maxWidth: 720,
             maxHeight: "90vh",
-            overflowY: "auto",
-             background: "hsl(var(--background))",
-            border: "1px solid hsl(var(--border))",
+            padding: 0,
+            overflow: "hidden",
+            background: isDark ? "#0f172a" : "#ffffff",
+            border: isDark ? "1px solid rgba(99,102,241,.2)" : "1px solid rgba(99,102,241,.15)",
             borderRadius: 24,
             boxShadow: isDark
               ? "0 0 0 1px rgba(99,102,241,.12), 0 40px 80px -20px rgba(0,0,0,.85), 0 0 100px -40px rgba(99,102,241,.25)"
@@ -1195,76 +1477,128 @@ export default function Jobs() {
           }}
         >
           {selectedJobForDetail && (
-             <>
-              <DialogHeader>
-                <DialogTitle className="obs-display" style={{ fontSize: "1.5rem", fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", letterSpacing: "-.025em", paddingRight: "2rem" }}>
-                  {selectedJobForDetail.title}
-                </DialogTitle>
-              </DialogHeader>
-              <div style={{ marginTop: "1.25rem" }}>
+            <div style={{ display: "flex", flexDirection: "column", maxHeight: "90vh" }}>
+              {/* Premium Gradient Banner */}
+              <div
+                style={{
+                  height: 140,
+                  flexShrink: 0,
+                  position: "relative",
+                  background: isDark
+                    ? "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)"
+                    : "linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 50%, #a5b4fc 100%)",
+                  overflow: "hidden"
+                }}
+              >
+                <div style={{ position: "absolute", top: -50, right: -50, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,255,255,.15) 0%, transparent 70%)", filter: "blur(20px)" }} />
+                <div style={{ position: "absolute", bottom: -50, left: -50, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,.2) 0%, transparent 70%)", filter: "blur(20px)" }} />
+                {/* Floating Icon */}
+                <div style={{ position: "absolute", bottom: -24, left: 32, width: 72, height: 72, borderRadius: 20, background: isDark ? "#0f172a" : "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", border: isDark ? "1px solid rgba(255,255,255,.1)" : "1px solid rgba(0,0,0,.08)", boxShadow: "0 12px 24px -8px rgba(0,0,0,.15)" }}>
+                  <Briefcase className="w-8 h-8" style={{ color: "#6366f1" }} />
+                </div>
+              </div>
+
+              {/* Scrollable Content Area */}
+              <div style={{ overflowY: "auto", padding: "3rem 2rem 2rem 2rem", flex: 1 }} className="obs-scroll">
+                <DialogHeader style={{ marginBottom: "1.5rem", paddingRight: "2rem" }}>
+                  <DialogTitle className="obs-display" style={{ fontSize: "1.8rem", fontWeight: 800, color: isDark ? "#f8fafc" : "#0f172a", letterSpacing: "-.03em", lineHeight: 1.2, textAlign: "left" }}>
+                    {selectedJobForDetail.title}
+                  </DialogTitle>
+                </DialogHeader>
+
                 {/* Meta row */}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: ".75rem", fontSize: ".8rem", color: "#64748b", marginBottom: "1.5rem" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: ".75rem", fontSize: ".85rem", fontWeight: 600, color: "#64748b", marginBottom: "2rem" }}>
                   {[
-                    { icon: Building, text: selectedJobForDetail.company?.name || t("common.company") },
-                    { icon: MapPin, text: selectedJobForDetail.location },
-                    { icon: Clock, text: selectedJobForDetail.jobType?.replace("-", " ") },
-                    { icon: IndianRupee, text: selectedJobForDetail.salaryMin != null ? `₹${(selectedJobForDetail.salaryMin / 1000).toFixed(0)}k – ₹${(selectedJobForDetail.salaryMax / 1000).toFixed(0)}k` : t("jobCard.salaryNotSpecified") },
-                   ].map(({ icon: Icon, text }, i) => (
-                    <span key={i} style={{ display: "flex", alignItems: "center", gap: ".3rem", padding: ".3rem .8rem", borderRadius: 999, background: isDark ? "rgba(255,255,255,.05)" : "rgba(0,0,0,0.03)", border: isDark ? "1px solid rgba(255,255,255,.08)" : "1px solid rgba(0,0,0,0.08)", textTransform: i === 2 ? "capitalize" : "none", color: isDark ? "#94a3b8" : "#475569" }}>
-                      <Icon className="w-3.5 h-3.5" style={{ color: "#6366f1" }} /> {text}
+                    { icon: Building, text: selectedJobForDetail.company?.name || t("common.company"), color: isDark ? "#e2e8f0" : "#475569" },
+                    { icon: MapPin, text: selectedJobForDetail.location, color: isDark ? "#e2e8f0" : "#475569" },
+                    { icon: Clock, text: selectedJobForDetail.jobType?.replace("-", " "), color: isDark ? "#e2e8f0" : "#475569" },
+                    { icon: IndianRupee, text: selectedJobForDetail.salaryMin != null ? `₹${(selectedJobForDetail.salaryMin / 1000).toFixed(0)}k – ₹${(selectedJobForDetail.salaryMax / 1000).toFixed(0)}k` : t("jobCard.salaryNotSpecified"), color: "#10b981" },
+                  ].map(({ icon: Icon, text, color }, i) => (
+                    <span key={i} style={{ display: "flex", alignItems: "center", gap: ".4rem", padding: ".4rem 1rem", borderRadius: 999, background: isDark ? "rgba(255,255,255,.05)" : "rgba(0,0,0,0.03)", border: isDark ? "1px solid rgba(255,255,255,.08)" : "1px solid rgba(0,0,0,0.06)", textTransform: i === 2 ? "capitalize" : "none", color }}>
+                      <Icon className="w-4 h-4" style={{ color: "#6366f1" }} /> {text}
                     </span>
                   ))}
                 </div>
 
                 {/* Skills */}
-                 {selectedJobForDetail.skills?.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: ".5rem", marginBottom: "1.5rem" }}>
+                {selectedJobForDetail.skills?.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: ".5rem", marginBottom: "2rem" }}>
                     {selectedJobForDetail.skills.map((s: string, i: number) => (
-                      <span key={i} style={{ padding: ".3rem .85rem", borderRadius: 999, fontSize: ".78rem", fontWeight: 600, background: isDark ? "rgba(99,102,241,.12)" : "rgba(99,102,241,.08)", border: isDark ? "1px solid rgba(99,102,241,.25)" : "1px solid rgba(99,102,241,.15)", color: isDark ? "#a5b4fc" : "#4f46e5" }}>
-                        {s}
+                      <span key={i} style={{ padding: ".35rem 1rem", borderRadius: 999, fontSize: ".8rem", fontWeight: 700, background: isDark ? "rgba(99,102,241,.15)" : "rgba(99,102,241,.1)", border: isDark ? "1px solid rgba(99,102,241,.3)" : "1px solid rgba(99,102,241,.2)", color: isDark ? "#a5b4fc" : "#4338ca", display: "flex", alignItems: "center", gap: ".3rem" }}>
+                        <div style={{ width: 4, height: 4, borderRadius: "50%", background: "currentColor" }} /> {s}
                       </span>
                     ))}
                   </div>
                 )}
 
                 {/* Divider */}
-                <div className="obs-divider" style={{ margin: "1.25rem 0" }} />
+                <div className="obs-divider" style={{ margin: "2rem 0" }} />
 
                 {/* Description */}
-                <div style={{ marginBottom: "1.25rem" }}>
-                  <h4 style={{ fontSize: ".8rem", fontWeight: 700, color: "#6366f1", letterSpacing: ".07em", textTransform: "uppercase", marginBottom: ".75rem" }}>
-                    {t("jobs.description")}
-                  </h4>
-                  <p style={{ color: "#94a3b8", fontSize: ".9rem", lineHeight: 1.75, whiteSpace: "pre-wrap" }}>
-                    {selectedJobForDetail.description}
-                  </p>
+                <div style={{ marginBottom: "2rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginBottom: "1rem" }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: isDark ? "rgba(99,102,241,.15)" : "rgba(99,102,241,.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Briefcase className="w-4 h-4" style={{ color: "#6366f1" }} />
+                    </div>
+                    <h4 style={{ fontSize: ".95rem", fontWeight: 700, color: isDark ? "#f1f5f9" : "#1e293b", letterSpacing: ".02em" }}>
+                      {t("jobs.description")}
+                    </h4>
+                  </div>
+                  <div style={{ padding: "1.5rem", borderRadius: 16, background: isDark ? "rgba(255,255,255,.02)" : "rgba(0,0,0,.01)", border: isDark ? "1px solid rgba(255,255,255,.05)" : "1px solid rgba(0,0,0,.04)" }}>
+                    <p style={{ color: isDark ? "#cbd5e1" : "#334155", fontSize: ".95rem", lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
+                      {selectedJobForDetail.description}
+                    </p>
+                  </div>
                 </div>
 
                 {selectedJobForDetail.requirements && (
-                  <div style={{ marginBottom: "1.75rem" }}>
-                    <h4 style={{ fontSize: ".8rem", fontWeight: 700, color: "#6366f1", letterSpacing: ".07em", textTransform: "uppercase", marginBottom: ".75rem" }}>
-                      {t("jobs.requirements")}
-                    </h4>
-                    <p style={{ color: "#94a3b8", fontSize: ".9rem", lineHeight: 1.75, whiteSpace: "pre-wrap" }}>
-                      {selectedJobForDetail.requirements}
-                    </p>
+                  <div style={{ marginBottom: "2.5rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginBottom: "1rem" }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: isDark ? "rgba(245,158,11,.15)" : "rgba(245,158,11,.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Zap className="w-4 h-4" style={{ color: "#f59e0b" }} />
+                      </div>
+                      <h4 style={{ fontSize: ".95rem", fontWeight: 700, color: isDark ? "#f1f5f9" : "#1e293b", letterSpacing: ".02em" }}>
+                        {t("jobs.requirements")}
+                      </h4>
+                    </div>
+                    <div style={{ padding: "1.5rem", borderRadius: 16, background: isDark ? "rgba(255,255,255,.02)" : "rgba(0,0,0,.01)", border: isDark ? "1px solid rgba(255,255,255,.05)" : "1px solid rgba(0,0,0,.04)" }}>
+                      <p style={{ color: isDark ? "#cbd5e1" : "#334155", fontSize: ".95rem", lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
+                        {selectedJobForDetail.requirements}
+                      </p>
+                    </div>
                   </div>
                 )}
 
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                {/* Footer Action */}
+                <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: ".75rem", paddingTop: "1.5rem", borderTop: isDark ? "1px solid rgba(255,255,255,.06)" : "1px solid rgba(0,0,0,.06)" }}>
+                  {(selectedJobForDetail.company?.id || selectedJobForDetail.companyId) && (
+                    <button
+                      type="button"
+                      style={{ display: "flex", alignItems: "center", gap: ".5rem", padding: ".85rem 1.5rem", borderRadius: 14, fontWeight: 700, fontSize: ".95rem", cursor: "pointer", border: isDark ? "1px solid rgba(99,102,241,.35)" : "1px solid rgba(99,102,241,.25)", background: isDark ? "rgba(99,102,241,.12)" : "rgba(99,102,241,.08)", color: isDark ? "#c7d2fe" : "#4338ca" }}
+                      onClick={() => {
+                        const cid = selectedJobForDetail.company?.id || selectedJobForDetail.companyId;
+                        setCompanyProfileId(String(cid));
+                        setCompanyProfileName(selectedJobForDetail.company?.name || "");
+                      }}
+                    >
+                      <Building className="w-4 h-4" />
+                      View company
+                    </button>
+                  )}
                   <button
+                    type="button"
                     className="obs-btn-shimmer"
-                    style={{ padding: ".7rem 1.75rem", borderRadius: 12, fontWeight: 700, color: "#fff", fontSize: ".9rem", cursor: "pointer", boxShadow: "0 8px 24px -8px rgba(99,102,241,.55)" }}
+                    style={{ display: "flex", alignItems: "center", gap: ".5rem", padding: ".85rem 2.25rem", borderRadius: 14, fontWeight: 700, color: "#fff", fontSize: "1rem", cursor: "pointer", border: "none", boxShadow: "0 12px 30px -10px rgba(99,102,241,.6)", transition: "transform .2s ease" }}
                     onClick={() => { setSelectedJob(selectedJobForDetail); setShowQuickApply(true); setSelectedJobForDetail(null); }}
                   >
-                    {t("jobs.quickApply")}
+                    {t("jobs.quickApply")} <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </DialogContent>
-      </Dialog >
+      </Dialog>
 
       {/* ── QUICK APPLY MODAL ── */}
       {
@@ -1275,10 +1609,18 @@ export default function Jobs() {
             jobId={selectedJob.id}
             jobTitle={selectedJob.title}
             companyName={selectedJob.company?.name || ""}
+            companyId={selectedJob.company?.id || selectedJob.companyId}
             matchPercentage={selectedJob.matchScore ?? 0}
           />
         )
       }
+
+      <CompanyProfileModal
+        companyId={companyProfileId}
+        companyName={companyProfileName}
+        isOpen={Boolean(companyProfileId)}
+        onClose={() => setCompanyProfileId(null)}
+      />
     </div >
   );
 }

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useNavigate, Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Eye, EyeOff } from "lucide-react";
+import { CheckCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { normalizeUserType } from "@/lib/utils";
 import { apiFetch } from "@/lib/api";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -68,23 +68,50 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    let loginToast: ReturnType<typeof toast> | null = null;
 
     try {
+      loginToast = toast({
+        title: "Logging in...",
+        description: (
+          <span className="inline-flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Please wait
+          </span>
+        ),
+      });
+
       console.log("=== Starting login ===");
       const loggedInUser = await auth.login(form.email, form.password);
+      if (!loggedInUser) {
+        throw new Error("Invalid email or password");
+      }
       
       console.log("Login response user:", loggedInUser);
       console.log("Login response userType:", loggedInUser?.userType);
       
-      toast({ 
-        title: "Success", 
-        description: "Logged in successfully", 
-        variant: 'success' as any 
+      loginToast.update({
+        id: loginToast.id,
+        title: "",
+        className: "border-0 bg-white text-gray-800 p-0 pr-8 overflow-hidden min-h-[72px]",
+        duration: 1800,
+        description: (
+          <div className="relative w-full px-4 py-4">
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-full bg-green-500 flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-white" />
+              </span>
+              <span className="text-xl leading-none font-medium text-gray-600">Login Successful</span>
+            </div>
+            <span className="absolute bottom-0 left-0 h-1 bg-green-500 animate-[logout-progress-fill_1.8s_linear_forwards]" />
+          </div>
+        ),
       });
       
       // The useEffect hook will handle redirection once the user state is updated
     } catch (err: any) {
       console.error("Login error:", err);
+      loginToast?.dismiss();
       toast({ 
         title: "Error", 
         description: err?.message || "Invalid credentials", 
