@@ -49,7 +49,7 @@ export default function Navbar() {
               variant="ghost"
               size="icon"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="mr-1 rounded-full md:hidden"
+              className="mr-1 rounded-full lg:hidden"
             >
               {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </Button>
@@ -63,7 +63,7 @@ export default function Navbar() {
           </div>
 
           {/* Desktop Navigation & User Actions */}
-          <div className="hidden md:flex items-center gap-1 ml-auto">
+          <div className="hidden lg:flex items-center gap-1 ml-auto">
             <NavItem to="/" isActive={isActive("/")}>
               {t("nav.home")}
             </NavItem>
@@ -151,7 +151,7 @@ export default function Navbar() {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden border-t border-white/15 py-4">
+          <div className="lg:hidden border-t border-white/15 py-4">
             <div className="flex flex-col gap-2">
               <NavItem
                 to="/"

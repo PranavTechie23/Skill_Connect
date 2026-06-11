@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Globe, Search, Check, ChevronDown, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const LANG_STORAGE_KEY = "skillconnect_google_lang";
 
@@ -116,7 +117,15 @@ function getCurrentLang(): string {
   return match ? match[1] : "en";
 }
 
+/** Map Google Translate codes to app locale keys (LanguageContext). */
+function googleCodeToLocale(code: string): string {
+  if (code === "hi") return "hi";
+  if (code === "mr") return "mr";
+  return "en";
+}
+
 export function LanguageSwitcher() {
+  const { setLocale } = useLanguage();
   const isLoaded = useRef(false);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -208,12 +217,16 @@ export function LanguageSwitcher() {
     if (open) setTimeout(() => searchRef.current?.focus(), 100);
   }, [open]);
 
-  const handleSelect = useCallback((langCode: string) => {
-    setCurrentLang(langCode);
-    setOpen(false);
-    setSearch("");
-    void doTranslate(langCode);
-  }, []);
+  const handleSelect = useCallback(
+    (langCode: string) => {
+      setCurrentLang(langCode);
+      setLocale(googleCodeToLocale(langCode));
+      setOpen(false);
+      setSearch("");
+      void doTranslate(langCode);
+    },
+    [setLocale]
+  );
 
   const filtered = LANGUAGES.filter(
     (l) =>

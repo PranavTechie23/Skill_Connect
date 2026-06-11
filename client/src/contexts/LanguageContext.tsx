@@ -6,8 +6,8 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { overwrite } from "zod";
-const DEFAULT_LOCALE = "en";const STORAGE_KEY = "skillconnect_locale";
+const DEFAULT_LOCALE = "en";
+const STORAGE_KEY = "skillconnect_locale";
 
 interface LanguageContextType {
   locale: string;
@@ -85,7 +85,7 @@ const FALLBACK_MESSAGES: Record<string, unknown> = {
     personalizedProfile: "Based on your skills and preferences",
     curatedForYou: "Curated for you",
     topPicks: "Top Picks",
-    bestRecommended: "Best Recommended Jobs",
+    bestRecommended: "Trending Jobs",
     createAccountToApply:
       "Create an account to apply and unlock personalized recommendations.",
     joinSkillConnect: "Join SkillConnect",
@@ -96,8 +96,13 @@ const FALLBACK_MESSAGES: Record<string, unknown> = {
     jobTypes: "Job Types",
     avgSalary: "Avg Salary",
     availableOpportunities: "Available Opportunities",
+    allPositions: "All Positions",
     showingCount: "Showing {{count}} of {{total}} jobs",
     noJobsMatching: "No jobs match your filters",
+    noJobsAvailable: "No jobs available right now",
+    broadenSearch: "Try clearing filters or check back later for new openings.",
+    viewAllJobs: "View All Jobs",
+    loadJobsError: "Could not load jobs. Please refresh the page.",
     sortedByRelevance: "Sorted by relevance",
     description: "Job Description",
     requirements: "Requirements",
@@ -122,6 +127,22 @@ const FALLBACK_MESSAGES: Record<string, unknown> = {
     subheadLine1: "Skills-based matching that brings together job seekers and employers.",
     subheadLine2:
       "Build your professional network and discover opportunities in your community.",
+    skillsBasedTitle: "🎯 Skills-Based Matching That Actually Works",
+    skillsBasedDesc: "Our intelligent matching algorithm connects you with opportunities based on your actual skills, not just keywords. Build a comprehensive skills profile and let employers find you.",
+    skillAssessment: "Skill Assessment Tools",
+    skillAssessmentDesc: "Take quick assessments to validate your skills and stand out to employers.",
+    intelligentRec: "Intelligent Recommendations",
+    intelligentRecDesc: "Get personalized job recommendations based on your skill profile and preferences.",
+    skillDev: "Skill Development Paths",
+    skillDevDesc: "Discover what skills to learn next to advance your career in your chosen field.",
+    servicesTitle: "Services for Every Need",
+    servicesDesc: "From skilled trades to creative work — discover opportunities tailored to your skills.",
+    communityStories: "💬 Stories from Our Community",
+    communityDesc: "Real results from local employers and talent.",
+    buildFuture: "Build Your Future Now",
+    buildFutureDesc: "Join a growing network of local talent and employers. Post jobs, apply with confidence, and get matched by skills — not just keywords.",
+    trustedPros: "Trusted Skilled Professionals",
+    trustedProsDesc: "Book top-rated, verified workers in your area",
   },
   login: {
     welcomeBack: "Welcome back",
@@ -201,6 +222,72 @@ interface LanguageProviderProps {
   children: ReactNode;
 }
 
+const HINDI_MESSAGES: Record<string, unknown> = {
+  common: FALLBACK_MESSAGES.common,
+  language: FALLBACK_MESSAGES.language,
+  nav: {
+    home: "होम",
+    jobs: "नौकरियां",
+    professionals: "पेशेवर",
+    aboutUs: "हमारे बारे में",
+    ourStories: "हमारी कहानियाँ",
+    dashboards: "डैशबोर्ड",
+    signIn: "साइन इन",
+    signUp: "साइन अप",
+    logout: "लॉगआउट",
+    dashboard: "डैशबोर्ड",
+    applications: "आवेदन",
+    postJobs: "नौकरी पोस्ट करें",
+  },
+  home: {
+    heroTitle: "प्रतिभा और अवसर के बीच की खाई को पाटें",
+    heroSubtitle: "स्किलकनेक्ट नौकरी चाहने वालों को सही भूमिकाएं खोजने में मदद करता है और नियोक्ताओं को कुशल प्रतिभा खोजने में मदद करता है - सभी एक ही स्थान पर।",
+    headline: "प्रतिभा को सही अवसरों से जोड़ें",
+    subheadLine1: "कौशल-आधारित मिलान जो नौकरी चाहने वालों और नियोक्ताओं को एक साथ लाता है।",
+    subheadLine2: "अपना पेशेवर नेटवर्क बनाएं और अपने समुदाय में अवसर खोजें।",
+    findNextRole: "अपनी अगली भूमिका खोजें",
+    postJobButton: "नौकरी पोस्ट करें",
+    getStarted: "शुरू करें",
+    browseJobs: "नौकरियां ब्राउज़ करें",
+    forJobSeekers: "नौकरी चाहने वालों के लिए",
+    forEmployers: "नियोक्ताओं के लिए",
+    learnMore: "और जानें",
+    featureLocal: "100% स्थानीय फोकस",
+    featureMatching: "कौशल-आधारित मिलान",
+    featureFree: "मुफ्त में शामिल हों",
+    skillsBasedTitle: "🎯 कौशल-आधारित मिलान जो वास्तव में काम करता है",
+    skillsBasedDesc: "हमारा बुद्धिमान मिलान एल्गोरिदम आपको केवल कीवर्ड के आधार पर नहीं, बल्कि आपके वास्तविक कौशल के आधार पर अवसरों से जोड़ता है। एक व्यापक कौशल प्रोफ़ाइल बनाएं और नियोक्ताओं को आपको खोजने दें।",
+    skillAssessment: "कौशल मूल्यांकन उपकरण",
+    skillAssessmentDesc: "अपने कौशल को मान्य करने और नियोक्ताओं के बीच अलग दिखने के लिए त्वरित मूल्यांकन लें।",
+    intelligentRec: "बुद्धिमान सिफारिशें",
+    intelligentRecDesc: "अपने कौशल प्रोफ़ाइल और प्राथमिकताओं के आधार पर व्यक्तिगत नौकरी की सिफारिशें प्राप्त करें।",
+    skillDev: "कौशल विकास पथ",
+    skillDevDesc: "जानें कि अपने चुने हुए क्षेत्र में अपने करियर को आगे बढ़ाने के लिए आगे कौन सा कौशल सीखना है।",
+    servicesTitle: "हर जरूरत के लिए सेवाएं",
+    servicesDesc: "कुशल ट्रेडों से लेकर रचनात्मक काम तक — अपने कौशल के अनुरूप अवसर खोजें।",
+    communityStories: "💬 हमारे समुदाय की कहानियाँ",
+    communityDesc: "स्थानीय नियोक्ताओं और प्रतिभाओं से वास्तविक परिणाम।",
+    buildFuture: "अपना भविष्य अभी बनाएं",
+    buildFutureDesc: "स्थानीय प्रतिभाओं और नियोक्ताओं के बढ़ते नेटवर्क से जुड़ें। नौकरियां पोस्ट करें, विश्वास के साथ आवेदन करें, और कौशल द्वारा मिलान करें — केवल कीवर्ड से नहीं।",
+    trustedPros: "विश्वसनीय कुशल पेशेवर",
+    trustedProsDesc: "अपने क्षेत्र में शीर्ष-रेटेड, सत्यापित श्रमिकों को बुक करें",
+  },
+  about: FALLBACK_MESSAGES.about,
+  jobs: FALLBACK_MESSAGES.jobs,
+  login: FALLBACK_MESSAGES.login,
+  signup: FALLBACK_MESSAGES.signup,
+  stories: FALLBACK_MESSAGES.stories,
+  employee: FALLBACK_MESSAGES.employee,
+  employer: FALLBACK_MESSAGES.employer,
+  admin: FALLBACK_MESSAGES.admin,
+};
+
+const TRANSLATIONS: Record<string, Record<string, unknown>> = {
+  en: FALLBACK_MESSAGES,
+  hi: HINDI_MESSAGES,
+  mr: FALLBACK_MESSAGES,
+};
+
 export function LanguageProvider({ children }: LanguageProviderProps) {
   const [locale, setLocaleState] = useState<string>(() => {
     try {
@@ -210,7 +297,7 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
     return DEFAULT_LOCALE;
   });
 
-  const messages = FALLBACK_MESSAGES;
+  const messages = TRANSLATIONS[locale] || FALLBACK_MESSAGES;
   const isLoading = false;
   const error = null;
 
