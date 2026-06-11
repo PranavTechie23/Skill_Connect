@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { employerPageTitleClass } from "@/lib/employer-page-styles";
 import {
+  Sparkles,
   Search,
   Calendar,
   MapPin,
@@ -54,6 +55,7 @@ import {
   type EmployerApplication,
   type EmployerTabStatus,
 } from "@/lib/employer-service";
+import { fetchReviewPack } from "@/lib/ai-review-service";
 
 interface ApplicationsProps {
   embedded?: boolean;
@@ -70,6 +72,7 @@ export default function Applications({ embedded = false }: ApplicationsProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<"recent" | "match">("recent");
   const [profileApp, setProfileApp] = useState<EmployerApplication | null>(null);
+  const [aiReviewApp, setAiReviewApp] = useState<EmployerApplication | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
@@ -85,6 +88,12 @@ export default function Applications({ embedded = false }: ApplicationsProps) {
     queryKey: ["applicant-profile", profileApp?.applicantId],
     queryFn: () => fetchApplicantProfile(profileApp!.applicantId!),
     enabled: !!profileApp?.applicantId,
+  });
+
+  const { data: reviewPack, isLoading: reviewPackLoading } = useQuery({
+    queryKey: ["ai-review-pack", aiReviewApp?.id],
+    queryFn: () => fetchReviewPack(aiReviewApp!.id),
+    enabled: !!aiReviewApp?.id,
   });
 
   const stats = useMemo(() => computeApplicationStats(applications), [applications]);
@@ -300,6 +309,97 @@ export default function Applications({ embedded = false }: ApplicationsProps) {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!aiReviewApp} onOpenChange={(open) => !open && setAiReviewApp(null)}>
+        <DialogContent className={`overflow-hidden p-0 border-0 ${isDark ? "bg-slate-900 shadow-2xl shadow-blue-900/10" : "bg-white shadow-xl"} max-w-lg rounded-2xl`}>
+          <div className={`h-24 w-full bg-gradient-to-r ${isDark ? 'from-amber-600/40 to-orange-600/40' : 'from-amber-500 to-orange-600'} relative`}>
+            <div className="absolute top-4 right-10 bg-white/20 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm">
+              <Sparkles className="w-3.5 h-3.5 fill-current" />
+              AI Review
+            </div>
+          </div>
+          
+          <div className="px-6 pb-6 pt-0 relative">
+            <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold shadow-lg border-4 -mt-10 mb-4 ${isDark ? 'bg-slate-800 text-amber-400 border-slate-900' : 'bg-white text-amber-500 border-white'}`}>
+              <Sparkles className="w-8 h-8" />
+            </div>
+
+            <DialogHeader className="mb-6 text-left">
+              <DialogTitle className={`text-2xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>{aiReviewApp ? applicantDisplayName(aiReviewApp.applicant) : ""}</DialogTitle>
+              <DialogDescription className={`text-sm font-medium flex items-center gap-1.5 mt-1 ${isDark ? 'text-amber-400/80' : 'text-amber-600'}`}>
+                <Briefcase className="w-4 h-4" />
+                {aiReviewApp?.job?.title || "Candidate Review"}
+              </DialogDescription>
+            </DialogHeader>
+
+            {reviewPackLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-4">
+                <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+                <p className={`text-sm font-medium animate-pulse ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Generating insights with Gemini...</p>
+              </div>
+            ) : reviewPack ? (
+              <div className="space-y-6 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+                <div className={`p-4 rounded-xl border ${isDark ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-100'}`}>
+                  <h4 className={`text-sm font-bold mb-2 flex items-center gap-2 ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
+                    <Star className="w-4 h-4" /> Summary
+                  </h4>
+                  <p className={`text-sm leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    {reviewPack.candidateSummary}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className={`text-xs font-bold uppercase tracking-wider mb-3 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>Matched Skills</h4>
+                    {reviewPack.matchedSkills.length > 0 ? (
+                      <ul className="space-y-1">
+                        {reviewPack.matchedSkills.map((s: string, i: number) => (
+                          <li key={i} className={`flex items-start gap-2 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                            <CheckCircle className="w-4 h-4 mt-0.5 text-emerald-500 shrink-0" />
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-gray-500 italic">No exact matches found.</p>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className={`text-xs font-bold uppercase tracking-wider mb-3 ${isDark ? 'text-red-400' : 'text-red-600'}`}>Missing Skills</h4>
+                    {reviewPack.missingSkills.length > 0 ? (
+                      <ul className="space-y-1">
+                        {reviewPack.missingSkills.map((s: string, i: number) => (
+                          <li key={i} className={`flex items-start gap-2 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                            <XCircle className="w-4 h-4 mt-0.5 text-red-400 shrink-0" />
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-gray-500 italic">Candidate meets all listed requirements.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className={`text-xs font-bold uppercase tracking-wider mb-3 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Suggested Interview Questions</h4>
+                  <ul className="space-y-3">
+                    {reviewPack.suggestedInterviewQuestions.map((q: string, i: number) => (
+                      <li key={i} className={`p-3 rounded-lg text-sm border ${isDark ? 'bg-slate-800/80 border-slate-700 text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
+                        <span className={`font-bold mr-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Q{i + 1}.</span> {q}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <div className="py-8 text-center">
+                <p className={`text-sm ${isDark ? 'text-red-400' : 'text-red-600'}`}>Failed to load AI review.</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className={`relative ${embedded ? "w-full" : "container mx-auto max-w-7xl"} ${embedded ? "p-2" : "p-6"}`}>
         <div className="mb-6">
           <h1 className={employerPageTitleClass(isDark)}>Job Applications</h1>
@@ -430,6 +530,9 @@ export default function Applications({ embedded = false }: ApplicationsProps) {
                     <Eye className="w-3.5 h-3.5" /> View Profile
                   </button>
                   <div className="flex gap-1.5 shrink-0">
+                    <button type="button" title="AI Review" onClick={() => setAiReviewApp(app)} disabled={!app.applicantId} className={`p-2 rounded-lg font-medium border flex items-center justify-center transition-colors ${isDark ? "bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700 hover:text-amber-300" : "bg-white border-amber-200 text-amber-600 hover:bg-amber-50 hover:text-amber-700"} disabled:opacity-50`}>
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </button>
                     {allowShortlist && (
                       <button type="button" title="Shortlist" onClick={() => statusMutation.mutate({ id: app.id, status: "shortlisted" })} disabled={statusMutation.isPending} className={`p-2 rounded-lg font-medium border flex items-center justify-center transition-colors ${isDark ? "bg-slate-800 border-slate-700 text-green-400 hover:bg-green-500/10 hover:border-green-500/30" : "bg-white border-gray-200 text-green-600 hover:bg-green-50 hover:border-green-200"}`}>
                         <CheckCircle className="w-3.5 h-3.5" />

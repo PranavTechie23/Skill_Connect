@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { scrollDashboardToTop } from '@/lib/scroll-to-top';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import AdminBackButton from "@/components/AdminBackButton";
@@ -6,6 +7,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiFetch } from "@/lib/api";
+import { employerPageTitleClass } from "@/lib/employer-page-styles";
 import {
   Plus, Search, Filter, Edit, Trash2, Eye, Calendar,
   CheckCircle, Clock, XCircle, FileText, Tag, User, Mail,
@@ -51,6 +53,10 @@ export default function Stories({ embedded = false }: StoriesProps) {
 
   useEffect(() => {
     fetchStories();
+  }, []);
+
+  useEffect(() => {
+    scrollDashboardToTop();
   }, []);
 
   const fetchStories = async () => {
@@ -208,12 +214,7 @@ export default function Stories({ embedded = false }: StoriesProps) {
               <BookOpen className={`w-8 h-8 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
             </div>
             <div>
-              <h1 className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                Stories
-              </h1>
-              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} mt-1`}>
-                Share your company's culture, values, and achievements
-              </p>
+              <h1 className={employerPageTitleClass(darkMode)}>Stories</h1>
             </div>
           </div>
           <Button
@@ -274,7 +275,7 @@ export default function Stories({ embedded = false }: StoriesProps) {
                 placeholder="Search stories by title, content, or tags..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className={`w-full pl-11 pr-4 py-3 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none`}
+                className={`w-full pl-11 pr-4 py-3 rounded-xl border transition-all duration-200 outline-none focus:ring-2 focus:ring-offset-0 ${darkMode ? 'bg-slate-800/80 border-white/10 text-white placeholder:text-slate-500 focus:border-violet-400/50 focus:ring-violet-500/25' : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-indigo-400 focus:ring-indigo-500/20'}`}
               />
             </div>
             <div className="flex gap-2">
@@ -322,7 +323,7 @@ export default function Stories({ embedded = false }: StoriesProps) {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <h3 className={`text-xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'} group-hover:text-purple-600 transition-colors`}>
-                        {story.title}
+                        {story.title.replace(/\s*-\s*[^\s@]+@[^\s@]+\.[^\s@]+$/, '')}
                       </h3>
                       <div className="flex items-center gap-2 mb-3">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -418,9 +419,10 @@ export default function Stories({ embedded = false }: StoriesProps) {
 
         {/* Create Story Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowCreateModal(false)}>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 overflow-y-auto" onClick={() => setShowCreateModal(false)}>
+            <div className="flex min-h-full items-center justify-center p-4">
             <div
-              className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'} rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-2`}
+              className={`${darkMode ? 'bg-slate-900/80 border-white/10 shadow-[0_18px_60px_rgba(0,0,0,0.25)]' : 'bg-white/95 border-gray-100 shadow-2xl'} backdrop-blur-xl rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border`}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6">
@@ -447,7 +449,7 @@ export default function Stories({ embedded = false }: StoriesProps) {
                       type="text"
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      className={`w-full px-4 py-3 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none`}
+                      className={`w-full px-4 py-3 rounded-xl border transition-all duration-200 outline-none focus:ring-2 focus:ring-offset-0 ${darkMode ? 'bg-slate-800/80 border-white/10 text-white placeholder:text-slate-500 focus:border-violet-400/50 focus:ring-violet-500/25' : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-indigo-400 focus:ring-indigo-500/20'}`}
                       placeholder="Enter a compelling title for your story"
                     />
                   </div>
@@ -460,7 +462,7 @@ export default function Stories({ embedded = false }: StoriesProps) {
                       value={formData.content}
                       onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                       rows={8}
-                      className={`w-full px-4 py-3 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none resize-none`}
+                      className={`w-full px-4 py-3 rounded-xl border transition-all duration-200 outline-none focus:ring-2 focus:ring-offset-0 resize-none ${darkMode ? 'bg-slate-800/80 border-white/10 text-white placeholder:text-slate-500 focus:border-violet-400/50 focus:ring-violet-500/25' : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-indigo-400 focus:ring-indigo-500/20'}`}
                       placeholder="Share your company's story, achievements, culture, or values..."
                     />
                     <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
@@ -476,7 +478,7 @@ export default function Stories({ embedded = false }: StoriesProps) {
                       type="text"
                       value={formData.tags}
                       onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                      className={`w-full px-4 py-3 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'} border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none`}
+                      className={`w-full px-4 py-3 rounded-xl border transition-all duration-200 outline-none focus:ring-2 focus:ring-offset-0 ${darkMode ? 'bg-slate-800/80 border-white/10 text-white placeholder:text-slate-500 focus:border-violet-400/50 focus:ring-violet-500/25' : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-indigo-400 focus:ring-indigo-500/20'}`}
                       placeholder="e.g., culture, innovation, team, success"
                     />
                     <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
@@ -516,14 +518,16 @@ export default function Stories({ embedded = false }: StoriesProps) {
                 </div>
               </div>
             </div>
+            </div>
           </div>
         )}
 
         {/* Delete Confirmation Modal */}
         {showDeleteModal && selectedStory && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowDeleteModal(false)}>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 overflow-y-auto" onClick={() => setShowDeleteModal(false)}>
+            <div className="flex min-h-full items-center justify-center p-4">
             <div
-              className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'} rounded-2xl shadow-2xl max-w-md w-full border-2`}
+              className={`${darkMode ? 'bg-slate-900/80 border-white/10 shadow-[0_18px_60px_rgba(0,0,0,0.25)]' : 'bg-white/95 border-gray-100 shadow-2xl'} backdrop-blur-xl rounded-2xl max-w-md w-full border`}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6">
@@ -556,6 +560,7 @@ export default function Stories({ embedded = false }: StoriesProps) {
                   </Button>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         )}

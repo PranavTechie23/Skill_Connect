@@ -5,9 +5,11 @@ import {
   AlertCircle, Building2, Briefcase, CheckCircle,
   Eye, MapPin, Calendar, User, Search, Loader2,
   FileText, ExternalLink, StickyNote, ChevronDown, UserCircle, BookOpen,
-  Shield, Ban, ChevronLeft, ChevronRight,
+  Shield, Ban, ChevronLeft, ChevronRight, Sparkles,
 } from 'lucide-react';
 import { adminService, type UserAccountStatus } from '@/lib/admin-service';
+import { aiAdminService } from '@/lib/ai-admin-service';
+import type { ModerationResult } from '../../../../shared/schema';
 import { useToast } from '@/hooks/use-toast';
 import { scrollDashboardToTop } from '@/lib/scroll-to-top';
 import {
@@ -359,6 +361,101 @@ const AdminApprovals: React.FC<AdminApprovalsProps> = ({
   >([]);
   const [moderationLoading, setModerationLoading] = useState(false);
   const [showModerationHistory, setShowModerationHistory] = useState(true);
+
+  const [moderationResults, setModerationResults] = useState<Record<string, ModerationResult>>({});
+  const [moderatingItems, setModeratingItems] = useState<Set<string>>(new Set());
+
+  const handleAiScan = async (item: PendingItem) => {
+    setModeratingItems((prev) => new Set(prev).add(item.id));
+    try {
+      const result = await aiAdminService.scanModerationRisk(item.type, item.details || {});
+      setModerationResults((prev) => ({ ...prev, [item.id]: result }));
+      toast({
+        title: "AI Scan Complete",
+        description: `Risk Level: ${result.riskLevel.toUpperCase()}`,
+        variant: result.riskLevel === 'high' ? 'destructive' : 'default',
+      });
+    } catch (error: any) {
+      toast({ title: "Scan Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setModeratingItems((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  };
+
+  const renderAiRiskPanel = (item: PendingItem) => {
+    const result = moderationResults[item.id];
+    const isScanning = moderatingItems.has(item.id);
+
+    if (!result && !isScanning) {
+      return (
+        <div className={`mb-6 p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg">
+              <Shield className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>AI Trust & Safety Scan</h4>
+              <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Run an automated check for spam and policy violations.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => handleAiScan(item)}
+            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all w-full sm:w-auto ${
+              darkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" /> Run Scan
+          </button>
+        </div>
+      );
+    }
+
+    if (isScanning) {
+      return (
+        <div className={`mb-6 p-6 rounded-xl border flex flex-col items-center justify-center gap-3 ${darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+          <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+          <p className={`text-sm animate-pulse ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Analyzing submission...</p>
+        </div>
+      );
+    }
+
+    const getRiskColors = (level: string) => {
+      switch(level) {
+        case 'high': return darkMode ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-200 text-red-700';
+        case 'medium': return darkMode ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700';
+        case 'low': return darkMode ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700';
+        default: return darkMode ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-700';
+      }
+    };
+
+    const riskColor = getRiskColors(result.riskLevel);
+
+    return (
+      <div className={`mb-6 rounded-xl border-2 overflow-hidden ${riskColor}`}>
+        <div className={`px-4 py-3 flex items-center justify-between border-b border-inherit bg-inherit brightness-95`}>
+          <div className="flex items-center gap-2">
+            {result.riskLevel === 'high' ? <AlertCircle className="w-5 h-5" /> : <Shield className="w-5 h-5" />}
+            <h4 className="text-sm font-bold uppercase tracking-wider">AI Risk Assessment: {result.riskLevel}</h4>
+          </div>
+          <span className="text-xs font-bold px-2 py-1 bg-white/20 rounded-md">Suggested: {result.suggestedAction}</span>
+        </div>
+        <div className="p-4 space-y-3">
+          <p className="text-sm font-medium">{result.reasoning}</p>
+          {result.flags.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-2">
+              {result.flags.map((flag: string, i: number) => (
+                <span key={i} className="px-2.5 py-1 rounded-full text-xs font-bold border border-current bg-white/10">{flag}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const getButtonPhase = (
     itemId: string,
@@ -1031,7 +1128,12 @@ const AdminApprovals: React.FC<AdminApprovalsProps> = ({
             ) : undefined
           }
         >
-          {selectedItem ? renderApprovalDetails(selectedItem) : null}
+          {selectedItem ? (
+            <div>
+              {renderAiRiskPanel(selectedItem)}
+              {renderApprovalDetails(selectedItem)}
+            </div>
+          ) : null}
         </AdminFormModal>
       </div>
 
