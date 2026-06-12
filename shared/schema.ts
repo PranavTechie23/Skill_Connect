@@ -25,6 +25,8 @@ export const professionalProfiles = pgTable("professional_profiles", {
     skills: jsonb("skills").default('[]'), // Store as native JSON
     resumeUrl: text("resume_url"),
     resumeName: text("resume_name"),
+    experience: jsonb("experience").default('[]'),
+    education: jsonb("education").default('[]'),
 });
 
 
@@ -38,7 +40,9 @@ export const companies = pgTable("companies", {
   industry: text("industry"),
   logo: text("logo"),
   coverImage: text("cover_image"),
+  culture: jsonb("culture").default({ tags: [], benefits: [] }),
   ownerId: text("owner_id").references(() => users.id),
+  status: text("status").notNull().default("approved"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -54,7 +58,9 @@ export const jobs = pgTable("jobs", {
   skills: jsonb("skills").default('[]'), // Store as native JSON
   companyId: text("company_id").references(() => companies.id, { onDelete: 'cascade' }),
   employerId: text("employer_id").references(() => users.id, { onDelete: 'cascade' }),
+  deadline: timestamp("deadline"),
   isActive: boolean("is_active").default(true),
+  status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -123,6 +129,33 @@ export const notifications = pgTable("notifications", {
 });
 
 
+export const aiEvents = pgTable("ai_events", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+  feature: text("feature").notNull(),
+  provider: text("provider"),
+  model: text("model"),
+  status: text("status").notNull(), // success | error
+  latencyMs: integer("latency_ms"),
+  errorCode: text("error_code"),
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const resumeParses = pgTable("resume_parses", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  resumeUrl: text("resume_url").notNull(),
+  extractedText: text("extracted_text"),
+  parseStatus: text("parse_status").notNull().default("pending"), // pending | success | error
+  errorMessage: text("error_message"),
+  aiModel: text("ai_model"),
+  metadata: jsonb("metadata").default({}), // { name?, email?, phone?, skills: [], experience: [], education: [] }
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users, {
@@ -152,7 +185,9 @@ export const insertJobSchema = z.object({
   skills: z.array(z.string()).default([]),
   companyId: z.string(),
   employerId: z.string(),
+  deadline: z.union([z.string(), z.date()]).nullable().optional(),
   isActive: z.boolean().default(true),
+  status: z.string().optional(),
 });
 
 export const insertApplicationSchema = createInsertSchema(applications).omit({
@@ -182,6 +217,17 @@ export const insertStorySchema = z.object({
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertAiEventSchema = createInsertSchema(aiEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertResumeParseSchema = createInsertSchema(resumeParses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 
@@ -222,11 +268,27 @@ export const adminCreateUserSchema = z.object({
   title: z.string().optional(),
 });
 
+export const reviewPackSchema = z.object({
+  candidateSummary: z.string().describe("A short paragraph summarizing the candidate's fit for the job"),
+  matchedSkills: z.array(z.string()).describe("Skills that match the job requirements"),
+  missingSkills: z.array(z.string()).describe("Required or desired skills the candidate lacks"),
+  suggestedInterviewQuestions: z.array(z.string()).describe("3-4 tailored interview questions based on the candidate's background and the job"),
+});
+
+export const moderationResultSchema = z.object({
+  riskLevel: z.enum(["low", "medium", "high"]),
+  flags: z.array(z.string()).describe("Specific policy violations or suspicious signals detected"),
+  reasoning: z.string().describe("Explanation for the assigned risk level and flags"),
+  suggestedAction: z.enum(["approve", "reject", "suspend", "flag_for_review", "none"]),
+});
+
 // Profile update schema (professional_profiles table)
 export const updateProfileSchema = z.object({
   headline: z.string().optional(),
   bio: z.string().optional(),
   skills: z.array(z.string()).optional(),
+  experience: z.array(z.any()).optional(),
+  education: z.array(z.any()).optional(),
 });
 
 // Combined employee profile update (users + professional_profiles)
@@ -250,6 +312,12 @@ export type InsertCompany = z.infer<typeof insertCompanySchema>;
 export type Job = typeof jobs.$inferSelect;
 export type InsertJob = z.infer<typeof insertJobSchema>;
 export type Application = typeof applications.$inferSelect;
+
+export const session = pgTable("session", {
+  sid: varchar("sid").primaryKey(),
+  sess: jsonb("sess").notNull(),
+  expire: timestamp("expire").notNull(),
+});
 export type InsertApplication = z.infer<typeof insertApplicationSchema>;
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
@@ -259,5 +327,9 @@ export type Story = typeof stories.$inferSelect;
 export type InsertStory = z.infer<typeof insertStorySchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type AiEvent = typeof aiEvents.$inferSelect;
+export type InsertAiEvent = z.infer<typeof insertAiEventSchema>;
 export type LoginData = z.infer<typeof loginSchema>;
 export type RegisterData = z.infer<typeof registerSchema>;
+export type ReviewPack = z.infer<typeof reviewPackSchema>;
+export type ModerationResult = z.infer<typeof moderationResultSchema>;

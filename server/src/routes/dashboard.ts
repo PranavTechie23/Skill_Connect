@@ -35,9 +35,12 @@ router.get('/', async (req, res) => {
             applications = []; // Fallback to empty array
         }
 
-        // Get user's profile if they are a professional
+        // Get user's profile for profile-strength calculation.
+        // Some users have inconsistent/missing userType values in older records,
+        // so we normalize and also allow empty type.
         let profile = null;
-        if (user.userType === 'Professional' || user.userType === 'job_seeker') {
+        const rawUserType = ((user as any).userType || (user as any).user_type || '').toString().toLowerCase();
+        if (!rawUserType || rawUserType === 'professional' || rawUserType === 'job_seeker' || rawUserType === 'job-seeker') {
             profile = await storage.getProfessionalProfileByUserId(userId);
         }
 
@@ -98,12 +101,14 @@ router.get('/', async (req, res) => {
         // Get recent applications with company details
         const recentApplications = await Promise.all(
             applications.slice(0, 3).map(async (app) => {
+                const normalizedJobId = app.jobId ?? app.job_id;
+                const normalizedAppliedAt = app.appliedAt ?? app.applied_at;
                 let jobDetails = null;
                 let companyDetails = null;
 
                 try {
-                    if (app.jobId) {
-                        jobDetails = await storage.getJob(String(app.jobId));
+                    if (normalizedJobId) {
+                        jobDetails = await storage.getJob(String(normalizedJobId));
                         if (jobDetails?.companyId) {
                             companyDetails = await storage.getCompany(String(jobDetails.companyId));
                         }
@@ -114,10 +119,10 @@ router.get('/', async (req, res) => {
 
                 return {
                     id: app.id,
-                    jobId: app.jobId,
+                    jobId: normalizedJobId,
                     jobTitle: jobDetails?.title || 'Unknown Position',
                     company: companyDetails?.name || 'Unknown Company',
-                    appliedDate: app.appliedAt,
+                    appliedDate: normalizedAppliedAt,
                     status: app.status
                 };
             })
