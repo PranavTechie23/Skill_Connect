@@ -187,7 +187,11 @@ export const api = {
     },
 
     async getPending() {
-      return api.get('/stories', { status: 'pending' });
+      const allStories = await api.get('/admin/stories');
+      if (Array.isArray(allStories)) {
+        return { stories: allStories.filter((s: any) => !s.approved) };
+      }
+      return { stories: [] };
     },
 
     async getApproved() {
@@ -210,7 +214,8 @@ export const api = {
     },
 
     async updateStatus(id: string | number, status: Story['status']) {
-      return api.patch(`/stories/${id}/status`, { status });
+      const isApproved = status === 'approved';
+      return api.put(`/admin/stories/${id}/approval`, { approved: isApproved });
     }
   },
 

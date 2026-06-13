@@ -75,6 +75,11 @@ This project aligns with **UN SDG 8 — Decent Work and Economic Growth**, promo
 ├── TailwindCSS         - Utility-first CSS
 ├── Vite               - Build tool & dev server
 ├── React Router       - Client-side routing
+├── Zustand            - State management
+├── React Query        - Data fetching & caching
+├── Radix UI           - Accessible component primitives
+├── Framer Motion/GSAP - Animations & micro-interactions
+├── Three.js           - 3D elements
 └── Lucide React       - Icon library
 ```
 
@@ -84,9 +89,12 @@ This project aligns with **UN SDG 8 — Decent Work and Economic Growth**, promo
 ├── Express.js         - Web framework
 ├── TypeScript         - Type safety
 ├── PostgreSQL         - Database
+├── Drizzle ORM        - Type-safe database ORM
 ├── Express Session    - Session management
 ├── connect-pg-simple  - PostgreSQL session store
-└── bcrypt            - Password hashing
+├── Passport.js        - Authentication middleware
+├── Zod                - Schema validation
+└── bcrypt             - Password hashing
 ```
 
 ### Security
@@ -142,6 +150,26 @@ Client: http://localhost:5173
 Server: http://localhost:5002
 ```
 
+### Database Management
+
+The project uses Drizzle ORM. You can manage the database with the following npm scripts:
+
+```bash
+# Push schema changes directly to the database
+npm run db:push
+
+# Generate migration files
+npm run db:generate
+
+# Run migrations
+npm run db:migrate
+
+# Open Drizzle Studio to view and edit data
+npm run db:studio
+
+# Seed database with test jobs/data
+npm run add-test-jobs
+```
 
 ## 📁 Project Structure
 
@@ -150,22 +178,27 @@ CEP_Project/
 ├── client/                 # Frontend application
 │   ├── src/
 │   │   ├── components/    # Reusable UI components
-│   │   ├── pages/         # Page components
+│   │   ├── contexts/      # React contexts (Auth, Language, etc.)
 │   │   ├── hooks/         # Custom React hooks
+│   │   ├── lib/           # Utility libraries and API services
+│   │   ├── pages/         # Page components (admin, employee, employer)
 │   │   ├── types/         # TypeScript type definitions
-│   │   ├── utils/         # Utility functions
 │   │   └── App.tsx        # Main app component
 │   ├── public/            # Static assets
 │   └── package.json
 │
 ├── server/                # Backend application
 │   ├── src/
-│   │   ├── routes.ts     # API route handlers (incl. assistant endpoint)
+│   │   ├── ai/           # AI Assistant and guardrails
+│   │   ├── routes/       # API route handlers
+│   │   ├── routes.ts     # Main router configuration
+│   │   ├── storage.ts    # Database storage interfaces
 │   │   ├── db.ts         # PostgreSQL + Drizzle connection
 │   │   └── index.ts      # Server entry point
 │   └── package.json
 │
 ├── shared/                # Shared types/schema (Drizzle)
+├── drizzle/               # Database migrations
 └── README.md
 ```
 
@@ -358,8 +391,10 @@ Check out the Skills Connect Job Board in action!
 
 ## 🌐 Live Demo
 
+Add your live deployment link here:
+- Client (Vercel): `[add link]`
+- Server: `[add link]`
 
-Stay tuned for the live deployment link.
 ---
 
 <div align="center">

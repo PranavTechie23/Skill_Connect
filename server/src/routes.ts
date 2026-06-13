@@ -2360,6 +2360,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/debug/admin-jobs", async (req, res) => {
+    try {
+      console.log('DEBUG API: fetching jobs');
+      const { jobs } = await storage.getJobs({ includeInactive: true });
+      console.log('DEBUG API: fetching applications');
+      const allApplications = await storage.getApplicationsByJob("all");
+      console.log('DEBUG API: grouping applications');
+      const countsMap = new Map<string, number>();
+      for (const app of allApplications) {
+        const jobId = app.jobId || (app as any).job_id;
+        if (jobId) {
+          const idStr = String(jobId);
+          countsMap.set(idStr, (countsMap.get(idStr) || 0) + 1);
+        }
+      }
+      console.log('DEBUG API: sending response');
+      const enrichedJobs = jobs.slice(0, 5).map((job) => ({
+        id: job.id,
+        title: job.title,
+        applicationsCount: countsMap.get(String(job.id)) || 0,
+      }));
+      res.json({
+        totalJobs: jobs.length,
+        totalApplications: allApplications.length,
+        countsMapSize: countsMap.size,
+        sample: enrichedJobs
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Cleanup endpoint to remove expired sessions (admin only)
   app.post("/api/admin/cleanup-sessions", requireAdmin, async (req, res) => {
     try {
@@ -2586,8 +2618,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: Get all jobs
   app.get("/api/admin/jobs", requireAdmin, async (req, res) => {
     try {
+      console.log('API /api/admin/jobs: fetching jobs');
       const { jobs } = await storage.getJobs({ includeInactive: true });
-      res.json(jobs);
+      console.log('API /api/admin/jobs: fetching applications');
+      const allApplications = await storage.getApplicationsByJob("all");
+      console.log('API /api/admin/jobs: grouping applications');
+      const countsMap = new Map<string, number>();
+      for (const app of allApplications) {
+        const jobId = app.jobId || (app as any).job_id;
+        if (jobId) {
+          const idStr = String(jobId);
+          countsMap.set(idStr, (countsMap.get(idStr) || 0) + 1);
+        }
+      }
+      
+      const enrichedJobs = jobs.map((job) => ({
+        ...job,
+        applicationsCount: countsMap.get(String(job.id)) || 0,
+      }));
+      console.log('API /api/admin/jobs: sending response');
+      res.json(enrichedJobs);
+      console.log('API /api/admin/jobs: response sent');
     } catch (error) {
       handleError(res, error, "Failed to fetch jobs");
     }

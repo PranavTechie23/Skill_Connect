@@ -717,33 +717,36 @@ export default function AdminEmployees() {
               <p className={`text-lg font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Loading employees...</p>
             </div>
           ) : paginatedEmployees.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
             {paginatedEmployees.map((employee) => {
               return (
-              <div key={employee.id} className={`border rounded-xl p-6 transition-all flex flex-col ${
+              <div key={employee.id} className={`border rounded-2xl p-6 transition-all duration-300 flex flex-col relative overflow-hidden group ${
                 darkMode 
-                  ? 'border-gray-700 hover:border-green-500/50 bg-gray-800/50'
-                  : 'border-gray-200 hover:border-green-300 bg-white' 
-              } hover:shadow-lg`}>
+                  ? 'border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-950 hover:border-green-500/30 hover:shadow-[0_0_30px_rgba(34,197,94,0.08)] shadow-lg'
+                  : 'border-gray-200/80 bg-gradient-to-br from-white to-gray-50/50 hover:border-green-300 hover:shadow-[0_12px_30px_rgba(0,0,0,0.04)] shadow-sm' 
+              }`}>
+                {/* Accent line */}
+                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-start gap-4">
-                    <div className={`bg-blue-500 w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg`}>
+                    <div className="bg-gradient-to-br from-blue-500 to-indigo-600 w-14 h-14 rounded-full flex items-center justify-center text-white font-black text-lg shadow-md group-hover:scale-105 transition-transform duration-300">
                       {((employee.firstName || (employee as any).first_name)?.[0] || '').toUpperCase()}{((employee.lastName || (employee as any).last_name)?.[0] || '').toUpperCase() || (employee.email?.[0] || 'U').toUpperCase()}
                     </div>
                     <div>
-                      <h3 className={`font-bold text-2xl mb-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      <h3 className={`font-extrabold text-lg mb-1 leading-tight group-hover:text-green-400 transition-colors duration-250 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                         {(employee.firstName || (employee as any).first_name || '') && (employee.lastName || (employee as any).last_name || '')
                           ? `${employee.firstName || (employee as any).first_name || ''} ${employee.lastName || (employee as any).last_name || ''}`.trim()
                           : employee.email || 'Unknown User'
                         }
                       </h3>
-                      <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm flex items-center gap-1 mb-2`}>
-                        <Mail className="w-4 h-4" />
-                        {employee.email || 'No email'}
+                      <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-xs flex items-center gap-1.5 mb-1.5`}>
+                        <Mail className="w-3.5 h-3.5 text-blue-500/80 dark:text-blue-400/80" />
+                        <span className="truncate max-w-[150px]">{employee.email || 'No email'}</span>
                       </p>
-                      <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm flex items-center gap-1`}>
-                        <MapPin className="w-4 h-4" />
-                        {employee.location || 'No location'}
+                      <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-xs flex items-center gap-1.5`}>
+                        <MapPin className="w-3.5 h-3.5 text-green-600/80 dark:text-green-400/80" />
+                        <span>{employee.location || 'No location'}</span>
                       </p>
                     </div>
                   </div>
@@ -752,20 +755,20 @@ export default function AdminEmployees() {
                     let statusClasses = '';
                     let statusLabel = '';
                     if (status === 'active') {
-                      statusClasses = darkMode ? 'bg-green-500/20 text-green-400' : 'bg-green-100 text-green-700';
+                      statusClasses = darkMode ? 'bg-green-500/15 text-green-400' : 'bg-green-50 text-green-700 border border-green-200/50';
                       statusLabel = 'Active';
                     } else if (status === 'pending') {
-                      statusClasses = darkMode ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700';
+                      statusClasses = darkMode ? 'bg-amber-500/15 text-amber-400' : 'bg-amber-50 text-amber-700 border border-amber-200/50';
                       statusLabel = 'Pending';
                     } else if (status === 'suspended') {
-                      statusClasses = darkMode ? 'bg-red-500/20 text-red-400' : 'bg-red-100 text-red-700';
+                      statusClasses = darkMode ? 'bg-red-500/15 text-red-400' : 'bg-red-50 text-red-700 border border-red-200/50';
                       statusLabel = 'Suspended';
                     } else {
-                      statusClasses = darkMode ? 'bg-gray-500/20 text-gray-400' : 'bg-gray-100 text-gray-700';
+                      statusClasses = darkMode ? 'bg-gray-500/15 text-gray-400' : 'bg-gray-50 text-gray-700 border border-gray-200/50';
                       statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
                     }
                     return (
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusClasses}`}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusClasses}`}>
                         {statusLabel}
                       </span>
                     );
@@ -773,41 +776,50 @@ export default function AdminEmployees() {
                 </div>
 
                 {/* Skills */}
-                <div className="mb-4 min-h-[3rem]">
-                  <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-2 font-medium`}>Skills</p>
-                  <div className="flex flex-wrap gap-2">
+                <div className="mb-4 min-h-[4.5rem]">
+                  <p className={`text-[10px] uppercase tracking-wider ${darkMode ? 'text-gray-500' : 'text-gray-400'} mb-2 font-bold`}>Skills</p>
+                  <div className="flex flex-wrap gap-1.5">
                     {employee.skills && employee.skills.length > 0 ? (
-                      employee.skills.map((skill, idx) => (
-                        <span key={idx} className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      employee.skills.slice(0, 4).map((skill, idx) => (
+                        <span key={idx} className={`px-2.5 py-0.5 rounded-md text-xs font-semibold transition-colors duration-200 ${
                           darkMode 
-                            ? 'bg-gray-700 text-gray-300'
-                            : 'bg-gray-100 text-gray-700'
+                            ? 'bg-slate-800/80 border border-slate-700/50 text-slate-300 hover:bg-slate-700/80 hover:text-white'
+                            : 'bg-gray-100/80 border border-gray-200/40 text-gray-700 hover:bg-gray-200 hover:text-gray-950'
                         }`}>
                           {skill}
                         </span>
                       ))
                     ) : (
-                      <span className={`text-xs italic ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>No skills listed</span>
+                      <span className={`text-xs italic ${darkMode ? 'text-gray-600' : 'text-gray-400'}`}></span>
+                    )}
+                    {employee.skills && employee.skills.length > 4 && (
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                        darkMode ? 'bg-slate-800/50 text-slate-400' : 'bg-gray-50 text-gray-500'
+                      }`}>
+                        +{employee.skills.length - 4} more
+                      </span>
                     )}
                   </div>
                 </div>
 
                 {/* Stats Row */}
-                <div className={`grid grid-cols-3 gap-4 mb-4 rounded-lg p-3 ${
-                  darkMode ? 'bg-gray-700/50' : 'bg-gray-50'
+                <div className={`grid grid-cols-3 gap-2 mb-4 rounded-xl p-3 border transition-colors duration-300 ${
+                  darkMode 
+                    ? 'bg-slate-900/60 border-slate-800/80' 
+                    : 'bg-gray-50/80 border-gray-150'
                 }`}>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Applications</p>
-                    <p className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>N/A</p>
+                    <p className={`text-[9px] uppercase tracking-wider ${darkMode ? 'text-gray-500' : 'text-gray-400'} font-bold mb-0.5`}>Apps</p>
+                    <p className={`font-bold text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>N/A</p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Joined</p>
-                    <p className={`font-semibold text-xs ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    <p className={`text-[9px] uppercase tracking-wider ${darkMode ? 'text-gray-500' : 'text-gray-400'} font-bold mb-0.5`}>Joined</p>
+                    <p className={`font-bold text-xs leading-none truncate mt-0.5 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                       {employee.createdAt 
                         ? (() => {
                             try {
                               const date = new Date(employee.createdAt);
-                              return isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString();
+                              return isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString(undefined, {month: 'numeric', day: 'numeric', year: '2-digit'});
                             } catch {
                               return 'N/A';
                             }
@@ -817,27 +829,27 @@ export default function AdminEmployees() {
                     </p>
                   </div>
                   <div>
-                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Last Active</p>
-                    <p className={`font-semibold text-xs ${darkMode ? 'text-white' : 'text-gray-900'}`}>{'N/A'}</p>
+                    <p className={`text-[9px] uppercase tracking-wider ${darkMode ? 'text-gray-500' : 'text-gray-400'} font-bold mb-0.5`}>Active</p>
+                    <p className={`font-bold text-xs leading-none mt-0.5 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{'N/A'}</p>
                   </div>
                 </div>
 
                 {/* Action Buttons */}
-                <div className={`flex items-center gap-2 rounded-xl border p-2 ${
-                  darkMode ? 'border-gray-600 bg-gray-700/40' : 'border-gray-200 bg-gray-50'
+                <div className={`mt-auto flex items-center gap-1.5 rounded-xl border p-1.5 transition-colors duration-300 ${
+                  darkMode ? 'border-slate-800/80 bg-slate-900/30' : 'border-gray-200/60 bg-gray-50/30'
                 }`}>
                   <button
                     onClick={() => setSelectedEmployee(employee)}
                     title="View profile"
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 border rounded-lg transition-colors text-sm font-medium ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 border rounded-lg transition-all duration-200 text-xs font-bold ${
                     darkMode
-                      ? 'border-gray-600 hover:bg-gray-700 text-gray-300'
-                      : 'border-gray-300 hover:bg-white text-gray-700'
+                      ? 'border-slate-700 hover:bg-green-600 hover:border-transparent text-gray-200 hover:text-white shadow-sm'
+                      : 'border-gray-300 hover:bg-green-600 hover:border-transparent text-gray-700 hover:text-white shadow-sm'
                   }`}>
-                    <Eye className="w-4 h-4" />
+                    <Eye className="w-3.5 h-3.5" />
                     View Profile
                   </button>
-                  <button className={`p-2 rounded-lg transition-colors ${
+                  <button className={`p-1.5 rounded-lg transition-all duration-200 ${
                     darkMode
                       ? 'hover:bg-blue-500/15 text-blue-400'
                       : 'hover:bg-blue-50 text-blue-600'
@@ -845,33 +857,33 @@ export default function AdminEmployees() {
                   onClick={() => handleOpenEditModal(employee)}
                   title="Edit employee"
                   >
-                    <Edit className="w-5 h-5" />
+                    <Edit className="w-4 h-4" />
                   </button>
-                  <button className={`p-2 rounded-lg transition-colors ${
+                  <button className={`p-1.5 rounded-lg transition-all duration-200 ${
                     darkMode
-                      ? 'hover:bg-red-500/10 text-red-400'
+                      ? 'hover:bg-red-500/15 text-red-400'
                       : 'hover:bg-red-50 text-red-600'
                   }`}
                   onClick={() => setEmployeeToDelete(employee)}
                   title="Delete employee"
                   >
-                    <Trash2 className="w-5 h-5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
-                  <button className={`p-2 rounded-lg transition-colors ${
+                  <button className={`p-1.5 rounded-lg transition-all duration-200 ${
                     darkMode
-                      ? 'hover:bg-emerald-500/10 text-emerald-300'
+                      ? 'hover:bg-emerald-500/15 text-emerald-400'
                       : 'hover:bg-emerald-50 text-emerald-600'
                   }`}
                   onClick={() => handleCopyEmployeeEmail(employee)}
                   title="Copy email"
                   >
-                    <Copy className="w-5 h-5" />
+                    <Copy className="w-4 h-4" />
                   </button>
                 </div>
               </div>
-            );
+              );
             })}
-          </div>
+            </div>
           ) : (
             <div className="p-12 text-center">
               <Users className={`w-16 h-16 mx-auto mb-4 ${darkMode ? 'text-gray-600' : 'text-gray-300'}`} />
