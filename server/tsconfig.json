@@ -12,12 +12,7 @@
     "rootDir": "..",
     "baseUrl": "..",
     "paths": {
-      "@shared/*": ["shared/*"],
-      "drizzle-orm": ["node_modules/drizzle-orm"],
-      "drizzle-orm/*": ["node_modules/drizzle-orm/*"],
-      "drizzle-zod": ["node_modules/drizzle-zod"],
-      "vite": ["client/node_modules/vite"],
-      "vite/*": ["client/node_modules/vite/*"]
+      "@shared/*": ["shared/*"]
     }
   },
   "include": ["src/**/*", "../shared/**/*"],
