@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, jsonb, serial, uniqueIndex, index, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -14,6 +14,7 @@ export const users = pgTable("users", {
   profilePhoto: text("profile_photo"),
   telephoneNumber: text("telephone_number"),
   accountStatus: text("account_status").notNull().default("active"),
+  privacySettings: jsonb("privacy_settings").default('{"aiOptOut": false}'),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -27,6 +28,7 @@ export const professionalProfiles = pgTable("professional_profiles", {
     resumeName: text("resume_name"),
     experience: jsonb("experience").default('[]'),
     education: jsonb("education").default('[]'),
+    embedding: real("embedding").array(),
 });
 
 
@@ -62,6 +64,7 @@ export const jobs = pgTable("jobs", {
   isActive: boolean("is_active").default(true),
   status: text("status").notNull().default("active"),
   createdAt: timestamp("created_at").defaultNow(),
+  embedding: real("embedding").array(),
 });
 
 export const applications = pgTable("applications", {
@@ -188,6 +191,7 @@ export const insertJobSchema = z.object({
   deadline: z.union([z.string(), z.date()]).nullable().optional(),
   isActive: z.boolean().default(true),
   status: z.string().optional(),
+  embedding: z.array(z.number()).optional(),
 });
 
 export const insertApplicationSchema = createInsertSchema(applications).omit({
@@ -298,6 +302,7 @@ export const updateMeProfileSchema = updateProfileSchema.extend({
   email: z.string().email().optional(),
   location: z.string().optional(),
   telephoneNumber: z.string().optional(),
+  privacySettings: z.any().optional(),
 });
 
 // Types
@@ -333,3 +338,110 @@ export type LoginData = z.infer<typeof loginSchema>;
 export type RegisterData = z.infer<typeof registerSchema>;
 export type ReviewPack = z.infer<typeof reviewPackSchema>;
 export type ModerationResult = z.infer<typeof moderationResultSchema>;
+
+export const moderationRecords = pgTable("moderation_records", {
+  id: serial("id").primaryKey(),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id").notNull(),
+  riskLevel: text("risk_level").notNull(),
+  flags: text("flags").array().default([]),
+  reasoning: text("reasoning").notNull(),
+  suggestedAction: text("suggested_action").notNull(),
+  scanStatus: text("scan_status").notNull().default("scanned"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    entityIdx: index("idx_mod_entity_drizzle").on(table.entityType, table.entityId),
+  };
+});
+
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  adminId: text("admin_id").references(() => users.id, { onDelete: "set null" }).notNull(),
+  action: text("action").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: text("target_id").notNull(),
+  adminReason: text("admin_reason"),
+  aiRiskLevel: text("ai_risk_level"),
+  aiSuggested: text("ai_suggested"),
+  aiReasoning: text("ai_reasoning"),
+  aiFollowed: boolean("ai_followed"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const recommendationFeedback = pgTable("recommendation_feedback", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+  jobId: text("job_id").references(() => jobs.id, { onDelete: "cascade" }),
+  rating: text("rating").notNull(), // 'relevant' | 'not_relevant'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const matchExplanations = pgTable("match_explanations", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+  jobId: text("job_id").references(() => jobs.id, { onDelete: "cascade" }),
+  explanationText: text("explanation_text").notNull(),
+  matchScore: integer("match_score"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const agentRuns = pgTable("agent_runs", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+  agentType: text("agent_type").notNull(),
+  source: text("source").default("user").notNull(), // 'user' | 'cron'
+  goal: text("goal").notNull(),
+  status: text("status").notNull(), // 'running' | 'completed' | 'failed' | 'requires_approval' | 'cancelled'
+  resultJson: jsonb("result_json").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const agentSteps = pgTable("agent_steps", {
+  id: serial("id").primaryKey(),
+  runId: integer("run_id").references(() => agentRuns.id, { onDelete: "cascade" }).notNull(),
+  stepOrder: integer("step_order").notNull(),
+  toolName: text("tool_name"),
+  inputJson: jsonb("input_json").default({}),
+  outputJson: jsonb("output_json").default({}),
+  status: text("status").notNull(), // 'pending' | 'success' | 'failed'
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+  return {
+    runStepIdx: uniqueIndex("run_step_idx").on(table.runId, table.stepOrder),
+  };
+});
+
+export const aiFeedback = pgTable("ai_feedback", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+  feature: text("feature").notNull(),
+  rating: text("rating").notNull(), // 'thumbs_up', 'thumbs_down', 'accepted', 'rejected'
+  feedbackText: text("feedback_text"),
+  promptSnippet: text("prompt_snippet"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertModerationRecordSchema = createInsertSchema(moderationRecords).omit({ id: true, createdAt: true });
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
+export const insertRecommendationFeedbackSchema = createInsertSchema(recommendationFeedback).omit({ id: true, createdAt: true });
+export const insertMatchExplanationSchema = createInsertSchema(matchExplanations).omit({ id: true, createdAt: true });
+export const insertAgentRunSchema = createInsertSchema(agentRuns).omit({ id: true, createdAt: true, completedAt: true });
+export const insertAgentStepSchema = createInsertSchema(agentSteps).omit({ id: true, createdAt: true });
+export const insertAiFeedbackSchema = createInsertSchema(aiFeedback).omit({ id: true, createdAt: true });
+
+export type ModerationRecord = typeof moderationRecords.$inferSelect;
+export type InsertModerationRecord = typeof moderationRecords.$inferInsert;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = typeof auditLogs.$inferInsert;
+export type RecommendationFeedback = typeof recommendationFeedback.$inferSelect;
+export type InsertRecommendationFeedback = typeof recommendationFeedback.$inferInsert;
+export type MatchExplanation = typeof matchExplanations.$inferSelect;
+export type InsertMatchExplanation = typeof matchExplanations.$inferInsert;
+export type AgentRun = typeof agentRuns.$inferSelect;
+export type InsertAgentRun = typeof agentRuns.$inferInsert;
+export type AgentStep = typeof agentSteps.$inferSelect;
+export type InsertAgentStep = typeof agentSteps.$inferInsert;
+export type AiFeedback = typeof aiFeedback.$inferSelect;
+export type InsertAiFeedback = typeof aiFeedback.$inferInsert;

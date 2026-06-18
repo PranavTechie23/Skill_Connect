@@ -19,10 +19,37 @@ const pool = new Pool({
 
 async function check() {
   try {
+    console.log("Running manual schema migration for Phase 3...");
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS "match_explanations" (
+        "id" serial PRIMARY KEY NOT NULL,
+        "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE cascade,
+        "job_id" text NOT NULL REFERENCES "jobs"("id") ON DELETE cascade,
+        "explanation_text" text NOT NULL,
+        "match_score" integer NOT NULL,
+        "created_at" timestamp DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS "recommendation_feedback" (
+        "id" serial PRIMARY KEY NOT NULL,
+        "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE cascade,
+        "job_id" text NOT NULL REFERENCES "jobs"("id") ON DELETE cascade,
+        "rating" text NOT NULL,
+        "comments" text,
+        "created_at" timestamp DEFAULT now()
+      );
+
+      ALTER TABLE "jobs" ADD COLUMN IF NOT EXISTS "embedding" real[];
+      ALTER TABLE "professional_profiles" ADD COLUMN IF NOT EXISTS "embedding" real[];
+    `);
+    console.log("Manual migration successful!");
+
+
+
     const result = await pool.query(`
       SELECT table_name, column_name, data_type 
       FROM information_schema.columns 
-      WHERE table_name IN ('users', 'professional_profiles')
+      WHERE table_name IN ('users', 'professional_profiles', 'agent_runs', 'agent_steps', 'companies', 'jobs')
     `);
     console.log("Columns:", result.rows);
     

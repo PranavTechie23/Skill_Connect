@@ -1,0 +1,1 @@
+CREATE INDEX "user_created_idx" ON "ai_events" USING btree ("user_id","created_at");

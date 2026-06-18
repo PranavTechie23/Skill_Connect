@@ -92,7 +92,8 @@ async function addMissingUsers() {
     // Add users
     for (const userData of additionalUsers) {
       try {
-        const [newUser] = await db.insert(users).values(userData).returning();
+        const userId = crypto.randomUUID();
+        const [newUser] = await db.insert(users).values({ ...userData, id: userId }).returning();
         console.log(`✅ Added user: ${newUser.firstName} ${newUser.lastName} (${newUser.email})`);
         
         // Create professional profile for Professional users
@@ -102,13 +103,14 @@ async function addMissingUsers() {
             headline: userData.title,
             bio: userData.bio,
             skills: userData.skills
-          });
+          } as any);
           console.log(`  📝 Created professional profile for ${newUser.firstName}`);
         }
         
         // Create company for Employer users
         if (userData.userType === 'Employer') {
           await db.insert(companies).values({
+            id: crypto.randomUUID(),
             name: `${userData.firstName}'s Company`,
             description: `A growing company led by ${userData.firstName} ${userData.lastName}`,
             website: `https://${userData.firstName.toLowerCase()}company.com`,
@@ -120,7 +122,7 @@ async function addMissingUsers() {
           });
           console.log(`  🏢 Created company for ${newUser.firstName}`);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error(`❌ Error adding user ${userData.email}:`, error.message);
       }
     }

@@ -11,8 +11,8 @@ config();
 const host = process.env.POSTGRES_HOST || 'localhost';
 const port = parseInt(process.env.POSTGRES_PORT || '5432');
 const user = process.env.POSTGRES_USER || 'postgres';
-const password = process.env.POSTGRES_PASSWORD || 'postgres123';
-const database = process.env.POSTGRES_DB || 'jobportal';
+const password = process.env.POSTGRES_PASSWORD || '';
+const database = process.env.POSTGRES_DB || 'graphicgenie';
 
 const connectionString = `postgres://${user}:${password}@${host}:${port}/${database}?sslmode=disable`;
 const queryClient = postgres(connectionString, { 
