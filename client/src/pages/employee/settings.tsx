@@ -89,7 +89,8 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
       jobAlerts: true,
       autoSave: true,
       showProfile: true,
-      remoteOnly: false
+      remoteOnly: false,
+      aiEnabled: true
     }
   });
 
@@ -104,6 +105,10 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
           lastName: user.lastName || '',
           email: user.email || '',
           phone: user.telephoneNumber || '',
+        },
+        preferences: {
+          ...prev.preferences,
+          aiEnabled: !((user as any)?.privacySettings?.aiOptOut)
         }
       }));
     }
@@ -145,6 +150,7 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
         lastName: settings.account.lastName.trim(),
         email: settings.account.email.trim(),
         telephoneNumber: settings.account.phone.trim(),
+        privacySettings: { aiOptOut: !settings.preferences.aiEnabled },
       };
       await updateUser(payload);
       await queryClient.invalidateQueries({ queryKey: ['applications'] });
@@ -1382,6 +1388,7 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
                         {key === 'autoSave' && 'Automatically save applications in progress'}
                         {key === 'showProfile' && 'Make your profile visible to employers'}
                         {key === 'remoteOnly' && 'Only show remote job opportunities'}
+                        {key === 'aiEnabled' && 'Allow AI to process your data for tailored coaching and recommendations'}
                       </p>
                     </div>
                   ))}
