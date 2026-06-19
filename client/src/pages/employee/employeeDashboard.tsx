@@ -10,7 +10,7 @@ import {
   TrendingUp, Clock, CheckCircle, XCircle, Briefcase, Filter,
   Settings, ArrowRight, LogOut, Zap, Target,
   Award, Heart, Moon, Sun, Menu, Home, BarChart3,
-  Upload, Calendar, Sparkles, ChevronRight
+  Upload, Calendar, Sparkles, ChevronRight, Bot
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { QuickApplyModal } from '../../components/quick-apply-modal';
@@ -29,6 +29,8 @@ import MessagesPage from './messages';
 import ProfilePage from './profile';
 import ActivityPage from './activity';
 import SettingsPage from './settings';
+import CareerCoachPage from './coach';
+import AgentsPage from '../agents';
 
 import { apiFetch, withSkipGlobalLoader } from '@/lib/api';
 import { scrollDashboardToTop } from '@/lib/scroll-to-top';
@@ -741,12 +743,18 @@ const fetchDashboardData = async () => {
     },
     { icon: User, label: 'Profile', id: 'profile' },
     {
-      icon: Sparkles,
+      icon: TrendingUp,
       label: 'Activity',
       id: 'activity',
       badge: unreadNotifCount > 0 ? unreadNotifCount : undefined,
       hideWhenCollapsed: true,
     },
+    {
+      icon: Sparkles,
+      label: 'AI Career Coach',
+      id: 'coach',
+    },
+    { icon: Bot, label: 'Agent History', id: 'agents' },
     { icon: Settings, label: 'Settings', id: 'settings' },
   ];
 
@@ -1521,9 +1529,17 @@ const fetchDashboardData = async () => {
             <div className="w-full">
               <ActivityPage embedded onNavigateTab={switchToTab} />
             </div>
+          ) : activeTab === 'coach' ? (
+            <div className="w-full">
+              <CareerCoachPage embedded />
+            </div>
           ) : activeTab === 'settings' ? (
             <div className="w-full">
               <SettingsPage embedded />
+            </div>
+          ) : activeTab === 'agents' ? (
+            <div className="w-full">
+              <AgentsPage />
             </div>
           ) : (
           <div className="w-full space-y-6">
