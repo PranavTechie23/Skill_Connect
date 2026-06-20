@@ -32,6 +32,7 @@ interface PendingItem {
   status?: string;
   priority?: 'high' | 'medium' | 'low';
   details?: Record<string, any>;
+  moderationScan?: ModerationResult | null;
 }
 
 interface AdminApprovalsProps {
@@ -109,6 +110,7 @@ const AdminApprovals: React.FC<AdminApprovalsProps> = ({
       status: raw?.status ? String(raw.status) : undefined,
       priority: (raw?.priority ?? data?.priority ?? "low") as PendingItem["priority"],
       details,
+      moderationScan: raw?.moderationScan || null,
     };
   };
 
@@ -360,7 +362,13 @@ const AdminApprovals: React.FC<AdminApprovalsProps> = ({
     { id: string; name: string; email: string; status: UserAccountStatus; userType: string; createdAt?: string }[]
   >([]);
   const [moderationLoading, setModerationLoading] = useState(false);
-  const [showModerationHistory, setShowModerationHistory] = useState(true);
+  const [showModerationHistory, setShowModerationHistory] = useState(false);
+
+  const [auditSummary, setAuditSummary] = useState<any>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [showAuditLogs, setShowAuditLogs] = useState(false);
+
+  const [approvalReason, setApprovalReason] = useState("");
 
   const [moderationResults, setModerationResults] = useState<Record<string, ModerationResult>>({});
   const [moderatingItems, setModeratingItems] = useState<Set<string>>(new Set());
@@ -387,7 +395,7 @@ const AdminApprovals: React.FC<AdminApprovalsProps> = ({
   };
 
   const renderAiRiskPanel = (item: PendingItem) => {
-    const result = moderationResults[item.id];
+    const result = moderationResults[item.id] || item.moderationScan;
     const isScanning = moderatingItems.has(item.id);
 
     if (!result && !isScanning) {
@@ -423,6 +431,8 @@ const AdminApprovals: React.FC<AdminApprovalsProps> = ({
       );
     }
 
+    if (!result) return null;
+
     const getRiskColors = (level: string) => {
       switch(level) {
         case 'high': return darkMode ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-red-50 border-red-200 text-red-700';
@@ -444,8 +454,8 @@ const AdminApprovals: React.FC<AdminApprovalsProps> = ({
           <span className="text-xs font-bold px-2 py-1 bg-white/20 rounded-md">Suggested: {result.suggestedAction}</span>
         </div>
         <div className="p-4 space-y-3">
-          <p className="text-sm font-medium">{result.reasoning}</p>
-          {result.flags.length > 0 && (
+          <p className="text-sm font-medium">{result.reasoning || "No reasoning provided."}</p>
+          {result.flags && result.flags.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-2">
               {result.flags.map((flag: string, i: number) => (
                 <span key={i} className="px-2.5 py-1 rounded-full text-xs font-bold border border-current bg-white/10">{flag}</span>
@@ -497,8 +507,12 @@ const AdminApprovals: React.FC<AdminApprovalsProps> = ({
 
   const loadModerationHistory = async () => {
     setModerationLoading(true);
+    setAuditLoading(true);
     try {
-      const users = await adminService.getUsers();
+      const [users, audit] = await Promise.all([
+        adminService.getUsers().catch(() => []),
+        aiAdminService.getAuditSummary().catch(() => null)
+      ]);
       const moderated = (Array.isArray(users) ? users : [])
         .map((u) => {
           const status = String(
@@ -518,10 +532,12 @@ const AdminApprovals: React.FC<AdminApprovalsProps> = ({
         })
         .filter((u) => u.status === "flagged" || u.status === "suspended");
       setModerationHistory(moderated);
+      if (audit) setAuditSummary(audit);
     } catch (error) {
-      console.error("Failed to load moderation history:", error);
+      console.error("Failed to load moderation history or audit summary:", error);
     } finally {
       setModerationLoading(false);
+      setAuditLoading(false);
     }
   };
 
@@ -594,7 +610,7 @@ const AdminApprovals: React.FC<AdminApprovalsProps> = ({
     if (selectedItem?.id === itemId) setSelectedItem(null);
 
     try {
-      await adminService.updateApproval(itemId, status);
+      await adminService.updateApproval(itemId, status, approvalReason);
 
       setItemActions((prev) => ({
         ...prev,
@@ -616,6 +632,8 @@ const AdminApprovals: React.FC<AdminApprovalsProps> = ({
           return next;
         });
       }, 500);
+
+      setApprovalReason("");
 
       void fetchApprovals({ silent: true });
       void loadModerationHistory();
@@ -733,6 +751,93 @@ const AdminApprovals: React.FC<AdminApprovalsProps> = ({
                           {row.status === "suspended" ? <Ban className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
                           {row.status}
                         </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Audit Logs (Phase 6) */}
+          <div
+            className={`mb-6 rounded-3xl border-2 overflow-hidden ${
+              darkMode ? "border-violet-500/30 bg-gray-800/80" : "border-violet-200 bg-white"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => setShowAuditLogs((v) => !v)}
+              className={`w-full flex items-center justify-between gap-3 px-6 py-4 text-left ${
+                darkMode ? "hover:bg-gray-700/50" : "hover:bg-violet-50/80"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className={`font-bold ${darkMode ? "text-white" : "text-gray-900"}`}>
+                    Admin Audit Logs
+                  </p>
+                  <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                    Recent approval decisions and AI agreement metrics
+                  </p>
+                </div>
+              </div>
+              {auditSummary && (
+                <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${darkMode ? "bg-violet-500/20 text-violet-300" : "bg-violet-100 text-violet-800"}`}>
+                  {auditSummary.stats.agreementRate}% AI Agreement
+                </span>
+              )}
+            </button>
+            {showAuditLogs && (
+              <div className={`border-t px-6 py-4 ${darkMode ? "border-gray-700" : "border-gray-100"}`}>
+                {auditLoading ? (
+                  <div className="flex items-center gap-2 py-4 text-sm text-gray-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading audit logs…
+                  </div>
+                ) : !auditSummary || auditSummary.recentLogs.length === 0 ? (
+                  <p className={`text-sm py-2 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                    No recent audit logs.
+                  </p>
+                ) : (
+                  <ul className="space-y-2 max-h-64 overflow-y-auto">
+                    {auditSummary.recentLogs.map((log: any) => (
+                      <li
+                        key={log.id}
+                        className={`flex flex-col gap-2 rounded-xl px-4 py-3 text-sm border ${
+                          darkMode ? "bg-gray-900/60 border-gray-700/50" : "bg-gray-50 border-gray-100"
+                        }`}
+                      >
+                        <div className="flex justify-between items-start min-w-0">
+                          <div>
+                            <p className={`font-semibold ${darkMode ? "text-white" : "text-gray-900"}`}>
+                              <span className="uppercase">{log.action}</span> {log.targetType} ({log.targetId})
+                            </p>
+                            {log.adminReason && (
+                              <p className={`mt-1 text-xs italic ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
+                                Reason: "{log.adminReason}"
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <span className={`text-xs px-2 py-1 rounded-md ${darkMode ? "bg-gray-800 text-gray-400" : "bg-gray-200 text-gray-700"}`}>
+                              {new Date(log.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                        {log.aiRiskLevel && (
+                          <div className={`flex items-center gap-2 mt-1 text-xs ${darkMode ? "text-gray-500" : "text-gray-500"}`}>
+                            <span>AI suggested: <strong className="uppercase">{log.aiSuggested}</strong> (Risk: {log.aiRiskLevel})</span>
+                            {log.aiFollowed !== null && (
+                              <span className={`px-1.5 py-0.5 rounded-sm font-bold ${log.aiFollowed ? "bg-green-500/20 text-green-600" : "bg-amber-500/20 text-amber-600"}`}>
+                                {log.aiFollowed ? "Followed AI" : "Overrode AI"}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -1109,6 +1214,22 @@ const AdminApprovals: React.FC<AdminApprovalsProps> = ({
             selectedItem ? (
               <div className="px-8 pb-6">
                 <div className={adminFormModalFooterClass(darkMode)}>
+                  <div className="col-span-2 mb-2">
+                    <label className={`block text-xs font-bold uppercase tracking-wide mb-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                      Reason (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Why was this approved or rejected? (Saved to audit logs)"
+                      className={`w-full px-4 py-2.5 rounded-xl border text-sm transition-all focus:ring-2 focus:ring-violet-500 focus:outline-none ${
+                        darkMode 
+                          ? "bg-slate-900/50 border-slate-700 text-white placeholder-slate-500" 
+                          : "bg-white border-gray-200 text-gray-900 placeholder-gray-400"
+                      }`}
+                      value={approvalReason}
+                      onChange={(e) => setApprovalReason(e.target.value)}
+                    />
+                  </div>
                   <ApprovalActionButton
                     variant="reject"
                     fullWidth

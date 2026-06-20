@@ -357,11 +357,11 @@ export const adminService = {
     }
   },
 
-  updateApproval: async (id: string, status: string) => {
+  updateApproval: async (id: string, status: string, reason?: string) => {
     const response = await apiFetch(`/api/admin/approvals/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, reason }),
     });
     const result = await safeJsonResponse(response);
     approvalsCache = null;
