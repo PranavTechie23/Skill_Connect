@@ -45,6 +45,7 @@ import {
   Briefcase,
   ChevronLeft,
   ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 import { scrollPageToTop } from '@/lib/scroll-to-top';
 
@@ -289,6 +290,9 @@ export default function JobManagement({ embedded = false }: JobManagementProps) 
   // Create Job modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [helpTopic, setHelpTopic] = useState<string>('required');
+  const [isDraftingAI, setIsDraftingAI] = useState(false);
+  const [aiCustomInstructions, setAiCustomInstructions] = useState('');
+  const [showAIModal, setShowAIModal] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -1002,7 +1006,17 @@ export default function JobManagement({ embedded = false }: JobManagementProps) 
                 <CreateIcon className="w-7 h-7 text-blue-500" />
               </div>
               <div className="flex-1">
-                <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Create New Job</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Create New Job</h3>
+                  <button
+                    type="button"
+                    onClick={() => setShowAIModal(true)}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 transition-all cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Draft with AI
+                  </button>
+                </div>
                 <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>Fill the details below to publish a new job posting.</p>
               </div>
             </div>
@@ -1239,6 +1253,119 @@ export default function JobManagement({ embedded = false }: JobManagementProps) 
               </button>
             </div>
           </div>
+          </div>
+        </div>
+      )}
+      
+      {/* AI Job Drafting Assistant Modal */}
+      {showAIModal && (
+        <div className="fixed inset-0 bg-black/75 z-[60] backdrop-blur-sm flex items-center justify-center p-4">
+          <div className={`${darkMode ? 'bg-slate-900 border-white/10 text-white shadow-[0_18px_60px_rgba(0,0,0,0.4)]' : 'bg-white border-gray-100 text-gray-900 shadow-2xl'} max-w-md w-full p-6 border rounded-2xl`}>
+            <h4 className="text-lg font-semibold flex items-center gap-2 mb-2">
+              <Sparkles className="w-5 h-5 text-indigo-400" />
+              AI Job Drafting Assistant
+            </h4>
+            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-4`}>
+              Enter a job title and optional focus instructions, and Gemini will generate details to populate the fields of the job form.
+            </p>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="text-xs font-medium block mb-1">Job Title *</label>
+                <input
+                  value={newJobForm.title}
+                  onChange={(e) => {
+                    clearNewJobFieldError('title');
+                    setNewJobForm(prev => ({ ...prev, title: e.target.value }));
+                  }}
+                  placeholder="e.g. Senior Frontend Engineer"
+                  className={`w-full px-3 py-2 text-sm rounded-lg border ${fieldClass(darkMode, false)}`}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium block mb-1">Custom Instructions / Focus Areas (Optional)</label>
+                <textarea
+                  value={aiCustomInstructions}
+                  onChange={(e) => setAiCustomInstructions(e.target.value)}
+                  placeholder="e.g. Focus on React Native, state management, and a hybrid layout."
+                  rows={3}
+                  className={`w-full px-3 py-2 text-sm rounded-lg border ${fieldClass(darkMode, false)}`}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowAIModal(false)}
+                className={`px-4 py-2 text-sm rounded-lg transition-colors ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!newJobForm.title.trim()) {
+                    toast({
+                      title: "Job title required",
+                      description: "Please enter a job title before drafting.",
+                      variant: "destructive"
+                    });
+                    return;
+                  }
+                  setIsDraftingAI(true);
+                  try {
+                    const res = await apiFetch('/api/ai/employer/jobs/draft', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        title: newJobForm.title.trim(),
+                        customInstructions: aiCustomInstructions.trim(),
+                      }),
+                      credentials: 'include',
+                    });
+                    if (!res.ok) {
+                      const data = await res.json().catch(() => ({ error: 'Drafting failed' }));
+                      throw new Error(data.error || 'Request failed');
+                    }
+                    const result = await res.json();
+                    if (result.success) {
+                      setNewJobForm(prev => ({
+                        ...prev,
+                        description: result.description || '',
+                        requirements: result.requirements || '',
+                        skills: Array.isArray(result.skills) ? result.skills.join(', ') : '',
+                      }));
+                      setShowAIModal(false);
+                      toast({
+                        title: "Draft generated!",
+                        description: "Job description, requirements, and skills populated.",
+                      });
+                    } else {
+                      throw new Error(result.error || "Failed to generate draft");
+                    }
+                  } catch (err: any) {
+                    console.error(err);
+                    toast({
+                      title: "Drafting failed",
+                      description: err.message || "Failed to call AI drafting service. Please try again.",
+                      variant: "destructive"
+                    });
+                  } finally {
+                    setIsDraftingAI(false);
+                  }
+                }}
+                disabled={isDraftingAI}
+                className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {isDraftingAI ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Drafting...
+                  </>
+                ) : (
+                  'Generate Draft'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

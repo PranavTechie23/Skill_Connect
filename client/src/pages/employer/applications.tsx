@@ -56,6 +56,7 @@ import {
   type EmployerTabStatus,
 } from "@/lib/employer-service";
 import { fetchReviewPack } from "@/lib/ai-review-service";
+import { apiFetch } from "@/lib/api";
 
 interface ApplicationsProps {
   embedded?: boolean;
@@ -73,6 +74,11 @@ export default function Applications({ embedded = false }: ApplicationsProps) {
   const [sortBy, setSortBy] = useState<"recent" | "match">("recent");
   const [profileApp, setProfileApp] = useState<EmployerApplication | null>(null);
   const [aiReviewApp, setAiReviewApp] = useState<EmployerApplication | null>(null);
+  const [outreachApp, setOutreachApp] = useState<EmployerApplication | null>(null);
+  const [outreachType, setOutreachType] = useState<'interview' | 'rejection' | 'general'>('interview');
+  const [outreachInstructions, setOutreachInstructions] = useState('');
+  const [isDraftingOutreach, setIsDraftingOutreach] = useState(false);
+  const [generatedDraft, setGeneratedDraft] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
@@ -400,6 +406,154 @@ export default function Applications({ embedded = false }: ApplicationsProps) {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!outreachApp} onOpenChange={(open) => {
+        if (!open) {
+          setOutreachApp(null);
+          setGeneratedDraft('');
+          setOutreachInstructions('');
+        }
+      }}>
+        <DialogContent className={`overflow-hidden p-6 border-0 ${isDark ? "bg-slate-900 shadow-2xl text-white shadow-blue-900/10" : "bg-white shadow-xl text-gray-900"} max-w-lg rounded-2xl`}>
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-indigo-400" />
+              AI Outreach Draft Generator
+            </DialogTitle>
+            <DialogDescription className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              Draft a personalized, polite message for {outreachApp ? applicantDisplayName(outreachApp.applicant) : "the applicant"}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mb-6">
+            <div>
+              <label className="text-xs font-semibold block mb-1.5">Message Type</label>
+              <div className="flex gap-2">
+                {(['interview', 'rejection', 'general'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setOutreachType(t)}
+                    className={`flex-1 py-2 px-3 text-xs font-semibold border rounded-lg capitalize transition-all cursor-pointer ${
+                      outreachType === t
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : isDark
+                        ? 'bg-slate-800 border-slate-700 text-gray-300 hover:bg-slate-700'
+                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    {t === 'general' ? 'general update' : t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold block mb-1.5">Custom Focus / Context (Optional)</label>
+              <textarea
+                value={outreachInstructions}
+                onChange={(e) => setOutreachInstructions(e.target.value)}
+                placeholder="e.g. Propose next Tuesday at 3 PM, highlight their React skills."
+                rows={3}
+                className={`w-full px-3 py-2 text-sm rounded-lg border focus:ring-2 focus:ring-offset-0 ${
+                  isDark ? 'bg-slate-800/80 border-slate-700 text-white placeholder-slate-500 focus:border-indigo-400' : 'bg-white border-gray-200 text-gray-950 placeholder-gray-400 focus:border-indigo-500'
+                }`}
+              />
+            </div>
+
+            {generatedDraft && (
+              <div>
+                <label className="text-xs font-semibold block mb-1.5">Generated Message Draft</label>
+                <textarea
+                  readOnly
+                  value={generatedDraft}
+                  rows={6}
+                  className={`w-full p-3 text-xs font-mono rounded-lg border leading-relaxed ${
+                    isDark ? 'bg-slate-950/80 border-slate-800 text-gray-300' : 'bg-gray-50 border-gray-200 text-gray-800'
+                  }`}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setOutreachApp(null)}
+              className={`px-4 py-2 text-sm rounded-lg transition-colors cursor-pointer ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-gray-150 hover:bg-gray-200'}`}
+            >
+              Close
+            </button>
+            
+            {generatedDraft && (
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(generatedDraft);
+                  toast({
+                    title: "Copied to clipboard",
+                    description: "You can now paste it in the chat or email.",
+                  });
+                }}
+                className="px-4 py-2 text-sm border border-indigo-500/20 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-lg transition-colors cursor-pointer"
+              >
+                Copy
+              </button>
+            )}
+
+            <button
+              onClick={async () => {
+                if (!outreachApp) return;
+                setIsDraftingOutreach(true);
+                try {
+                  const res = await apiFetch('/api/ai/employer/messages/draft', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      applicationId: outreachApp.id,
+                      type: outreachType,
+                      customInstructions: outreachInstructions.trim(),
+                    }),
+                    credentials: 'include',
+                  });
+                  if (!res.ok) {
+                    const data = await res.json().catch(() => ({ error: 'Outreach generation failed' }));
+                    throw new Error(data.error || 'Request failed');
+                  }
+                  const result = await res.json();
+                  if (result.success && result.messageDraft) {
+                    setGeneratedDraft(result.messageDraft);
+                    toast({
+                      title: "Draft generated!",
+                      description: "Outreach message is ready for review.",
+                    });
+                  } else {
+                    throw new Error(result.error || "Failed to generate outreach");
+                  }
+                } catch (err: any) {
+                  console.error(err);
+                  toast({
+                    title: "Drafting failed",
+                    description: err.message || "Failed to generate outreach draft. Please try again.",
+                    variant: "destructive"
+                  });
+                } finally {
+                  setIsDraftingOutreach(false);
+                }
+              }}
+              disabled={isDraftingOutreach}
+              className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              {isDraftingOutreach ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                'Generate Draft'
+              )}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className={`relative ${embedded ? "w-full" : "container mx-auto max-w-7xl"} ${embedded ? "p-2" : "p-6"}`}>
         <div className="mb-6">
           <h1 className={employerPageTitleClass(isDark)}>Job Applications</h1>
@@ -543,7 +697,7 @@ export default function Applications({ embedded = false }: ApplicationsProps) {
                         <XCircle className="w-3.5 h-3.5" />
                       </button>
                     )}
-                    <button type="button" title="Message" onClick={() => handleContact(app)} disabled={!app.applicantId} className={`p-2 rounded-lg font-medium border flex items-center justify-center transition-colors ${isDark ? "bg-slate-800 border-slate-700 text-gray-400 hover:bg-slate-700 hover:text-white" : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900"} disabled:opacity-50`}>
+                    <button type="button" title="Draft Outreach Message" onClick={() => setOutreachApp(app)} disabled={!app.applicantId} className={`p-2 rounded-lg font-medium border flex items-center justify-center transition-colors ${isDark ? "bg-slate-800 border-slate-700 text-indigo-400 hover:bg-slate-700 hover:text-indigo-300" : "bg-white border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700"} disabled:opacity-50`}>
                       <Mail className="w-3.5 h-3.5" />
                     </button>
                     {resumeUrl && (
