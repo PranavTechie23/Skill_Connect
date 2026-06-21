@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from "@/components/theme-provider";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiFetch } from '@/lib/api';
+import { LogoLoader } from '@/components/LogoLoader';
 import {
   applicantDisplayName,
   computeApplicationStats,
@@ -737,8 +738,8 @@ const EmployerDashboard: React.FC = () => {
   if (loading) {
     return (
       <div className={`min-h-screen w-screen flex items-center justify-center ${darkMode ? 'bg-gradient-to-br from-gray-900 via-gray-900 to-gray-950' : 'bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30'}`}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <div className="flex flex-col items-center justify-center p-12 text-center h-64">
+          <LogoLoader size="md" className="mx-auto mb-4" />
           <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading dashboard...</p>
         </div>
       </div>
@@ -1452,7 +1453,7 @@ const EmployerDashboard: React.FC = () => {
                                 }}
                                 itemStyle={{ color: darkMode ? '#6ee7b7' : '#059669', fontWeight: 700 }}
                                 labelStyle={{ color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600 }}
-                                formatter={(value: number) => [`${value} apps`, 'Applications']}
+                                formatter={(value: any) => [`${value} apps`, 'Applications']}
                               />
                               <Area
                                 type="monotone"

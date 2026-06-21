@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSavedJobs } from '../../contexts/SavedJobsContext';
 import { useTheme } from "@/components/theme-provider";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LogoLoader } from '@/components/LogoLoader';
 import { cn } from "@/lib/utils";
 import {
   Search, MapPin, Briefcase, Heart, TrendingUp,
@@ -760,14 +761,19 @@ useEffect(() => {
 
             {/* Loading State — first load only */}
             {isInitialLoad && (
-              <div className="p-12 text-center">
-                <div className="animate-spin w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4" />
-                <h3 className={cn('text-xl font-bold mb-2', darkMode ? 'text-white' : 'text-gray-900')}>
-                  Loading Jobs...
-                </h3>
-                <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>
-                  Please wait while we fetch available positions
-                </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className={cn("rounded-2xl border p-5 flex flex-col h-48 animate-pulse", darkMode ? "bg-slate-800/60 border-white/10" : "bg-white border-gray-100")}>
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className={cn("w-12 h-12 rounded-xl", darkMode ? "bg-slate-700" : "bg-gray-200")}></div>
+                      <div className="flex-1">
+                        <div className={cn("h-5 w-3/4 rounded mb-2", darkMode ? "bg-slate-700" : "bg-gray-200")}></div>
+                        <div className={cn("h-3 w-1/2 rounded", darkMode ? "bg-slate-700" : "bg-gray-200")}></div>
+                      </div>
+                    </div>
+                    <div className={cn("h-8 w-full rounded-lg mt-auto", darkMode ? "bg-slate-700" : "bg-gray-200")}></div>
+                  </div>
+                ))}
               </div>
             )}
 

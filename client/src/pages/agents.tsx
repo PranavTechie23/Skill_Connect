@@ -19,7 +19,8 @@ import {
   Loader2,
   Calendar,
   Eye,
-  FileText
+  FileText,
+  Target
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -261,420 +262,520 @@ export default function AgentsPage() {
     : "bg-white/90 border-slate-200/80 shadow-sm";
 
   return (
-    <div className="w-full space-y-6 max-w-7xl mx-auto px-4 py-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg text-white">
-            <Bot className="w-6 h-6 animate-pulse" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black tracking-tight">Agent Control Center</h1>
-            <p className="text-sm text-muted-foreground">
-              Monitor multi-step AI agents, approve checkpoints, and audit automated workflows.
-            </p>
+    <div className={`w-full min-h-screen ${darkMode ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950' : 'bg-gradient-to-br from-slate-50 via-indigo-50/50 to-white'} relative overflow-hidden`}>
+      {/* Background Orbs */}
+      <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-indigo-500/20 rounded-full blur-[120px] -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-purple-500/20 rounded-full blur-[120px] translate-x-1/3 translate-y-1/3 pointer-events-none" />
+
+      <div className="w-full space-y-8 max-w-7xl mx-auto px-4 py-8 relative z-10">
+        {/* Header */}
+        <div className={`flex flex-col md:flex-row md:items-center justify-between gap-6 p-8 rounded-[2rem] border shadow-2xl backdrop-blur-xl ${
+          darkMode ? 'bg-slate-900/40 border-white/10 shadow-black/50' : 'bg-white/60 border-white shadow-indigo-500/10'
+        }`}>
+          <div className="flex items-center gap-5">
+            <div className="relative group cursor-pointer">
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl blur group-hover:blur-md transition-all opacity-60"></div>
+              <div className="relative p-4 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-xl text-white transform group-hover:scale-105 transition-all">
+                <Bot className="w-8 h-8 animate-pulse" />
+              </div>
+            </div>
+            <div>
+              <h1 className={`text-3xl md:text-4xl font-black tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                Agent <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-600">Control Center</span>
+              </h1>
+              <p className={`text-sm md:text-base font-medium mt-1 max-w-lg ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                Monitor multi-step AI agents, approve checkpoints, and audit automated workflows in real-time.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left column: Run Form & History List */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* Start Run Form */}
-          <Card className={`${cardStyle} rounded-2xl overflow-hidden`}>
-            <CardHeader className="py-4 border-b">
-              <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <Play className="w-4 h-4 text-indigo-500" />
-                Spawn New Agent
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Provide a high-level goal and let the agent manage the tools.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4">
-              <form onSubmit={handleStartRun} className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-muted-foreground">Select Agent Template</label>
-                  <Select value={agentType} onValueChange={setAgentType}>
-                    <SelectTrigger className="rounded-xl h-11 bg-background/50">
-                      <SelectValue placeholder="Choose agent workflow..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {allowedAgentTypes.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-bold text-muted-foreground">Describe Goal</label>
-                    <span className={`text-[10px] ${goal.length > 500 ? "text-rose-500" : "text-muted-foreground"}`}>
-                      {goal.length}/500 chars
-                    </span>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left column: Run Form & History List */}
+          <div className="lg:col-span-5 space-y-8">
+            {/* Start Run Form */}
+            <Card className={`rounded-[2rem] border-0 shadow-2xl backdrop-blur-xl overflow-hidden ${
+              darkMode ? 'bg-slate-900/60 shadow-black/40 ring-1 ring-white/10' : 'bg-white/80 shadow-indigo-500/5 ring-1 ring-slate-200'
+            }`}>
+              <div className="h-1.5 w-full bg-gradient-to-r from-indigo-500 to-purple-500"></div>
+              <CardHeader className="py-6 px-8 border-b border-white/5">
+                <CardTitle className={`text-lg font-black flex items-center gap-3 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                  <div className="p-2 bg-indigo-500/10 rounded-xl text-indigo-500">
+                    <Play className="w-5 h-5 fill-current" />
                   </div>
-                  <Textarea
-                    placeholder="Enter what you want the agent to achieve (e.g. 'Search matching developer jobs and draft application packages')"
-                    value={goal}
-                    onChange={(e) => setGoal(e.target.value.slice(0, 500))}
-                    className="rounded-xl min-h-[90px] text-xs bg-background/50 border-border/50 resize-none"
-                    maxLength={500}
-                    required
-                  />
-                </div>
+                  Spawn New Agent
+                </CardTitle>
+                <CardDescription className={`text-sm mt-2 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Select a specialized workflow and provide a high-level goal. The agent will handle the tools autonomously.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-8">
+                <form onSubmit={handleStartRun} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className={`text-xs font-bold uppercase tracking-wider ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Select Agent Template</label>
+                    <Select value={agentType} onValueChange={setAgentType}>
+                      <SelectTrigger className={`rounded-xl h-14 border-2 font-medium transition-all ${
+                        darkMode ? 'bg-slate-950/50 border-slate-800 hover:border-indigo-500/50' : 'bg-slate-50 border-slate-200 hover:border-indigo-500/30'
+                      }`}>
+                        <SelectValue placeholder="Choose agent workflow..." />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-slate-800 bg-slate-950">
+                        {allowedAgentTypes.map((type) => (
+                          <SelectItem key={type.value} value={type.value} className="font-medium">
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <Button type="submit" disabled={startingRun || goal.length > 500} className="w-full rounded-xl h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-bold flex items-center justify-center gap-2">
-                  {startingRun ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Spawning...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" /> Start Execution Run
-                    </>
-                  )}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          {/* Runs History */}
-          <Card className={`${cardStyle} rounded-2xl overflow-hidden`}>
-            <CardHeader className="py-4 border-b">
-              <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <Clock className="w-4 h-4 text-purple-500" />
-                Execution History
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {loadingRuns && runs.length === 0 ? (
-                <div className="p-8 text-center">
-                  <Loader2 className="w-6 h-6 animate-spin text-indigo-500 mx-auto" />
-                  <p className="text-xs text-muted-foreground mt-2">Loading agent runs...</p>
-                </div>
-              ) : runs.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground text-xs">
-                  No execution runs found. Start an agent to see history.
-                </div>
-              ) : (
-                <div className="divide-y max-h-[400px] overflow-y-auto">
-                  {runs.map((run) => (
-                    <div
-                      key={run.id}
-                      onClick={() => selectRun(run)}
-                      className={`p-3.5 text-left transition-colors cursor-pointer flex items-center justify-between gap-3 hover:bg-secondary/20 ${
-                        selectedRun?.id === run.id ? "bg-secondary/40 border-l-4 border-indigo-500" : ""
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className={`text-xs font-bold uppercase tracking-wider ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Describe Goal</label>
+                      <span className={`text-[10px] font-bold ${goal.length > 500 ? "text-rose-500" : darkMode ? "text-slate-500" : "text-slate-400"}`}>
+                        {goal.length}/500 chars
+                      </span>
+                    </div>
+                    <Textarea
+                      placeholder="e.g. 'Find matching developer jobs and draft applications for them'"
+                      value={goal}
+                      onChange={(e) => setGoal(e.target.value.slice(0, 500))}
+                      className={`rounded-xl min-h-[120px] text-sm font-medium border-2 resize-none transition-all ${
+                        darkMode ? 'bg-slate-950/50 border-slate-800 focus:border-indigo-500/50' : 'bg-slate-50 border-slate-200 focus:border-indigo-500/30'
                       }`}
-                    >
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs font-black capitalize tracking-tight text-foreground">
-                            {run.agentType.replace("_", " ")}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">#{run.id}</span>
+                      maxLength={500}
+                      required
+                    />
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    disabled={startingRun || goal.length > 500} 
+                    className="w-full rounded-xl h-14 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-base shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all flex items-center justify-center gap-2 group"
+                  >
+                    {startingRun ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" /> Spawning Agent...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" /> Start Execution Run
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            {/* Runs History */}
+            <Card className={`rounded-[2rem] border-0 shadow-2xl backdrop-blur-xl overflow-hidden ${
+              darkMode ? 'bg-slate-900/60 shadow-black/40 ring-1 ring-white/10' : 'bg-white/80 shadow-indigo-500/5 ring-1 ring-slate-200'
+            }`}>
+              <CardHeader className="py-6 px-8 border-b border-white/5 flex flex-row items-center justify-between">
+                <CardTitle className={`text-lg font-black flex items-center gap-3 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                  <div className="p-2 bg-purple-500/10 rounded-xl text-purple-500">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  Execution History
+                </CardTitle>
+                <Badge variant="outline" className={`font-bold ${darkMode ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-slate-200'}`}>Page {page}</Badge>
+              </CardHeader>
+              <CardContent className="p-0">
+                {loadingRuns && runs.length === 0 ? (
+                  <div className="p-12 text-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mx-auto" />
+                    <p className={`text-sm font-medium mt-4 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Loading agent history...</p>
+                  </div>
+                ) : runs.length === 0 ? (
+                  <div className={`p-12 text-center font-medium ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                    <Bot className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                    No execution runs found.<br/>Start an agent to see history.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-white/5 max-h-[500px] overflow-y-auto custom-scrollbar">
+                    {runs.map((run) => (
+                      <div
+                        key={run.id}
+                        onClick={() => selectRun(run)}
+                        className={`p-5 text-left transition-all cursor-pointer flex flex-col gap-3 group ${
+                          selectedRun?.id === run.id 
+                            ? darkMode ? "bg-indigo-500/10 border-l-4 border-l-indigo-500" : "bg-indigo-50 border-l-4 border-l-indigo-500"
+                            : darkMode ? "hover:bg-slate-800/50 border-l-4 border-l-transparent" : "hover:bg-slate-50 border-l-4 border-l-transparent"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-sm font-black capitalize tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                              {run.agentType.replace("_", " ")}
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${darkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>#{run.id}</span>
+                          </div>
+                          <div className="shrink-0">
+                            {getStatusBadge(run.status)}
+                          </div>
                         </div>
-                        <p className="text-xs text-muted-foreground truncate font-medium max-w-[200px]">
+                        <p className={`text-xs font-medium line-clamp-2 leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
                           {run.goal}
                         </p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {new Date(run.createdAt).toLocaleDateString()}
-                          </span>
-                          {getSourceBadge(run.source)}
+                        <div className="flex items-center justify-between mt-1">
+                          <div className="flex items-center gap-3">
+                            <span className={`text-[10px] font-bold flex items-center gap-1 ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                              <Calendar className="w-3 h-3" />
+                              {new Date(run.createdAt).toLocaleDateString()}
+                            </span>
+                            {getSourceBadge(run.source)}
+                          </div>
+                          <ChevronRight className={`w-4 h-4 transition-transform ${selectedRun?.id === run.id ? 'translate-x-1 text-indigo-500' : 'text-slate-600 group-hover:translate-x-1'}`} />
                         </div>
                       </div>
-                      <div className="shrink-0 flex flex-col items-end gap-1.5">
-                        {getStatusBadge(run.status)}
-                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                )}
+
+                {/* Pagination */}
+                <div className={`flex items-center justify-between p-4 border-t ${darkMode ? 'border-white/5 bg-slate-900/30' : 'border-slate-100 bg-slate-50/50'}`}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                    disabled={page === 1}
+                    className={`rounded-xl text-xs font-bold ${darkMode ? 'border-slate-700 hover:bg-slate-800 hover:text-white' : ''}`}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setPage((p) => (hasMore ? p + 1 : p))}
+                    disabled={!hasMore}
+                    className={`rounded-xl text-xs font-bold ${darkMode ? 'border-slate-700 hover:bg-slate-800 hover:text-white' : ''}`}
+                  >
+                    Next
+                  </Button>
                 </div>
-              )}
+              </CardContent>
+            </Card>
+          </div>
 
-              {/* Pagination */}
-              <div className="flex items-center justify-between p-3 border-t bg-secondary/5">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                  disabled={page === 1}
-                  className="rounded-lg text-xs"
+          {/* Right column: Execution details & timeline steps */}
+          <div className="lg:col-span-7">
+            <AnimatePresence mode="wait">
+              {selectedRun ? (
+                <motion.div
+                  key={selectedRun.id}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                  className="space-y-8"
                 >
-                  Previous
-                </Button>
-                <span className="text-[11px] font-bold text-muted-foreground">Page {page}</span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPage((p) => (hasMore ? p + 1 : p))}
-                  disabled={!hasMore}
-                  className="rounded-lg text-xs"
-                >
-                  Next
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right column: Execution details & timeline steps */}
-        <div className="lg:col-span-7">
-          <AnimatePresence mode="wait">
-            {selectedRun ? (
-              <motion.div
-                key={selectedRun.id}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-6"
-              >
-                {/* Details Summary Card */}
-                <Card className={`${cardStyle} rounded-2xl overflow-hidden`}>
-                  <CardHeader className="py-4 border-b bg-secondary/10 flex flex-row items-center justify-between gap-4 flex-wrap">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <CardTitle className="text-base font-black capitalize">
-                          {selectedRun.agentType.replace("_", " ")}
-                        </CardTitle>
-                        <span className="text-xs text-muted-foreground font-mono">#{selectedRun.id}</span>
-                        {getSourceBadge(selectedRun.source)}
-                      </div>
-                      <CardDescription className="text-xs mt-1">
-                        Triggered on {new Date(selectedRun.createdAt).toLocaleString()}
-                      </CardDescription>
-                    </div>
-                    <div>{getStatusBadge(selectedRun.status)}</div>
-                  </CardHeader>
-                  <CardContent className="p-4 space-y-4">
-                    <div className="space-y-1 border-b pb-3">
-                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Goal</span>
-                      <p className="text-sm font-medium text-foreground leading-relaxed">
-                        {selectedRun.goal}
-                      </p>
-                    </div>
-
-                    {/* Checkpoint Approval Box */}
-                    {selectedRun.status === "requires_approval" && (
-                      <div className="rounded-2xl p-4 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 shadow-md space-y-4 animate-glow">
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 bg-amber-500/20 rounded-xl text-amber-500 shrink-0">
-                            <Clock className="w-5 h-5 animate-pulse" />
+                  {/* Details Summary Card */}
+                  <Card className={`rounded-[2rem] border-0 shadow-2xl backdrop-blur-xl overflow-hidden ${
+                    darkMode ? 'bg-slate-900/60 shadow-black/40 ring-1 ring-white/10' : 'bg-white/80 shadow-indigo-500/5 ring-1 ring-slate-200'
+                  }`}>
+                    <CardHeader className={`p-8 border-b ${darkMode ? 'bg-slate-800/30 border-white/5' : 'bg-slate-50/50 border-slate-100'}`}>
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg">
+                              <Cpu className="w-5 h-5 text-white" />
+                            </div>
+                            <CardTitle className={`text-2xl font-black capitalize ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                              {selectedRun.agentType.replace("_", " ")}
+                            </CardTitle>
                           </div>
-                          <div>
-                            <h4 className="text-sm font-bold text-amber-400">Decision Pending</h4>
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                              The agent has drafted output that requires your explicit verification before submitting to the platform.
-                            </p>
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <span className={`text-xs font-bold px-2 py-1 rounded-lg ${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>Run #{selectedRun.id}</span>
+                            {getSourceBadge(selectedRun.source)}
+                            <span className={`text-[11px] font-medium flex items-center gap-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                              <Clock className="w-3.5 h-3.5" />
+                              {new Date(selectedRun.createdAt).toLocaleString()}
+                            </span>
                           </div>
                         </div>
+                        <div className="shrink-0 scale-110 origin-left sm:origin-right">
+                          {getStatusBadge(selectedRun.status)}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-8 space-y-8">
+                      <div className="space-y-3">
+                        <span className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                          <Target className="w-4 h-4 text-indigo-500" /> Mission Goal
+                        </span>
+                        <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-950/50 border-white/5 text-slate-300' : 'bg-white border-slate-200 text-slate-700'} text-sm font-medium leading-relaxed`}>
+                          {selectedRun.goal}
+                        </div>
+                      </div>
 
-                        {/* Extracted draft display based on agent run output JSON */}
-                        {(() => {
-                          const steps = selectedRun.steps || [];
-                          // Find the step that is requiring approval (last step or step with requiresApproval status pending/success)
-                          const letterDraft = selectedRun.resultJson?.draft || selectedRun.resultJson?.messageText;
-                          if (letterDraft) {
+                      {/* Checkpoint Approval Box */}
+                      {selectedRun.status === "requires_approval" && (
+                        <div className="rounded-3xl p-6 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 shadow-xl shadow-amber-500/5 relative overflow-hidden group">
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/20 blur-[50px] -mr-10 -mt-10 pointer-events-none group-hover:bg-amber-500/30 transition-colors" />
+                          <div className="relative z-10 space-y-6">
+                            <div className="flex items-start gap-4">
+                              <div className="p-3 bg-amber-500/20 rounded-2xl text-amber-500 shrink-0">
+                                <Clock className="w-6 h-6 animate-pulse" />
+                              </div>
+                              <div>
+                                <h4 className="text-lg font-black text-amber-500 mb-1">Human Verification Required</h4>
+                                <p className={`text-sm font-medium ${darkMode ? 'text-amber-500/70' : 'text-amber-700/70'} leading-relaxed`}>
+                                  The agent has generated output that requires your explicit review before proceeding.
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Extracted draft display based on agent run output JSON */}
+                            {(() => {
+                              const letterDraft = selectedRun.resultJson?.draft || selectedRun.resultJson?.messageText;
+                              if (letterDraft) {
+                                return (
+                                  <div className="space-y-3">
+                                    <span className="text-[11px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1.5">
+                                      <FileText className="w-4 h-4" /> Draft Preview
+                                    </span>
+                                    <div className={`rounded-2xl p-6 border text-sm font-medium leading-relaxed whitespace-pre-wrap shadow-inner ${
+                                      darkMode ? 'bg-slate-950/80 border-amber-500/20 text-slate-200' : 'bg-white/80 border-amber-500/20 text-slate-800'
+                                    }`}>
+                                      {letterDraft}
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+
+                            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                              <Button
+                                onClick={() => handleApprove(selectedRun.id)}
+                                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-black px-8 rounded-xl h-12 shadow-lg shadow-amber-500/25 flex-1 text-base transition-all hover:scale-[1.02]"
+                              >
+                                Approve & Resume Agent
+                              </Button>
+                              <Button
+                                onClick={() => handleCancel(selectedRun.id)}
+                                variant="outline"
+                                className={`rounded-xl h-12 font-bold px-8 border-2 ${darkMode ? 'border-red-500/30 text-red-400 hover:bg-red-500/10' : 'border-red-200 text-red-600 hover:bg-red-50'}`}
+                              >
+                                Abort Mission
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Final Result / Execution Output Summary */}
+                      {selectedRun.status === "completed" && (
+                        <div className="rounded-3xl p-6 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 shadow-xl shadow-emerald-500/5 relative overflow-hidden">
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/20 blur-[50px] -mr-10 -mt-10 pointer-events-none" />
+                          <div className="relative z-10 space-y-4">
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="p-2 bg-emerald-500/20 rounded-xl text-emerald-500 shrink-0">
+                                <CheckCircle2 className="w-6 h-6" />
+                              </div>
+                              <h4 className="text-lg font-black text-emerald-500">Mission Accomplished</h4>
+                            </div>
+                            
+                            <div className={`space-y-4 ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                              {selectedRun.resultJson?.summary && (
+                                <p className="text-sm font-medium leading-relaxed">
+                                  {selectedRun.resultJson.summary}
+                                </p>
+                              )}
+                              
+                              {selectedRun.resultJson?.bestMatch && (
+                                <div className={`p-4 rounded-xl border ${darkMode ? 'bg-slate-950/50 border-emerald-500/20' : 'bg-white border-emerald-500/20'}`}>
+                                  <p className="text-sm font-medium">
+                                    <strong className="text-emerald-500">Best Match Found:</strong> {selectedRun.resultJson.bestMatch}
+                                  </p>
+                                  <p className="text-xs font-bold mt-1 text-emerald-500/70">
+                                    Similarity Score: {selectedRun.resultJson.matchScore}%
+                                  </p>
+                                </div>
+                              )}
+                              
+                              {selectedRun.resultJson?.actionItems && (
+                                <div className="pt-2 border-t border-emerald-500/20">
+                                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-500/80 mb-3 block">Key Actions & Insights</span>
+                                  <ul className="space-y-2">
+                                    {(selectedRun.resultJson.actionItems as string[]).map((item, index) => (
+                                      <li key={index} className="flex items-start gap-2 text-sm font-medium">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                                        {item}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Cancellation / Fail Output Summary */}
+                      {selectedRun.status === "failed" && (
+                        <div className="rounded-3xl p-6 bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-transparent border border-rose-500/20 shadow-xl shadow-rose-500/5">
+                          <div className="flex items-start gap-4">
+                            <div className="p-3 bg-rose-500/20 rounded-2xl text-rose-500 shrink-0">
+                              <AlertCircle className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <h4 className="text-lg font-black text-rose-500 mb-1">Execution Aborted</h4>
+                              <p className={`text-sm font-medium leading-relaxed ${darkMode ? 'text-rose-500/70' : 'text-rose-700/70'}`}>
+                                The agent encountered a critical error during execution. See the timeline below for exact failure point.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Timeline / Step Sequence Progress */}
+                  <Card className={`rounded-[2rem] border-0 shadow-2xl backdrop-blur-xl overflow-hidden ${
+                    darkMode ? 'bg-slate-900/60 shadow-black/40 ring-1 ring-white/10' : 'bg-white/80 shadow-indigo-500/5 ring-1 ring-slate-200'
+                  }`}>
+                    <CardHeader className={`py-6 px-8 border-b ${darkMode ? 'border-white/5' : 'border-slate-100'}`}>
+                      <CardTitle className={`text-lg font-black flex items-center gap-3 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                        <div className="p-2 bg-blue-500/10 rounded-xl text-blue-500">
+                          <Layers className="w-5 h-5" />
+                        </div>
+                        Execution Timeline
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-8">
+                      {/* Render Step Logs */}
+                      {selectedRun.steps && selectedRun.steps.length > 0 ? (
+                        <div className={`relative border-l-2 pl-8 space-y-10 ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
+                          {selectedRun.steps.map((step) => {
+                            const isSuccess = step.status === "success";
+                            const isFailed = step.status === "failed";
+                            const isPending = step.status === "pending";
+
                             return (
-                              <div className="space-y-2">
-                                <span className="text-[11px] font-bold text-amber-400/80 flex items-center gap-1">
-                                  <FileText className="w-3.5 h-3.5" /> Draft Preview
-                                </span>
-                                <div className="rounded-xl p-3.5 bg-secondary/80 border border-border/40 text-xs font-medium font-serif leading-relaxed text-foreground whitespace-pre-wrap">
-                                  {letterDraft}
+                              <div key={step.id} className="relative group">
+                                {/* Step circle marker */}
+                                <div className={`absolute -left-[41px] top-1 w-[18px] h-[18px] rounded-full border-[4px] bg-background shadow-md ${
+                                  isSuccess ? "border-emerald-500 bg-emerald-100 dark:bg-emerald-950" :
+                                  isFailed ? "border-rose-500 bg-rose-100 dark:bg-rose-950" :
+                                  "border-indigo-500 bg-indigo-100 dark:bg-indigo-950 shadow-[0_0_15px_rgba(99,102,241,0.5)] animate-pulse"
+                                }`} />
+
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between gap-4 flex-wrap bg-transparent">
+                                    <div className="flex items-center gap-3">
+                                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                                        darkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'
+                                      }`}>
+                                        Step {step.stepOrder}
+                                      </span>
+                                      <h4 className={`text-base font-bold capitalize ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                                        {step.toolName.replace(/([A-Z])/g, ' $1').trim()}
+                                      </h4>
+                                    </div>
+                                    <div>
+                                      {isSuccess && <Badge className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/20">Success</Badge>}
+                                      {isFailed && <Badge className="bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 border-rose-500/20">Failed</Badge>}
+                                      {isPending && <Badge className="bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 border-indigo-500/20 animate-pulse">Running...</Badge>}
+                                    </div>
+                                  </div>
+
+                                  {/* Step expanded reports */}
+                                  {(step.outputJson && Object.keys(step.outputJson).length > 0) && (
+                                    <div className={`rounded-2xl p-5 border shadow-sm ${
+                                      darkMode ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50 border-slate-200'
+                                    }`}>
+                                      {/* Handle formatted step outputs */}
+                                      {step.toolName === "ProfileAnalyzer" && step.outputJson.advice && (
+                                        <div className={`text-sm font-medium space-y-2 ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                          <p className="flex justify-between items-center pb-2 border-b border-current/10">
+                                            <span>Completeness Score</span>
+                                            <span className="font-black text-indigo-500">{step.outputJson.completenessScore}%</span>
+                                          </p>
+                                          <p><strong className={darkMode ? 'text-white' : 'text-slate-900'}>Missing Fields:</strong> {step.outputJson.missingFields?.join(", ") || "None"}</p>
+                                          <p className="italic bg-current/5 p-3 rounded-xl border border-current/10">"{step.outputJson.advice}"</p>
+                                        </div>
+                                      )}
+
+                                      {step.toolName === "SemanticJobSearcher" && step.outputJson.bestMatch && (
+                                        <div className={`text-sm font-medium space-y-2 ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                          <p><strong className={darkMode ? 'text-white' : 'text-slate-900'}>Best Semantic Match:</strong> {step.outputJson.bestMatch}</p>
+                                          <p><strong className={darkMode ? 'text-white' : 'text-slate-900'}>Score:</strong> {step.outputJson.matchScore}%</p>
+                                          <p><strong className={darkMode ? 'text-white' : 'text-slate-900'}>Location:</strong> {step.outputJson.bestJobLocation}</p>
+                                        </div>
+                                      )}
+
+                                      {step.toolName === "PipelineAnalyzer" && step.outputJson.actionItems && (
+                                        <div className={`text-sm font-medium space-y-3 ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                          <div className="flex gap-4 p-3 bg-current/5 rounded-xl border border-current/10">
+                                            <div className="flex-1">
+                                              <p className="text-xs uppercase tracking-wider opacity-70">Open Jobs</p>
+                                              <p className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-900'}`}>{step.outputJson.totalOpenJobs}</p>
+                                            </div>
+                                            <div className="flex-1">
+                                              <p className="text-xs uppercase tracking-wider opacity-70">Applications</p>
+                                              <p className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-900'}`}>{step.outputJson.totalApplications}</p>
+                                            </div>
+                                          </div>
+                                          <p><strong className={darkMode ? 'text-white' : 'text-slate-900'}>Recommended Candidate:</strong> {step.outputJson.recommendedCandidateName || "None"}</p>
+                                          <div className="pt-2">
+                                            <strong className={`text-xs uppercase tracking-wider block mb-2 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Alert Insights:</strong>
+                                            <ul className="space-y-1.5">
+                                              {(step.outputJson.actionItems as string[]).map((itm, idx) => (
+                                                <li key={idx} className="flex gap-2 items-start"><div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0" /> {itm}</li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Fail details */}
+                                      {isFailed && step.outputJson.error && (
+                                        <div className="flex gap-3 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-500">
+                                          <AlertCircle className="w-5 h-5 shrink-0" />
+                                          <p className="text-sm font-mono font-medium leading-relaxed">
+                                            {step.outputJson.error}
+                                          </p>
+                                        </div>
+                                      )}
+
+                                      {/* Default JSON backup */}
+                                      {(!["ProfileAnalyzer", "SemanticJobSearcher", "PipelineAnalyzer"].includes(step.toolName) || isFailed) && (
+                                        <pre className={`mt-3 text-[11px] font-mono p-4 rounded-xl overflow-x-auto max-h-[200px] custom-scrollbar ${
+                                          darkMode ? 'bg-slate-950/80 text-slate-400 border border-slate-800' : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                        }`}>
+                                          {JSON.stringify(step.outputJson, null, 2)}
+                                        </pre>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             );
-                          }
-                          return null;
-                        })()}
-
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => handleApprove(selectedRun.id)}
-                            className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-5 rounded-xl h-10 text-xs shadow-md"
-                          >
-                            Approve & Resume Agent
-                          </Button>
-                          <Button
-                            onClick={() => handleCancel(selectedRun.id)}
-                            variant="destructive"
-                            className="rounded-xl h-10 text-xs font-bold"
-                          >
-                            Cancel Run
-                          </Button>
+                          })}
                         </div>
-                      </div>
-                    )}
-
-                    {/* Final Result / Execution Output Summary */}
-                    {selectedRun.status === "completed" && (
-                      <div className="rounded-2xl p-4 bg-emerald-500/10 border border-emerald-500/20 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                          <h4 className="text-xs font-bold text-emerald-400">Execution Completed</h4>
+                      ) : (
+                        <div className={`text-center py-12 flex flex-col items-center justify-center font-medium ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                          <Loader2 className="w-10 h-10 animate-spin mb-4 text-indigo-500/50" />
+                          Decoding agent trajectory logs...
                         </div>
-                        {selectedRun.resultJson?.summary && (
-                          <p className="text-xs text-muted-foreground font-medium">
-                            {selectedRun.resultJson.summary}
-                          </p>
-                        )}
-                        {selectedRun.resultJson?.bestMatch && (
-                          <p className="text-xs text-muted-foreground font-medium">
-                            <strong>Best Match Vacancy:</strong> {selectedRun.resultJson.bestMatch} (Similarity Score: {selectedRun.resultJson.matchScore}%)
-                          </p>
-                        )}
-                        {selectedRun.resultJson?.actionItems && (
-                          <div className="pt-2">
-                            <span className="text-[11px] font-bold text-muted-foreground">Action Recommendations:</span>
-                            <ul className="list-disc pl-4 space-y-1 mt-1">
-                              {(selectedRun.resultJson.actionItems as string[]).map((item, index) => (
-                                <li key={index} className="text-[11px] text-muted-foreground leading-relaxed">
-                                  {item}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Cancellation / Fail Output Summary */}
-                    {selectedRun.status === "failed" && (
-                      <div className="rounded-2xl p-4 bg-rose-500/10 border border-rose-500/20 flex items-start gap-2 text-rose-400">
-                        <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                        <div>
-                          <h4 className="text-xs font-bold">Execution Run Aborted</h4>
-                          <p className="text-xs text-muted-foreground leading-relaxed mt-1">
-                            The executor aborted step sequence due to a critical error. The error outline has been logged to the step report below.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Timeline / Step Sequence Progress */}
-                <Card className={`${cardStyle} rounded-2xl overflow-hidden`}>
-                  <CardHeader className="py-4 border-b">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-indigo-500" />
-                      Step Execution Timeline
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 space-y-4">
-                    {/* Render Step Logs */}
-                    {selectedRun.steps && selectedRun.steps.length > 0 ? (
-                      <div className="relative border-l-2 border-slate-200 dark:border-slate-800 pl-6 space-y-6">
-                        {selectedRun.steps.map((step) => {
-                          const isSuccess = step.status === "success";
-                          const isFailed = step.status === "failed";
-                          const isPending = step.status === "pending";
-
-                          return (
-                            <div key={step.id} className="relative group">
-                              {/* Step circle marker */}
-                              <div className={`absolute -left-[31px] top-0.5 w-[10px] h-[10px] rounded-full border-2 bg-background ${
-                                isSuccess ? "border-emerald-500 bg-emerald-500" :
-                                isFailed ? "border-rose-500 bg-rose-500" :
-                                "border-blue-500 animate-ping"
-                              }`} />
-
-                              <div className="space-y-1">
-                                <div className="flex items-center justify-between gap-3 flex-wrap">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-muted-foreground">
-                                      Step {step.stepOrder}
-                                    </span>
-                                    <h4 className="text-xs font-bold text-foreground capitalize">
-                                      {step.toolName.replace(/([A-Z])/g, ' $1').trim()}
-                                    </h4>
-                                  </div>
-                                  <div className="text-[10px]">
-                                    {isSuccess && <span className="text-emerald-400 font-semibold">Success</span>}
-                                    {isFailed && <span className="text-rose-400 font-semibold">Failed</span>}
-                                    {isPending && <span className="text-blue-400 font-semibold animate-pulse">Running...</span>}
-                                  </div>
-                                </div>
-
-                                {/* Step expanded reports */}
-                                {(step.outputJson && Object.keys(step.outputJson).length > 0) && (
-                                  <div className="rounded-xl p-3 bg-secondary/30 border border-border/30 mt-2 space-y-2 max-h-[160px] overflow-y-auto">
-                                    {/* Handle formatted step outputs */}
-                                    {step.toolName === "ProfileAnalyzer" && step.outputJson.advice && (
-                                      <div className="text-[11px] text-muted-foreground space-y-1">
-                                        <p><strong>Completeness:</strong> {step.outputJson.completenessScore}%</p>
-                                        <p><strong>Missing Fields:</strong> {step.outputJson.missingFields?.join(", ") || "None"}</p>
-                                        <p className="italic">"{step.outputJson.advice}"</p>
-                                      </div>
-                                    )}
-
-                                    {step.toolName === "SemanticJobSearcher" && step.outputJson.bestMatch && (
-                                      <div className="text-[11px] text-muted-foreground space-y-1">
-                                        <p><strong>Semantic Vacancy Match:</strong> {step.outputJson.bestMatch}</p>
-                                        <p><strong>Similarity Score:</strong> {step.outputJson.matchScore}%</p>
-                                        <p><strong>Location:</strong> {step.outputJson.bestJobLocation}</p>
-                                      </div>
-                                    )}
-
-                                    {step.toolName === "PipelineAnalyzer" && step.outputJson.actionItems && (
-                                      <div className="text-[11px] text-muted-foreground space-y-1">
-                                        <p><strong>Open Jobs:</strong> {step.outputJson.totalOpenJobs} | <strong>Total Applications:</strong> {step.outputJson.totalApplications}</p>
-                                        <p><strong>Recommended Candidate:</strong> {step.outputJson.recommendedCandidateName || "None"}</p>
-                                        <div>
-                                          <strong>Alert Insights:</strong>
-                                          <ul className="list-disc pl-4 space-y-0.5 mt-0.5">
-                                            {(step.outputJson.actionItems as string[]).map((itm, idx) => (
-                                              <li key={idx}>{itm}</li>
-                                            ))}
-                                          </ul>
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {/* Fail details */}
-                                    {isFailed && step.outputJson.error && (
-                                      <p className="text-[11px] text-rose-400 font-mono">
-                                        Error: {step.outputJson.error}
-                                      </p>
-                                    )}
-
-                                    {/* Default JSON backup */}
-                                    {(!["ProfileAnalyzer", "SemanticJobSearcher", "PipelineAnalyzer"].includes(step.toolName) || isFailed) && (
-                                      <pre className="text-[9px] font-mono text-muted-foreground bg-black/10 p-2 rounded overflow-x-auto max-h-[100px]">
-                                        {JSON.stringify(step.outputJson, null, 2)}
-                                      </pre>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-xs text-muted-foreground">
-                        Agent is loading steps sequence...
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 border border-dashed rounded-2xl min-h-[300px]">
-                <Bot className="w-10 h-10 text-indigo-500/60 animate-bounce mb-3" />
-                <h3 className="text-sm font-bold text-foreground">No Agent Run Selected</h3>
-                <p className="text-xs text-muted-foreground max-w-[280px] mt-1 leading-relaxed">
-                  Choose an active execution run from history or spawn a new agent to view step-by-step progress reports.
-                </p>
-              </div>
-            )}
-          </AnimatePresence>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ) : (
+                <div className={`h-full flex flex-col items-center justify-center text-center p-12 border-2 border-dashed rounded-[2rem] min-h-[500px] transition-all ${
+                  darkMode ? 'border-slate-800 bg-slate-900/20 hover:border-indigo-500/30 hover:bg-slate-900/40' : 'border-slate-200 bg-white/40 hover:border-indigo-500/30 hover:bg-white/60'
+                }`}>
+                  <div className="p-6 bg-indigo-500/10 rounded-full mb-6">
+                    <Bot className="w-16 h-16 text-indigo-500/60 animate-bounce" />
+                  </div>
+                  <h3 className={`text-2xl font-black mb-3 ${darkMode ? 'text-white' : 'text-slate-900'}`}>No Mission Selected</h3>
+                  <p className={`text-base font-medium max-w-sm leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Choose an active execution run from the history panel or spawn a new autonomous agent to monitor its progress here.
+                  </p>
+                </div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </div>

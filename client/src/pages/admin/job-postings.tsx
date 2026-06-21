@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { scrollDashboardToTop } from '@/lib/scroll-to-top';
 import { Pagination } from '@/components/Pagination';
 import { apiFetch } from '@/lib/api';
+import { LogoLoader } from '@/components/LogoLoader';
 import {
   Dialog,
   DialogContent,
@@ -103,8 +104,29 @@ type JobPostingsProps = {
 
 export default function JobPostings({ quickActionIntent = null, onQuickActionConsumed }: JobPostingsProps = {}) {
   const { embedded } = useAdminEmbedded();
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
+  const mapJobsData = (data: any[]) => data.map((job: any) => ({
+    id: job.id,
+    title: job.title,
+    company: job.company?.name || 'Admin Posted',
+    description: job.description || '',
+    requirements: job.requirements || '',
+    location: job.location,
+    jobType: job.jobType,
+    salaryMin: job.salaryMin,
+    salaryMax: job.salaryMax,
+    status: normalizeAdminJobStatus(job.status, job.isActive ?? true, job.deadline),
+    applications: job.applicationsCount || 0,
+    createdAt: job.createdAt,
+    companyId: job.companyId ? String(job.companyId) : undefined,
+    deadline: job.deadline ? new Date(job.deadline).toISOString().split('T')[0] : undefined,
+    isActive: job.isActive,
+  }));
+
+  const [jobs, setJobs] = useState<Job[]>(() => {
+    const cached = adminService.getCachedJobs();
+    return cached ? mapJobsData(cached) : [];
+  });
+  const [loading, setLoading] = useState(!adminService.getCachedJobs());
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('All Status');
   const [filterJobType, setFilterJobType] = useState('All Types');
@@ -211,28 +233,12 @@ export default function JobPostings({ quickActionIntent = null, onQuickActionCon
   };
 
   const fetchJobs = async () => {
-    setLoading(true);
+    if (!adminService.getCachedJobs()) {
+      setLoading(true);
+    }
     try {
       const data = await adminService.getJobs();
-      // Assuming getJobs returns jobs posted by admin or has a way to filter them
-      // For now, we'll map the response to the local Job interface
-      const adminJobs = data.map((job: any) => ({
-        id: job.id,
-        title: job.title,
-        company: job.company?.name || 'Admin Posted',
-        description: job.description || '',
-        requirements: job.requirements || '',
-        location: job.location,
-        jobType: job.jobType,
-        salaryMin: job.salaryMin,
-        salaryMax: job.salaryMax, // Corrected from salaryMax
-        status: normalizeAdminJobStatus(job.status, job.isActive ?? true, job.deadline),
-        applications: job.applicationsCount || 0,
-        createdAt: job.createdAt,
-        companyId: job.companyId ? String(job.companyId) : undefined,
-        deadline: job.deadline ? new Date(job.deadline).toISOString().split('T')[0] : undefined,
-        isActive: job.isActive,
-      }));
+      const adminJobs = mapJobsData(data);
       setJobs(adminJobs);
     } catch (error: any) {
       console.error("Failed to fetch jobs:", error);
@@ -674,10 +680,10 @@ export default function JobPostings({ quickActionIntent = null, onQuickActionCon
               ? stats.map((stat, index) => (
                   <div
                     key={index}
-                    className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl shadow-lg border-2 p-6 flex flex-col items-center justify-center min-h-[160px]`}
+                    className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl shadow-lg border-2 p-6 flex flex-col items-center justify-center min-h-[160px] animate-pulse`}
                   >
-                    <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-3"></div>
-                    <span className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Loading {stat.label}...</span>
+                    <div className={`h-8 w-8 rounded-full mb-3 ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
+                    <div className={`h-4 w-24 rounded ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
                   </div>
                 ))
               : stats.map((stat, index) => (
@@ -762,11 +768,19 @@ export default function JobPostings({ quickActionIntent = null, onQuickActionCon
 
           {/* Job Cards */}
           {loading ? (
-            <div className={`m-6 rounded-3xl p-12 text-center border-2 ${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'}`}>
-              <div className="flex flex-col items-center justify-center">
-                <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className={`text-lg font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Loading job postings...</p>
-              </div>
+            <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 lg:grid-cols-2 xl:grid-cols-3">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className={`rounded-2xl border p-4 sm:p-5 flex flex-col h-48 ${darkMode ? 'border-gray-700 bg-gray-800/60' : 'border-gray-200 bg-white'} animate-pulse`}>
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className={`w-12 h-12 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}></div>
+                    <div className="flex-1">
+                      <div className={`h-5 w-3/4 rounded mb-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}></div>
+                      <div className={`h-3 w-1/2 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}></div>
+                    </div>
+                  </div>
+                  <div className={`h-8 w-full rounded-lg mt-auto ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}></div>
+                </div>
+              ))}
             </div>
           ) : (
           <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 lg:grid-cols-2 xl:grid-cols-3">

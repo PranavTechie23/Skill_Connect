@@ -21,6 +21,8 @@ import AdminApplications from './applications';
 import AdminApprovals from './approvals';
 import AdminStories from './success-stories';
 import AdminSettings from './settings';
+import { LogoLoader } from '@/components/LogoLoader';
+import { normalizeUserType } from '@/lib/utils';
 import { AdminEmbeddedProvider } from '@/components/AdminBackButton';
 import {
   AdminAmbientBackground,
@@ -375,7 +377,7 @@ const AdminDashboard: React.FC = () => {
 
         // Process jobs data
         console.log('Processing jobs data:', jobsResult);
-        const processedJobs = jobsResult?.jobs || jobsResult || [];
+        const processedJobs = Array.isArray(jobsResult) ? jobsResult : (jobsResult as any)?.jobs || [];
         
         // Count active jobs - check multiple conditions to match database
         const activeJobsCount = processedJobs.filter((job: any) => {
@@ -700,39 +702,6 @@ const AdminDashboard: React.FC = () => {
     }
   }, [location.pathname, activeTab]);
 
-  const renderEmbeddedTab = () => {
-    switch (activeTab) {
-      case 'users':
-        return <UserManagement quickActionIntent={quickActionIntent} onQuickActionConsumed={consumeQuickAction} />;
-      case 'jobs':
-        return <JobPostings quickActionIntent={quickActionIntent} onQuickActionConsumed={consumeQuickAction} />;
-      case 'companies':
-        return <CompanyManagement />;
-      case 'analytics':
-        return <Analytics quickActionIntent={quickActionIntent} onQuickActionConsumed={consumeQuickAction} />;
-      case 'employees':
-        return <AdminEmployees />;
-      case 'applications':
-        return <AdminApplications />;
-      case 'approvals':
-        return (
-          <AdminApprovals
-            initialApprovals={approvalsList}
-            onApprovalsChange={(items) => {
-              setApprovalsList(items);
-              adminService.setApprovalsCache(items);
-              setStats((prev: any) => ({ ...prev, pendingApprovals: items.length }));
-            }}
-          />
-        );
-      case 'stories':
-        return <AdminStories />;
-      case 'settings':
-        return <AdminSettings />;
-      default:
-        return null;
-    }
-  };
 
   return (
     <ErrorBoundary>
@@ -773,9 +742,12 @@ const AdminDashboard: React.FC = () => {
         <div className={adminShellClass(darkMode)}>
           <AdminAmbientBackground isDark={darkMode} />
           {loading && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70]">
-              <div className="p-4 rounded-xl bg-gradient-to-br from-red-500 to-rose-500 text-white font-bold shadow-lg animate-pulse">
-                Loading...
+            <div className="fixed inset-0 bg-white dark:bg-slate-950 flex flex-col items-center justify-center z-[70] transition-all">
+              <LogoLoader size="xl" />
+              <div className="flex items-center justify-center gap-2 mt-8">
+                <span className="w-2.5 h-2.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }}></span>
+                <span className="w-2.5 h-2.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }}></span>
+                <span className="w-2.5 h-2.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }}></span>
               </div>
             </div>
           )}
@@ -994,7 +966,20 @@ const AdminDashboard: React.FC = () => {
               {activeTab !== 'dashboard' && (
                 <div className="admin-embedded-ui w-full min-w-0 max-w-[1800px] mx-auto overflow-x-hidden">
                   <AdminEmbeddedProvider value={{ embedded: true }}>
-                    {renderEmbeddedTab()}
+                    {(() => {
+                      switch (activeTab) {
+                        case 'users': return <UserManagement quickActionIntent={quickActionIntent} onQuickActionConsumed={consumeQuickAction} />;
+                        case 'jobs': return <JobPostings quickActionIntent={quickActionIntent} onQuickActionConsumed={consumeQuickAction} />;
+                        case 'companies': return <CompanyManagement />;
+                        case 'analytics': return <Analytics quickActionIntent={quickActionIntent} onQuickActionConsumed={consumeQuickAction} />;
+                        case 'employees': return <AdminEmployees />;
+                        case 'applications': return <AdminApplications />;
+                        case 'approvals': return <AdminApprovals initialApprovals={approvalsList} onApprovalsChange={(items) => { setApprovalsList(items); adminService.setApprovalsCache(items); setStats((prev: any) => ({ ...prev, pendingApprovals: items.length })); }} />;
+                        case 'stories': return <AdminStories />;
+                        case 'settings': return <AdminSettings />;
+                        default: return null;
+                      }
+                    })()}
                   </AdminEmbeddedProvider>
                 </div>
               )}

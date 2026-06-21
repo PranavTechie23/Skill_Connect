@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from "@/components/theme-provider";
 import { apiFetch } from '@/lib/api';
+import { LogoLoader } from "@/components/LogoLoader";
 import {
   calculateProfileCompleteness,
   fetchPublicCompany,
@@ -471,8 +472,8 @@ export default function Profile({ embedded = false }: ProfileProps) {
   if (loading) {
     return (
       <div className={`${embedded ? 'min-h-full' : 'min-h-screen'} flex items-center justify-center ${embedded ? 'bg-transparent' : darkMode ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950' : 'bg-gray-50'}`}>
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-600" />
+        <div className="flex flex-col items-center justify-center min-h-[50vh]">
+          <LogoLoader size="md" className="mx-auto mb-4" />
           <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading company profile...</p>
         </div>
       </div>

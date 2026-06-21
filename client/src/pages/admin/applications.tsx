@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { useDebounce } from '@/hooks/use-debounce';
 import { scrollDashboardToTop } from '@/lib/scroll-to-top';
+import { LogoLoader } from '@/components/LogoLoader';
 import { Pagination } from '@/components/Pagination';
 
 interface MatchBreakdown {
@@ -151,12 +152,177 @@ function MatchScoreGauge({
   );
 }
 
+// Generate realistic fallback data
+const generateFallbackData = (index: number) => {
+  const firstNames = ['John', 'Sarah', 'Michael', 'Emily', 'David', 'Jessica', 'James', 'Amanda', 'Robert', 'Lisa', 'William', 'Jennifer', 'Richard', 'Michelle', 'Joseph', 'Ashley', 'Thomas', 'Melissa', 'Christopher', 'Nicole'];
+  const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee'];
+  const jobTitles = ['Software Engineer', 'Frontend Developer', 'Backend Developer', 'Full Stack Developer', 'UX Designer', 'Product Manager', 'Data Analyst', 'DevOps Engineer', 'QA Engineer', 'Marketing Specialist', 'Sales Representative', 'Project Manager', 'Business Analyst', 'UI Designer', 'Mobile Developer'];
+  const companies = ['TechCorp', 'InnovateCo', 'DataSys', 'CloudServe', 'DesignHub', 'Growth Inc.', 'StartupXYZ', 'Digital Solutions', 'FutureTech', 'Smart Systems', 'Global Services', 'Prime Industries', 'Elite Corp', 'NextGen Labs', 'Apex Solutions'];
+  const locations = ['San Francisco, CA', 'New York, NY', 'Austin, TX', 'Seattle, WA', 'Boston, MA', 'Chicago, IL', 'Los Angeles, CA', 'Denver, CO', 'Remote', 'Hybrid'];
+  const experiences = ['1 Year', '2 Years', '3 Years', '4 Years', '5 Years', '6 Years', '7+ Years'];
+  const skillsList = [
+    ['React', 'TypeScript', 'Node.js'],
+    ['Python', 'Django', 'PostgreSQL'],
+    ['Java', 'Spring Boot', 'MySQL'],
+    ['JavaScript', 'Vue.js', 'MongoDB'],
+    ['C#', '.NET', 'SQL Server'],
+    ['Angular', 'RxJS', 'Firebase'],
+    ['Swift', 'iOS', 'Xcode'],
+    ['Kotlin', 'Android', 'Room'],
+    ['Go', 'Docker', 'Kubernetes'],
+    ['Ruby', 'Rails', 'PostgreSQL'],
+  ];
+
+  const firstName = firstNames[index % firstNames.length];
+  const lastName = lastNames[Math.floor(index / firstNames.length) % lastNames.length];
+  const jobTitle = jobTitles[index % jobTitles.length];
+  const company = companies[index % companies.length];
+  const location = locations[index % locations.length];
+  const experience = experiences[index % experiences.length];
+  const skills = skillsList[index % skillsList.length];
+  const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`;
+
+  return {
+    firstName,
+    lastName,
+    fullName: `${firstName} ${lastName}`,
+    email,
+    jobTitle,
+    company,
+    location,
+    experience,
+    skills,
+  };
+};
+
+// Map status from database to display format
+const mapStatus = (status: string): Application['status'] => {
+  const statusMap: Record<string, Application['status']> = {
+    'pending': 'pending',
+    'applied': 'pending',
+    'review': 'reviewing',
+    'reviewing': 'reviewing',
+    'shortlisted': 'shortlisted',
+    'interview': 'interview',
+    'hired': 'accepted',
+    'accepted': 'accepted',
+    'rejected': 'rejected',
+  };
+  return statusMap[status.toLowerCase()] || 'pending';
+};
+
+// Format date from various formats
+const formatDate = (date: string | Date | null | undefined): string => {
+  if (!date) {
+    // Generate a random date within the last 30 days
+    const daysAgo = Math.floor(Math.random() * 30);
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+  try {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch {
+    return String(date);
+  }
+};
+
+const mapApplicationsData = (data: any[]): Application[] => {
+  if (!data || !Array.isArray(data)) return [];
+  return data.map((app: any, index: number) => {
+    const extractResumeUrl = (resumeValue: unknown): string | undefined => {
+      if (!resumeValue) return undefined;
+      if (typeof resumeValue === 'string') {
+        try {
+          const parsed = JSON.parse(resumeValue);
+          if (Array.isArray(parsed) && parsed[0]?.filename) {
+            return `/uploads/${parsed[0].filename}`;
+          }
+        } catch {
+          if (resumeValue.startsWith('/uploads/') || resumeValue.startsWith('http')) return resumeValue;
+        }
+        return undefined;
+      }
+      if (Array.isArray(resumeValue) && resumeValue[0]?.filename) {
+        return `/uploads/${resumeValue[0].filename}`;
+      }
+      if (typeof resumeValue === 'object' && (resumeValue as any)?.filename) {
+        return `/uploads/${(resumeValue as any).filename}`;
+      }
+      return undefined;
+    };
+
+    const applicant = app.applicant || {};
+    const job = app.job || {};
+    const company = app.company || {};
+    const profile = app.profile || {};
+
+    const fallback = generateFallbackData(index);
+    const firstName = applicant.firstName || applicant.first_name || fallback.firstName;
+    const lastName = applicant.lastName || applicant.last_name || fallback.lastName;
+    const candidateName = `${firstName} ${lastName}`.trim() || fallback.fullName;
+    const candidateEmail = applicant.email || fallback.email;
+    const jobTitle = job.title || job.jobTitle || fallback.jobTitle;
+    const companyName = company.name || company.companyName || fallback.company;
+
+    let skills: string[] = [];
+    if (profile?.skills && Array.isArray(profile.skills) && profile.skills.length > 0) {
+      skills = profile.skills;
+    } else if (applicant?.skills && Array.isArray(applicant.skills) && applicant.skills.length > 0) {
+      skills = applicant.skills;
+    } else {
+      skills = fallback.skills;
+    }
+
+    let experience = fallback.experience;
+    if (profile?.bio) {
+      experience = 'See profile';
+    } else if (profile?.headline) {
+      experience = profile.headline;
+    } else if (applicant?.experience) {
+      experience = applicant.experience;
+    }
+
+    const location = job.location || applicant.location || fallback.location;
+
+    let salary = formatJobSalary(job);
+    if (salary === 'Not specified') {
+      const baseSalaries: Record<string, number> = {
+        'Software Engineer': 120, 'Frontend Developer': 110, 'Backend Developer': 115,
+        'Full Stack Developer': 125, 'UX Designer': 95, 'Product Manager': 130,
+        'Data Analyst': 90, 'DevOps Engineer': 140, 'QA Engineer': 85, 'Marketing Specialist': 70,
+      };
+      const base = baseSalaries[jobTitle] || 100;
+      salary = `$${base - 20}k - $${base + 30}k`;
+    }
+
+    const rawMatch = app.matchScore;
+    const matchScore: number = rawMatch && typeof rawMatch === 'object' && 'total' in rawMatch
+      ? (rawMatch as any).total
+      : typeof rawMatch === 'number' ? rawMatch : 60;
+    const matchBreakdown: MatchBreakdown | undefined = rawMatch && typeof rawMatch === 'object' && 'breakdown' in rawMatch
+      ? (rawMatch as any).breakdown : undefined;
+
+    const appliedDate = formatDate(app.submittedAt || app.submitted_at || app.appliedAt || app.applied_at || app.createdAt || app.created_at);
+
+    return {
+      id: String(app.id), resumeUrl: extractResumeUrl(app.resume), candidateName, candidateEmail, jobTitle,
+      company: companyName, appliedDate, status: mapStatus(app.status || 'pending'), matchScore, matchBreakdown,
+      experience, location, salary, skills,
+    };
+  });
+};
+
 const AdminApplications: React.FC = () => {
   const { embedded } = useAdminEmbedded();
   const { theme } = useTheme();
   const darkMode = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [applications, setApplications] = useState<Application[]>(() => {
+    const cached = adminService.getCachedApplications();
+    return cached ? mapApplicationsData(cached) : [];
+  });
+  const [loading, setLoading] = useState(!adminService.getCachedApplications());
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -167,221 +333,14 @@ const AdminApplications: React.FC = () => {
   const appsPerPage = 8;
   const { toast } = useToast();
 
-  // Generate realistic fallback data
-  const generateFallbackData = (index: number) => {
-    const firstNames = ['John', 'Sarah', 'Michael', 'Emily', 'David', 'Jessica', 'James', 'Amanda', 'Robert', 'Lisa', 'William', 'Jennifer', 'Richard', 'Michelle', 'Joseph', 'Ashley', 'Thomas', 'Melissa', 'Christopher', 'Nicole'];
-    const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin', 'Lee'];
-    const jobTitles = ['Software Engineer', 'Frontend Developer', 'Backend Developer', 'Full Stack Developer', 'UX Designer', 'Product Manager', 'Data Analyst', 'DevOps Engineer', 'QA Engineer', 'Marketing Specialist', 'Sales Representative', 'Project Manager', 'Business Analyst', 'UI Designer', 'Mobile Developer'];
-    const companies = ['TechCorp', 'InnovateCo', 'DataSys', 'CloudServe', 'DesignHub', 'Growth Inc.', 'StartupXYZ', 'Digital Solutions', 'FutureTech', 'Smart Systems', 'Global Services', 'Prime Industries', 'Elite Corp', 'NextGen Labs', 'Apex Solutions'];
-    const locations = ['San Francisco, CA', 'New York, NY', 'Austin, TX', 'Seattle, WA', 'Boston, MA', 'Chicago, IL', 'Los Angeles, CA', 'Denver, CO', 'Remote', 'Hybrid'];
-    const experiences = ['1 Year', '2 Years', '3 Years', '4 Years', '5 Years', '6 Years', '7+ Years'];
-    const skillsList = [
-      ['React', 'TypeScript', 'Node.js'],
-      ['Python', 'Django', 'PostgreSQL'],
-      ['Java', 'Spring Boot', 'MySQL'],
-      ['JavaScript', 'Vue.js', 'MongoDB'],
-      ['C#', '.NET', 'SQL Server'],
-      ['Angular', 'RxJS', 'Firebase'],
-      ['Swift', 'iOS', 'Xcode'],
-      ['Kotlin', 'Android', 'Room'],
-      ['Go', 'Docker', 'Kubernetes'],
-      ['Ruby', 'Rails', 'PostgreSQL'],
-    ];
-
-    const firstName = firstNames[index % firstNames.length];
-    const lastName = lastNames[Math.floor(index / firstNames.length) % lastNames.length];
-    const jobTitle = jobTitles[index % jobTitles.length];
-    const company = companies[index % companies.length];
-    const location = locations[index % locations.length];
-    const experience = experiences[index % experiences.length];
-    const skills = skillsList[index % skillsList.length];
-    const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`;
-
-    return {
-      firstName,
-      lastName,
-      fullName: `${firstName} ${lastName}`,
-      email,
-      jobTitle,
-      company,
-      location,
-      experience,
-      skills,
-    };
-  };
-
-  // Map status from database to display format
-  const mapStatus = (status: string): Application['status'] => {
-    const statusMap: Record<string, Application['status']> = {
-      'pending': 'pending',
-      'applied': 'pending',
-      'review': 'reviewing',
-      'reviewing': 'reviewing',
-      'shortlisted': 'shortlisted',
-      'interview': 'interview',
-      'hired': 'accepted',
-      'accepted': 'accepted',
-      'rejected': 'rejected',
-    };
-    return statusMap[status.toLowerCase()] || 'pending';
-  };
-
-  // Format date from various formats
-  const formatDate = (date: string | Date | null | undefined): string => {
-    if (!date) {
-      // Generate a random date within the last 30 days
-      const daysAgo = Math.floor(Math.random() * 30);
-      const d = new Date();
-      d.setDate(d.getDate() - daysAgo);
-      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    }
-    try {
-      const d = typeof date === 'string' ? new Date(date) : date;
-      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    } catch {
-      return String(date);
-    }
-  };
-
   const fetchApplications = async () => {
-    setLoading(true);
+    if (!adminService.getCachedApplications()) {
+      setLoading(true);
+    }
     try {
       const data = await adminService.getApplications();
-
       if (data && Array.isArray(data) && data.length > 0) {
-        // Transform enriched API data to display format
-        const transformed = data.map((app: any, index: number) => {
-          const extractResumeUrl = (resumeValue: unknown): string | undefined => {
-            if (!resumeValue) return undefined;
-            if (typeof resumeValue === 'string') {
-              try {
-                const parsed = JSON.parse(resumeValue);
-                if (Array.isArray(parsed) && parsed[0]?.filename) {
-                  return `/uploads/${parsed[0].filename}`;
-                }
-              } catch {
-                if (resumeValue.startsWith('/uploads/') || resumeValue.startsWith('http')) return resumeValue;
-              }
-              return undefined;
-            }
-            if (Array.isArray(resumeValue) && resumeValue[0]?.filename) {
-              return `/uploads/${resumeValue[0].filename}`;
-            }
-            if (typeof resumeValue === 'object' && (resumeValue as any)?.filename) {
-              return `/uploads/${(resumeValue as any).filename}`;
-            }
-            return undefined;
-          };
-
-          const applicant = app.applicant || {};
-          const job = app.job || {};
-          const company = app.company || {};
-          const profile = app.profile || {};
-
-          // Generate fallback data for this application
-          const fallback = generateFallbackData(index);
-
-          // Get candidate name - handle both camelCase and snake_case, use fallback if missing
-          const firstName = applicant.firstName || applicant.first_name || fallback.firstName;
-          const lastName = applicant.lastName || applicant.last_name || fallback.lastName;
-          const candidateName = `${firstName} ${lastName}`.trim() || fallback.fullName;
-
-          // Get email - use fallback if missing
-          const candidateEmail = applicant.email || fallback.email;
-
-          // Get job title - handle various field names, use fallback if missing
-          const jobTitle = job.title || job.jobTitle || fallback.jobTitle;
-
-          // Get company name - handle various field names, use fallback if missing
-          const companyName = company.name || company.companyName || fallback.company;
-
-          // Get skills from profile or applicant - handle JSONB arrays, use fallback if missing
-          let skills: string[] = [];
-          if (profile?.skills && Array.isArray(profile.skills) && profile.skills.length > 0) {
-            skills = profile.skills;
-          } else if (applicant?.skills && Array.isArray(applicant.skills) && applicant.skills.length > 0) {
-            skills = applicant.skills;
-          } else {
-            skills = fallback.skills;
-          }
-
-          // Format experience - check profile bio or calculate from experiences, use fallback if missing
-          let experience = fallback.experience;
-          if (profile?.bio) {
-            experience = 'See profile';
-          } else if (profile?.headline) {
-            experience = profile.headline;
-          } else if (applicant?.experience) {
-            experience = applicant.experience;
-          }
-
-          // Get location from job or applicant, use fallback if missing
-          const location = job.location || applicant.location || fallback.location;
-
-          // Get salary from job - values are stored in full currency units (divide by 1000 for display)
-          let salary = formatJobSalary(job);
-          if (salary === 'Not specified') {
-            // Generate realistic salary based on job title
-            const baseSalaries: Record<string, number> = {
-              'Software Engineer': 120,
-              'Frontend Developer': 110,
-              'Backend Developer': 115,
-              'Full Stack Developer': 125,
-              'UX Designer': 95,
-              'Product Manager': 130,
-              'Data Analyst': 90,
-              'DevOps Engineer': 140,
-              'QA Engineer': 85,
-              'Marketing Specialist': 70,
-            };
-            const base = baseSalaries[jobTitle] || 100;
-            const min = base - 20;
-            const max = base + 30;
-            salary = `$${min}k - $${max}k`;
-          }
-
-          // Real multi-factor match score from the backend
-          const rawMatch = app.matchScore;
-          const matchScore: number =
-            rawMatch && typeof rawMatch === 'object' && 'total' in rawMatch
-              ? (rawMatch as any).total
-              : typeof rawMatch === 'number'
-                ? rawMatch
-                : 60;
-          const matchBreakdown: MatchBreakdown | undefined =
-            rawMatch && typeof rawMatch === 'object' && 'breakdown' in rawMatch
-              ? (rawMatch as any).breakdown
-              : undefined;
-
-          // Format applied date - handle various date field names
-          const appliedDate = formatDate(
-            app.submittedAt ||
-            app.submitted_at ||
-            app.appliedAt ||
-            app.applied_at ||
-            app.createdAt ||
-            app.created_at
-          );
-
-          return {
-            id: String(app.id),
-            resumeUrl: extractResumeUrl(app.resume),
-            candidateName,
-            candidateEmail,
-            jobTitle,
-            company: companyName,
-            appliedDate,
-            status: mapStatus(app.status || 'pending'),
-            matchScore,
-            matchBreakdown,
-            experience,
-            location,
-            salary,
-            skills,
-          };
-        });
-
-        setApplications(transformed);
+        setApplications(mapApplicationsData(data));
       } else {
         setApplications([]);
       }
@@ -658,94 +617,86 @@ const AdminApplications: React.FC = () => {
 
         {/* Loading State */}
         {loading && (
-          <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl shadow-xl p-12 text-center border-2`}>
-            <div className="flex flex-col items-center justify-center">
-              <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-              <p className={`text-lg font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Loading applications...</p>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className={`rounded-3xl border-2 p-5 transition-all duration-300 flex flex-col h-[200px] ${darkMode ? 'bg-gray-800/80 border-gray-700/50' : 'bg-white border-gray-100'} animate-pulse`}>
+                <div className="flex items-start gap-4 mb-4">
+                  <div className={`w-12 h-12 rounded-xl ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
+                  <div className="flex-1">
+                    <div className={`h-5 w-2/3 rounded mb-2 ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
+                    <div className={`h-4 w-1/2 rounded ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
+                  </div>
+                </div>
+                <div className="flex gap-2 mb-4">
+                  <div className={`h-6 w-20 rounded-lg ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
+                  <div className={`h-6 w-20 rounded-lg ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
+                </div>
+                <div className={`h-10 w-full rounded-xl mt-auto ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
+              </div>
+            ))}
           </div>
         )}
 
         {/* Applications List */}
         {!loading && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {paginatedApplications.map((app) => {
               const statusConfig = getStatusConfig(app.status);
               const StatusIcon = statusConfig.icon;
 
               return (
-                <div key={app.id} className={`rounded-3xl border-2 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${darkMode
+                <div key={app.id} className={`rounded-3xl border-2 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col h-full ${darkMode
                     ? 'bg-gray-800/80 border-gray-700/50 hover:border-indigo-500/50 hover:shadow-indigo-500/10'
                     : 'bg-white border-gray-100 hover:border-indigo-200 hover:shadow-indigo-100'
                   }`}
                 >
-                  <div className="p-5 sm:p-6 flex flex-col md:flex-row justify-between md:items-end gap-5">
-                    {/* Left: Candidate Info */}
-                    <div className="flex items-start gap-4 flex-1">
-                      <div className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-black text-lg sm:text-xl shadow-lg mt-1">
-                        {(app.candidateName || '').split(' ').map(n => n[0]).join('')}
+                  <div className="p-5 flex flex-col h-full gap-4">
+                    {/* Top: Candidate Info */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg">
+                        {(app.candidateName || '').split(' ').map(n => n[0]).join('').substring(0, 2)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2.5">
-                          <h3 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{app.candidateName}</h3>
-                          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border-2 ${statusConfig.color}`}>
-                            <StatusIcon className="w-4 h-4" />
-                            {statusConfig.label}
-                          </div>
-                          <div
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border min-w-[7.5rem] ${getMatchTier(app.matchScore)[darkMode ? 'badgeDark' : 'badgeLight']
-                              }`}
-                            title={getMatchTier(app.matchScore).label}
-                          >
-                            <Target className="w-4 h-4 shrink-0" />
-                            <span>{app.matchScore}%</span>
-                            <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${darkMode ? 'bg-gray-600/80' : 'bg-gray-200'}`}>
-                              <div
-                                className="h-full rounded-full transition-all"
-                                style={{
-                                  width: `${app.matchScore}%`,
-                                  backgroundColor: getMatchTier(app.matchScore).ring,
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 text-sm mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                          <div className="flex items-center gap-1.5">
-                            <Briefcase className="w-4 h-4 opacity-70" />
-                            <span className={`font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{app.jobTitle}</span>
-                            <span className="opacity-50 mx-0.5">at</span>
-                            <span className={`font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{app.company}</span>
-                          </div>
-                          <span className="hidden sm:inline opacity-30">•</span>
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="w-4 h-4 opacity-70" />
-                            <span>Applied {app.appliedDate}</span>
-                          </div>
-                        </div>
+                        <h3 className={`text-base sm:text-lg font-black truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>{app.candidateName}</h3>
+                        <p className={`text-xs sm:text-sm truncate font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{app.jobTitle}</p>
+                        <p className={`text-xs truncate ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>{app.company}</p>
                       </div>
                     </div>
 
-                    {/* Right: Actions */}
-                    <div className="flex items-center gap-2 shrink-0 self-end">
+                    {/* Middle: Badges */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border-2 ${statusConfig.color}`}>
+                        <StatusIcon className="w-3.5 h-3.5" />
+                        {statusConfig.label}
+                      </div>
+                      <div
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${getMatchTier(app.matchScore)[darkMode ? 'badgeDark' : 'badgeLight']}`}
+                        title={getMatchTier(app.matchScore).label}
+                      >
+                        <Target className="w-3.5 h-3.5" />
+                        {app.matchScore}% Match
+                      </div>
+                    </div>
+
+                    {/* Bottom: Actions */}
+                    <div className={`mt-auto pt-3 flex items-center gap-2 border-t ${darkMode ? 'border-gray-700/50' : 'border-gray-100'}`}>
                       <button
                         type="button"
                         onClick={() => setSelectedApp(app)}
                         aria-label={`View details for ${app.candidateName}`}
-                        className={`group flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl font-bold transition-all shadow-sm hover:shadow-md active:scale-95 ${darkMode
+                        className={`group flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-bold transition-all shadow-sm hover:shadow-md active:scale-95 ${darkMode
                             ? 'bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 ring-1 ring-indigo-500/30'
                             : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 ring-1 ring-indigo-200/50'
                           }`}
                       >
                         <Eye className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:scale-110" />
-                        <span className="text-sm sm:text-base">View Details</span>
+                        <span className="text-sm">View Details</span>
                       </button>
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button
-                            className={`p-2 sm:p-2.5 rounded-xl transition-all border ${darkMode ? 'border-gray-700 hover:bg-gray-700 text-gray-400 hover:text-gray-200' : 'border-gray-200 hover:bg-gray-100 text-gray-500 hover:text-gray-700'
+                            className={`p-2.5 rounded-xl transition-all border ${darkMode ? 'border-gray-700 hover:bg-gray-700 text-gray-400 hover:text-gray-200' : 'border-gray-200 hover:bg-gray-100 text-gray-500 hover:text-gray-700'
                               }`}>
                             <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
                           </button>

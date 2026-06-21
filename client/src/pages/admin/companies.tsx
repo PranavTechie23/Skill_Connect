@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AdminBackButton, { useAdminEmbedded } from '@/components/AdminBackButton';
 import { useTheme } from '@/components/theme-provider';
-import { Building2, Search, Plus, Edit, Trash2, MapPin, CheckCircle, XCircle, Clock, ExternalLink, ChevronLeft, ChevronRight, RefreshCw, Ban, ShieldOff } from 'lucide-react';
+import { Building2, Search, Plus, Edit, Trash2, MapPin, CheckCircle, XCircle, Clock, ExternalLink, ChevronLeft, ChevronRight, RefreshCw, Ban, ShieldOff, Eye, Users } from 'lucide-react';
 import { adminService, type CreateCompanyData, type CompanyModerationStatus } from '@/lib/admin-service';
 import { useToast } from '@/hooks/use-toast';
 import { scrollDashboardToTop } from '@/lib/scroll-to-top';
@@ -9,6 +9,7 @@ import AddCompanyModal from '@/pages/admin/AddCompanyModal';
 import EditCompanyModal from '@/pages/admin/EditCompanyModal';
 import DeleteCompanyModal from '@/pages/admin/DeleteCompanyModal';
 import { Pagination } from '@/components/Pagination';
+import { LogoLoader } from '@/components/LogoLoader';
 import type { UpdateCompanyData } from '@/lib/admin-service';
 
 interface Company {
@@ -21,6 +22,8 @@ interface Company {
   status: CompanyModerationStatus;
   createdAt: string;
   logo?: string;
+  description?: string;
+  ownerId?: string;
 }
 
 /** Company management panel (also mounted from admin dashboard tab `companies`). */
@@ -28,16 +31,17 @@ export default function AdminCompanies() {
   const { theme } = useTheme();
   const { embedded } = useAdminEmbedded();
   const darkMode = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [companies, setCompanies] = useState<Company[]>(adminService.getCachedCompanies() || []);
+  const [loading, setLoading] = useState(!adminService.getCachedCompanies());
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | CompanyModerationStatus>('all');
   const [filterIndustry, setFilterIndustry] = useState('All Industries');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 15;
   const [showAddCompany, setShowAddCompany] = useState(false);
   const [companyToEdit, setCompanyToEdit] = useState<Company | null>(null);
   const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const { toast } = useToast();
 
   const selectInputClass = `px-4 py-2.5 border-2 rounded-2xl text-sm font-bold cursor-pointer focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all ${
@@ -48,10 +52,12 @@ export default function AdminCompanies() {
     error instanceof Error ? error.message : fallback;
 
   const fetchCompanies = async () => {
-    setLoading(true);
+    if (!adminService.getCachedCompanies()) {
+      setLoading(true);
+    }
     try {
       const data = await adminService.getCompanies();
-      setCompanies(data);
+      setCompanies(data || []);
     } catch (error) {
       console.error("Failed to fetch companies:", error);
       toast({ title: "Error", description: "Could not fetch company data.", variant: "destructive" });
@@ -199,6 +205,93 @@ export default function AdminCompanies() {
         darkMode={darkMode}
         company={companyToDelete}
       />
+      {selectedCompany && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 sm:p-8">
+          <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)] text-white' : 'bg-white text-gray-900 border-gray-200'} rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto border-2`}>
+            <div className="p-6 sm:p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl sm:text-3xl font-black">Company Details</h2>
+                <button
+                  onClick={() => setSelectedCompany(null)}
+                  className={`p-2 rounded-xl transition-all ${darkMode ? 'hover:bg-gray-700 text-gray-500 hover:text-gray-300' : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'}`}
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="space-y-6">
+                <div className={`flex items-center gap-4 p-5 rounded-2xl ${darkMode ? 'bg-white/5' : 'bg-gradient-to-br from-purple-50 to-indigo-50'}`}>
+                  <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg flex-shrink-0">
+                    {selectedCompany.name.substring(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <h3 className="text-xl sm:text-2xl font-black">{selectedCompany.name}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${getStatusConfig(selectedCompany.status).color}`}>
+                        {React.createElement(getStatusConfig(selectedCompany.status).icon, { className: "w-3.5 h-3.5" })}
+                        {selectedCompany.status.charAt(0).toUpperCase() + selectedCompany.status.slice(1)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className={`p-4 rounded-2xl border-2 ${darkMode ? 'border-gray-700 bg-gray-800/40' : 'border-gray-100 bg-gray-50'}`}>
+                    <p className={`text-xs font-bold tracking-wider mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>INDUSTRY</p>
+                    <p className="text-base font-black">{selectedCompany.industry || 'N/A'}</p>
+                  </div>
+                  <div className={`p-4 rounded-2xl border-2 ${darkMode ? 'border-gray-700 bg-gray-800/40' : 'border-gray-100 bg-gray-50'}`}>
+                    <p className={`text-xs font-bold tracking-wider mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>LOCATION</p>
+                    <p className="text-base font-black">{selectedCompany.location || 'N/A'}</p>
+                  </div>
+                  <div className={`p-4 rounded-2xl border-2 ${darkMode ? 'border-gray-700 bg-gray-800/40' : 'border-gray-100 bg-gray-50'}`}>
+                    <p className={`text-xs font-bold tracking-wider mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>COMPANY SIZE</p>
+                    <p className="text-base font-black">{selectedCompany.size || 'N/A'}</p>
+                  </div>
+                  <div className={`p-4 rounded-2xl border-2 ${darkMode ? 'border-gray-700 bg-gray-800/40' : 'border-gray-100 bg-gray-50'}`}>
+                    <p className={`text-xs font-bold tracking-wider mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>WEBSITE</p>
+                    {selectedCompany.website ? (
+                      <a
+                        href={selectedCompany.website.startsWith('http') ? selectedCompany.website : `https://${selectedCompany.website}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-base font-black text-indigo-500 hover:text-indigo-600 hover:underline flex items-center gap-1.5 truncate"
+                      >
+                        {selectedCompany.website}
+                        <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                      </a>
+                    ) : (
+                      <p className="text-base font-black">N/A</p>
+                    )}
+                  </div>
+                </div>
+
+                {selectedCompany.description && (
+                  <div>
+                    <p className={`text-xs font-bold tracking-wider mb-2 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>DESCRIPTION</p>
+                    <p className={`text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{selectedCompany.description}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-4 pt-4">
+                  <button
+                    onClick={() => { setSelectedCompany(null); setCompanyToEdit(selectedCompany); }}
+                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold hover:shadow-lg transition-all shadow-md"
+                  >
+                    <Edit className="w-5 h-5" />
+                    Edit Company
+                  </button>
+                  <button
+                    onClick={() => setSelectedCompany(null)}
+                    className={`px-6 py-3 rounded-xl font-bold transition-all ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     <div className={`${embedded ? '' : `min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-indigo-50 via-white to-purple-50'} p-8`}`}>
       <div className={`${embedded ? 'space-y-6' : 'max-w-7xl mx-auto'}`}>
         <div className={`${embedded ? 'mb-6' : 'mb-8'}`}>
@@ -328,10 +421,25 @@ export default function AdminCompanies() {
           </div>
 
           {/* Companies List */}
+          {/* Companies List */}
+          {/* Companies List */}
           {loading ? (
-            <div className="p-12 text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent mb-4"></div>
-              <p className={`text-lg font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Loading companies...</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className={`rounded-3xl border-2 p-6 flex flex-col gap-6 ${darkMode ? 'border-slate-800 bg-slate-900/50' : 'border-gray-200/80 bg-gray-50/50'} animate-pulse`}>
+                  <div className="flex items-start gap-4">
+                    <div className={`w-16 h-16 rounded-2xl shrink-0 ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
+                    <div className="flex-1 min-w-0">
+                      <div className={`h-6 w-3/4 rounded mb-3 ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
+                      <div className={`h-4 w-1/2 rounded mb-4 ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-auto">
+                    <div className={`h-8 w-20 rounded-lg ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
+                    <div className={`h-8 w-20 rounded-lg ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : filteredCompanies.length === 0 ? (
             <div className="p-12 text-center">
@@ -341,96 +449,105 @@ export default function AdminCompanies() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6">
               {paginatedCompanies.map((company) => {
                 const statusConfig = getStatusConfig(company.status);
                 const StatusIcon = statusConfig.icon;
                 return (
                   <div
                     key={company.id}
-                    className={`border rounded-xl p-6 transition-all flex flex-col ${
+                    className={`border-2 rounded-3xl p-5 transition-all flex flex-col h-full ${
                       darkMode
-                        ? 'border-gray-700 hover:border-purple-500/50 bg-gray-800/50'
-                        : 'border-gray-200 hover:border-purple-300 bg-white'
-                    } hover:shadow-lg`}
+                        ? 'border-gray-700 hover:border-purple-500/50 bg-gray-800/80'
+                        : 'border-gray-100 hover:border-purple-300 bg-white'
+                    } hover:shadow-xl hover:-translate-y-1`}
                   >
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                      <div className="flex items-start gap-4 flex-1 min-w-0">
-                        <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg flex-shrink-0">
-                          {company.name.substring(0, 2).toUpperCase()}
+                    <div className="flex items-start gap-4 mb-3">
+                      <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg flex-shrink-0">
+                        {company.logo ? (
+                          <img src={company.logo} alt="" className="w-full h-full object-cover rounded-2xl" />
+                        ) : (
+                          company.name.substring(0, 2).toUpperCase()
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className={`text-lg font-black truncate mb-1.5 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{company.name}</h3>
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-bold border ${statusConfig.color}`}>
+                            <StatusIcon className="w-3.5 h-3.5" />
+                            {company.status.charAt(0).toUpperCase() + company.status.slice(1)}
+                          </span>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 mb-2 flex-wrap">
-                            <h3 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{company.name}</h3>
-                            <span className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border ${statusConfig.color}`}>
-                              <StatusIcon className="w-4 h-4" />
-                              {company.status.charAt(0).toUpperCase() + company.status.slice(1)}
-                            </span>
+                        
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                          <div className={`flex items-center gap-2 text-xs font-semibold truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-purple-500/80" />
+                            <span className="truncate">{company.industry || 'N/A'}</span>
                           </div>
-
-                          <div className="grid grid-cols-2 gap-3 mb-4">
-                            <div className={`flex items-center gap-2 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                              <Building2 className="w-4 h-4 flex-shrink-0" />
-                              <span className="font-semibold truncate">{company.industry || 'N/A'}</span>
-                            </div>
-                            <div className={`flex items-center gap-2 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                              <MapPin className="w-4 h-4 flex-shrink-0" />
-                              <span className="font-semibold truncate">{company.location || 'N/A'}</span>
-                            </div>
+                          <div className={`flex items-center gap-2 text-xs font-semibold truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-purple-500/80" />
+                            <span className="truncate">{company.location || 'N/A'}</span>
                           </div>
-
-                          <div className={`rounded-2xl p-4 mb-4 ${darkMode ? 'bg-gray-700/40' : 'bg-gray-50'}`}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="min-w-0">
-                                <p className={`text-xs mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Website</p>
-                                <a
-                                  href={company.website}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className={`text-sm font-semibold flex items-center gap-1 min-w-0 ${darkMode ? 'text-purple-400 hover:text-purple-300' : 'text-purple-600 hover:text-purple-700'}`}
-                                >
-                                  <span className="truncate">{company.website || 'N/A'}</span> <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                                </a>
-                              </div>
-                              <div>
-                                <p className={`text-xs mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Company Size</p>
-                                <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{company.size || 'N/A'}</p>
-                              </div>
-                            </div>
+                          <div className={`flex items-center gap-2 text-xs font-semibold truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            <Users className="w-3.5 h-3.5 flex-shrink-0 text-purple-500/80" />
+                            <span className="truncate">{company.size || 'N/A'}</span>
                           </div>
+                          {company.website && (
+                            <a
+                              href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className={`flex items-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-600 hover:underline truncate`}
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span className="truncate">Website</span>
+                            </a>
+                          )}
                         </div>
                       </div>
                     </div>
 
-                    {/* Action Buttons Bottom Bar */}
-                    <div className={`mt-auto flex items-center justify-between gap-4 rounded-xl border p-2 pl-4 ${
-                      darkMode ? 'border-gray-600 bg-gray-700/40' : 'border-gray-200 bg-gray-50'
-                    }`}>
-                      <div className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Joined {new Date(company.createdAt).toLocaleDateString()}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setCompanyToEdit(company); }}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                            darkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-white border border-gray-200 hover:bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          <Edit className="w-4 h-4" />
-                          Edit
-                        </button>
+                    {company.description && (
+                      <p className={`text-xs font-normal line-clamp-2 mt-3 mb-4 leading-relaxed ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {company.description}
+                      </p>
+                    )}
 
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setCompanyToDelete(company); }}
-                          title="Delete"
-                          className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-red-500/20 text-red-400' : 'hover:bg-red-100 text-red-600'}`}
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
+                    {/* Action Buttons Bottom Bar */}
+                    <div className={`mt-auto pt-4 flex items-center justify-end gap-2 border-t ${
+                      darkMode ? 'border-gray-700/50' : 'border-gray-100'
+                    }`}>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setSelectedCompany(company); }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm hover:shadow-md ${
+                          darkMode ? 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30' : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 ring-1 ring-indigo-200/50'
+                        }`}
+                      >
+                        <Eye className="w-4 h-4" />
+                        View
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setCompanyToEdit(company); }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm hover:shadow-md ${
+                          darkMode ? 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/30' : 'bg-purple-50 hover:bg-purple-100 text-purple-700 ring-1 ring-purple-200/50'
+                        }`}
+                      >
+                        <Edit className="w-4 h-4" />
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setCompanyToDelete(company); }}
+                        title="Delete"
+                        className={`p-2 rounded-xl transition-all shadow-sm hover:shadow-md ${darkMode ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 ring-1 ring-red-500/30' : 'bg-red-50 hover:bg-red-100 text-red-600 ring-1 ring-red-200/50'}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 );

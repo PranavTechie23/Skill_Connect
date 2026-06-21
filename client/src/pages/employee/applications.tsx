@@ -31,6 +31,7 @@ import { ModeToggle } from "@/components/ui/dark-mode-toggle";
 import { useTheme } from "@/components/theme-provider";
 import { apiFetch } from "@/lib/api";
 import { fetchActivityInsights } from "@/lib/notifications-service";
+import { LogoLoader } from "@/components/LogoLoader";
 import {
   normalizeApplicationStatus,
   getStatusLabel,
@@ -133,7 +134,7 @@ export default function Applications({ embedded = false, onNavigateTab }: Applic
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 6;
+  const ITEMS_PER_PAGE = 12;
 
   const {
     data: applications = [],
@@ -482,13 +483,18 @@ export default function Applications({ embedded = false, onNavigateTab }: Applic
     return pageShell(
       <>
         {pageHeader}
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-14 w-14 border-4 border-blue-200 border-t-indigo-500 mx-auto" />
-            <p className={cn("mt-4 font-medium", darkMode ? "text-slate-400" : "text-gray-600")}>
-              Loading applications...
-            </p>
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className={cn("rounded-3xl p-6 h-40 animate-pulse border", darkMode ? "bg-slate-900/50 border-white/10" : "bg-white border-gray-100")}>
+              <div className="flex gap-4">
+                <div className={cn("w-14 h-14 rounded-2xl", darkMode ? "bg-slate-700" : "bg-gray-200")}></div>
+                <div className="flex-1">
+                  <div className={cn("h-6 w-1/2 rounded mb-3", darkMode ? "bg-slate-700" : "bg-gray-200")}></div>
+                  <div className={cn("h-4 w-3/4 rounded mb-2", darkMode ? "bg-slate-700" : "bg-gray-200")}></div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </>
     );

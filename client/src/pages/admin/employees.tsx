@@ -6,6 +6,7 @@ import { adminService, User, CreateUserData, AdminStats } from '@/lib/admin-serv
 import { useToast } from '@/hooks/use-toast';
 import { scrollDashboardToTop } from '@/lib/scroll-to-top';
 import { Pagination } from '@/components/Pagination';
+import { LogoLoader } from '@/components/LogoLoader';
 import {
   Dialog,
   DialogContent,
@@ -734,9 +735,21 @@ export default function AdminEmployees() {
 
           {/* Employee Cards Grid */}
           {loading ? (
-            <div className="p-12 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
-              <p className={`text-lg font-medium ${darkMode ? 'text-gray-300' : 'text-gray-500'}`}>Loading employees...</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className={`border rounded-2xl p-6 transition-all duration-300 flex flex-col h-64 ${darkMode ? 'border-slate-800 bg-slate-900/50' : 'border-gray-200/80 bg-gray-50/50'} animate-pulse`}>
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className={`w-14 h-14 rounded-full ${darkMode ? 'bg-slate-800' : 'bg-gray-200'}`}></div>
+                    <div className="flex-1">
+                      <div className={`h-5 w-3/4 rounded mb-2 ${darkMode ? 'bg-slate-800' : 'bg-gray-200'}`}></div>
+                      <div className={`h-3 w-1/2 rounded mb-2 ${darkMode ? 'bg-slate-800' : 'bg-gray-200'}`}></div>
+                      <div className={`h-3 w-2/3 rounded ${darkMode ? 'bg-slate-800' : 'bg-gray-200'}`}></div>
+                    </div>
+                  </div>
+                  <div className={`h-16 w-full rounded-xl mb-4 ${darkMode ? 'bg-slate-800' : 'bg-gray-200'}`}></div>
+                  <div className={`h-10 w-full rounded-xl mt-auto ${darkMode ? 'bg-slate-800' : 'bg-gray-200'}`}></div>
+                </div>
+              ))}
             </div>
           ) : paginatedEmployees.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">

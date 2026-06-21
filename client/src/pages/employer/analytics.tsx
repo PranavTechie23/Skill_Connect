@@ -333,7 +333,7 @@ function ActivityMixDonut({
             <ResponsiveContainer width="100%" height="100%">
               <RechartsPieChart>
                 <RechartsTooltip
-                  formatter={(value: number, name: string) => [value.toLocaleString(), name]}
+                  formatter={(value: any, name: any) => [value.toLocaleString(), name]}
                   contentStyle={{
                     backgroundColor: isDark ? 'rgba(15,23,42,0.95)' : 'rgba(255,255,255,0.98)',
                     border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e2e8f0',

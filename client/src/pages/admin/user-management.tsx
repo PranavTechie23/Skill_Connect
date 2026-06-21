@@ -1011,8 +1011,8 @@ const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: Use
   const { embedded } = useAdminEmbedded();
   const darkMode = typeof window !== 'undefined' && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
   
-  const [users, setUsers] = useState<DisplayUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<DisplayUser[]>(adminService.getCachedUsers() as DisplayUser[] || []);
+  const [loading, setLoading] = useState(!adminService.getCachedUsers());
    const [selectedUser, setSelectedUser] = useState<DisplayUser | null>(null);
   const [userToEdit, setUserToEdit] = useState<DisplayUser | null>(null);
   const [userToDelete, setUserToDelete] = useState<DisplayUser | null>(null);
@@ -1036,7 +1036,9 @@ const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: Use
 
   const loadUsers = async () => {
     try {
-      setLoading(true);
+      if (!adminService.getCachedUsers()) {
+        setLoading(true);
+      }
       const fetchedUsers = await adminService.getUsers();
       console.log('📊 Fetched users:', fetchedUsers.length);
       if (fetchedUsers.length > 0) {
@@ -1481,8 +1483,8 @@ const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: Use
 
             {/* User list */}
             {loading ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-5 sm:p-6" aria-live="polite" aria-busy="true" role="status">
-                {Array.from({ length: 4 }).map((_, index) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-5 sm:p-6" aria-live="polite" aria-busy="true" role="status">
+                {Array.from({ length: 6 }).map((_, index) => (
                   <div
                     key={index}
                     className={`${
@@ -1531,7 +1533,7 @@ const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: Use
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-5 sm:p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-5 sm:p-6">
                 {paginatedUsers.map((user) => (
                   <UserCard
                     key={user.id}
