@@ -14,6 +14,7 @@ import EmployeeLayout from "./components/layouts/EmployeeLayout";
 import EmployerLayout from "./components/layouts/employer-layout";
 import { SkillConnectAssistant } from "./components/skillconnect-assistant";
 import { GlobalLoader } from "./components/GlobalLoader";
+import { LogoLoader } from "./components/LogoLoader";
 import { normalizeUserType } from "./lib/utils";
 import { scrollDashboardToTop } from "./lib/scroll-to-top";
 
@@ -329,10 +330,9 @@ class ErrorBoundary extends React.Component<
 
 function AppLoading() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto" />
-        <p className="mt-4 text-gray-600">Loading...</p>
+    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-slate-950">
+      <div className="text-center flex flex-col items-center justify-center">
+        <LogoLoader size="xl" />
       </div>
     </div>
   );

@@ -98,7 +98,8 @@ router.get("/", async (req: Request, res: Response) => {
     const hasUserEmbedding = Array.isArray(userEmbedding) && userEmbedding.length > 0;
     const jobsWithEmbeddings = allJobs.filter((j) => Array.isArray(j.embedding) && j.embedding.length > 0);
 
-    const isSemanticMatching = hasUserEmbedding && jobsWithEmbeddings.length > 0;
+    // Mix and match: randomly select which algorithm is used (Gemini Semantic vs Rule-based)
+    const isSemanticMatching = hasUserEmbedding && jobsWithEmbeddings.length > 0 && Math.random() < 0.5;
 
     // Calculate matches for all jobs
     const matches = allJobs

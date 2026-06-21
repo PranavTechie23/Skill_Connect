@@ -12,7 +12,6 @@ export const SKIP_GLOBAL_LOADER_HEADER = "X-Skip-Global-Loader";
 /** Set on a GET request to show the global overlay (exports, heavy reads). */
 export const SHOW_GLOBAL_LOADER_HEADER = "X-Show-Global-Loader";
 
-/** Employee dashboard reads — pages use inline skeletons instead. */
 const SILENT_LOADER_PATHS = [
 	"/api/auth/me",
 	"/api/auth/logout",

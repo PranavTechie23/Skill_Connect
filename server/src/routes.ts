@@ -2839,72 +2839,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const applications = await storage.getApplicationsByJob("all");
       console.log('📋 Admin: Fetched applications from DB:', applications.length);
       
-      // Enrich applications with user and job data
-      const enrichedApplications = await Promise.all(
-        applications.map(async (app: any) => {
-          // Normalize application data first
-          const normalizedApp = normalizeApplication(app);
-          
-          // Handle both snake_case (from DB) and camelCase (from schema)
-          const jobId = normalizedApp.jobId;
-          const userId = normalizedApp.applicantId;
-          
-          if (!jobId || !userId) {
-            console.warn('⚠️ Application missing IDs:', { app, jobId, userId });
-          }
-          
-          const [job, applicant] = await Promise.all([
-            jobId ? storage.getJob(String(jobId)).catch((err) => {
-              console.error('Error fetching job:', jobId, err);
-              return null;
-            }) : null,
-            userId ? storage.getUser(String(userId)).catch((err) => {
-              console.error('Error fetching user:', userId, err);
-              return null;
-            }) : null,
-          ]);
-          
-          // Handle both snake_case and camelCase for companyId
-          const companyId = job?.companyId || (job as any)?.company_id;
-          const company = companyId ? await storage.getCompany(String(companyId)).catch((err) => {
-            console.error('Error fetching company:', companyId, err);
-            return null;
-          }) : null;
-          
-          // Get user profile for additional info
-          let profile = null;
-          if (applicant) {
-            const userType = applicant.userType || (applicant as any).user_type || '';
-            if (userType === 'Professional' || userType === 'job_seeker') {
-              profile = await storage.getProfessionalProfileByUserId(String(applicant.id)).catch(() => null);
+      // Batch fetch all required relations to avoid N+1 queries
+      const [jobsResult, allUsers, allCompanies, profilesData] = await Promise.all([
+        storage.getJobs({ includeInactive: true }),
+        storage.getAllUsers(),
+        storage.getAllCompanies(),
+        db.execute(sql`SELECT * FROM professional_profiles`)
+      ]);
+      
+      const jobsMap = new Map(jobsResult.jobs.map(j => [String(j.id), j]));
+      const usersMap = new Map((allUsers as any[]).map(u => [String(u.id), sanitizeUser(u)]));
+      const companiesMap = new Map((allCompanies as any[]).map(c => [String(c.id), c]));
+      const profilesMap = new Map(profilesData.rows.map(p => [String(p.user_id), p]));
+
+      // Enrich applications synchronously in memory
+      const enrichedApplications = applications.map((app: any) => {
+        // Normalize application data first
+        const normalizedApp = normalizeApplication(app);
+        
+        // Handle both snake_case (from DB) and camelCase (from schema)
+        const jobId = normalizedApp.jobId;
+        const userId = normalizedApp.applicantId;
+        
+        const job = jobId ? jobsMap.get(String(jobId)) || null : null;
+        const applicant = userId ? usersMap.get(String(userId)) || null : null;
+        
+        const companyId = job?.companyId || (job as any)?.company_id;
+        const company = companyId ? companiesMap.get(String(companyId)) || null : null;
+        
+        let profile = null;
+        if (applicant) {
+          const userType = applicant.userType || (applicant as any).user_type || '';
+          if (userType === 'Professional' || userType === 'job_seeker') {
+            profile = profilesMap.get(String(applicant.id)) || null;
+            // Parse skills if it's a JSON string
+            if (profile && typeof profile.skills === 'string') {
+              try {
+                profile.skills = JSON.parse(profile.skills);
+              } catch (e) {
+                profile.skills = [];
+              }
             }
           }
-          
-          return {
-            ...normalizedApp,
-            job: job ? job : null,
-            applicant: applicant ? sanitizeUser(applicant) : null,
-            company: company ? company : null,
-            profile: profile,
-            // ── Smart multi-factor match score ──────────────────────────────────
-            matchScore: (() => {
-              const match = Storage.computeMatchScore({
-                candidateSkills: Array.isArray(profile?.skills) ? profile.skills : [],
-                jobSkills:       Array.isArray(job?.skills)     ? job.skills     : [],
-                candidateLocation: applicant?.location || null,
-                jobLocation:       (job as any)?.location || null,
-                candidateHeadline: profile?.headline || null,
-                jobTitle:          (job as any)?.title || null,
-                salaryMin:         (job as any)?.salaryMin || null,
-                salaryMax:         (job as any)?.salaryMax || null,
-              });
-              return match;
-            })(),
-          };
-        })
-      );
+        }
+        
+        return {
+          ...normalizedApp,
+          job: job || null,
+          applicant: applicant || null,
+          company: company || null,
+          profile: profile || null,
+          // ── Smart multi-factor match score ──────────────────────────────────
+          matchScore: (() => {
+            const match = Storage.computeMatchScore({
+              candidateSkills: Array.isArray(profile?.skills) ? profile.skills : [],
+              jobSkills:       Array.isArray(job?.skills)     ? job.skills     : [],
+              candidateLocation: applicant?.location || null,
+              jobLocation:       (job as any)?.location || null,
+              candidateHeadline: profile?.headline || null,
+              jobTitle:          (job as any)?.title || null,
+              salaryMin:         (job as any)?.salaryMin || null,
+              salaryMax:         (job as any)?.salaryMax || null,
+            });
+            return match;
+          })(),
+        };
+      });
       
-      console.log('✅ Admin: Enriched applications:', enrichedApplications.length);
+      console.log('✅ Admin: Enriched applications (Optimized):', enrichedApplications.length);
       res.json(enrichedApplications);
     } catch (error) {
       console.error('❌ Admin: Error fetching applications:', error);
@@ -2943,266 +2945,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Get pending approvals (live DB-backed)
-  app.get("/api/admin/approvals", requireAdmin, async (req, res) => {
-    try {
-      const [applications, stories, jobsResult, companies] = await Promise.all([
-        storage.getApplicationsByJob("all"),
-        storage.getAllStories(),
-        storage.getJobs({ includeInactive: true }),
-        storage.getAllCompanies(),
-      ]);
-
-      const pendingApplicationStatuses = new Set(["applied", "review", "reviewing", "pending", "moderation_hold"]);
-      const rawPendingApplications = applications
-        .filter((app: any) => pendingApplicationStatuses.has(String(app.status || "").toLowerCase()))
-        .slice(0, 50);
-
-      const pendingApplications = await Promise.all(
-        rawPendingApplications.map(async (app: any) => {
-          const normalizedApp = normalizeApplication(app);
-          const jobId = normalizedApp.jobId ? String(normalizedApp.jobId) : "";
-          const applicantId = normalizedApp.applicantId ? String(normalizedApp.applicantId) : "";
-
-          const [job, applicant, modRecord] = await Promise.all([
-            jobId ? storage.getJob(jobId).catch(() => null) : null,
-            applicantId ? storage.getUser(applicantId).catch(() => null) : null,
-            storage.getModerationRecordForEntity("application", String(app.id)),
-          ]);
-
-          const jobTitle =
-            (job as any)?.title ||
-            (job as any)?.job_title ||
-            (jobId ? `Job ${jobId}` : "Job application");
-
-          const applicantName = applicant
-            ? `${(applicant as any)?.firstName || (applicant as any)?.first_name || ""} ${(applicant as any)?.lastName || (applicant as any)?.last_name || ""}`.trim()
-            : "";
-
-          return {
-            id: `application-${app.id}`,
-            type: "application",
-            status: normalizedApp.status,
-            createdAt: normalizedApp.appliedAt || null,
-            title: jobTitle,
-            subtitle: applicantName || "Unknown applicant",
-            submittedBy: applicantName || applicantId || "Unknown applicant",
-            submittedDate: normalizedApp.appliedAt || normalizedApp.submittedAt || null,
-            priority: modRecord?.riskLevel === "high" ? "high" : "low",
-            details: {
-              status: normalizedApp.status,
-              jobId,
-              applicantId,
-              jobTitle,
-              applicantName: applicantName || applicantId || "Unknown applicant",
-              appliedAt: normalizedApp.appliedAt,
-              submittedAt: normalizedApp.submittedAt,
-              resume: normalizedApp.resume,
-              coverLetter: normalizedApp.coverLetter,
-              notes: normalizedApp.notes,
-            },
-            data: normalizedApp,
-            moderationScan: modRecord ? {
-              riskLevel: modRecord.riskLevel,
-              flags: modRecord.flags,
-              reasoning: modRecord.reasoning,
-              suggestedAction: modRecord.suggestedAction,
-            } : null,
-          };
-        })
-      );
-
-      const rawPendingStories = stories
-        .filter((story: any) => story.approved !== true)
-        .slice(0, 50);
-
-      const pendingStories = await Promise.all(
-        rawPendingStories.map(async (story: any) => {
-          const modRecord = await storage.getModerationRecordForEntity("story", String(story.id));
-          return {
-            id: `story-${story.id}`,
-            type: "story",
-            status: "pending",
-            createdAt: story.createdAt || (story as any).created_at || null,
-            data: story,
-            moderationScan: modRecord ? {
-              riskLevel: modRecord.riskLevel,
-              flags: modRecord.flags,
-              reasoning: modRecord.reasoning,
-              suggestedAction: modRecord.suggestedAction,
-            } : null,
-          };
-        })
-      );
-
-      // Phase 6: Jobs and Companies
-      const pendingJobStatuses = new Set(["flagged", "pending_scan", "scan_skipped", "scan_failed"]);
-      const rawPendingJobs = (jobsResult.jobs as any[])
-        .filter((job) => pendingJobStatuses.has(String(job.status || "").toLowerCase()))
-        .slice(0, 50);
-
-      const pendingJobs = await Promise.all(
-        rawPendingJobs.map(async (job) => {
-          const modRecord = await storage.getModerationRecordForEntity("job", String(job.id));
-          return {
-            id: `job-${job.id}`,
-            type: "job",
-            status: job.status,
-            createdAt: job.createdAt || job.created_at || null,
-            title: job.title || "Unknown Job",
-            subtitle: job.companyName || "Unknown Company",
-            data: job,
-            moderationScan: modRecord ? {
-              riskLevel: modRecord.riskLevel,
-              flags: modRecord.flags,
-              reasoning: modRecord.reasoning,
-              suggestedAction: modRecord.suggestedAction,
-            } : null,
-          };
-        })
-      );
-
-      const pendingCompanyStatuses = new Set(["pending", "pending_scan", "scan_skipped"]);
-      const rawPendingCompanies = companies
-        .filter((company: any) => pendingCompanyStatuses.has(String(company.status || "").toLowerCase()))
-        .slice(0, 50);
-
-      const pendingCompanies = await Promise.all(
-        rawPendingCompanies.map(async (company: any) => {
-          const modRecord = await storage.getModerationRecordForEntity("company", String(company.id));
-          return {
-            id: `company-${company.id}`,
-            type: "employer", // mapped to employer in approvals UI
-            status: company.status,
-            createdAt: company.createdAt || company.created_at || null,
-            title: company.name || "Unknown Company",
-            subtitle: company.industry || "Unknown Industry",
-            data: company,
-            moderationScan: modRecord ? {
-              riskLevel: modRecord.riskLevel,
-              flags: modRecord.flags,
-              reasoning: modRecord.reasoning,
-              suggestedAction: modRecord.suggestedAction,
-            } : null,
-          };
-        })
-      );
-
-      const pendingItems = [
-        ...pendingApplications,
-        ...pendingStories,
-        ...pendingJobs,
-        ...pendingCompanies
-      ].sort((a, b) => {
-        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return bTime - aTime;
-      });
-
-      res.json(pendingItems);
-    } catch (error) {
-      handleError(res, error, "Failed to fetch approvals");
-    }
-  });
-
-  // Admin: Update approval status (application or story)
-  app.put("/api/admin/approvals/:id", requireAdmin, async (req, res) => {
-    try {
-      const { status, reason } = req.body as { status?: string; reason?: string };
-      if (!status) {
-        return res.status(400).json({ message: "Status is required" });
-      }
-
-      const approvalId = String(req.params.id || "");
-      const isApproved = status === "approved";
-      const normalizedStatus = isApproved ? "approved" : "rejected";
-      const adminId = (req.session as any)?.userId || "admin-001";
-      
-      let targetType = "";
-      let targetId = "";
-      let updatedEntity: any = null;
-
-      if (approvalId.startsWith("application-")) {
-        targetType = "application";
-        targetId = approvalId.replace("application-", "");
-        const existing = await storage.getApplication(targetId);
-        updatedEntity = await storage.updateApplication(targetId, {
-          status: normalizedStatus,
-        });
-        if (existing && String(normalizedStatus) !== String(existing.status)) {
-          await emitApplicationStatusNotification(
-            {
-              id: updatedEntity.id,
-              applicantId: String(updatedEntity.applicantId),
-              jobId: updatedEntity.jobId ? String(updatedEntity.jobId) : null,
-              status: updatedEntity.status,
-            },
-            existing.status,
-            normalizedStatus
-          );
-        }
-      } else if (approvalId.startsWith("story-")) {
-        targetType = "story";
-        targetId = approvalId.replace("story-", "");
-        updatedEntity = await storage.updateStoryApproval(targetId, isApproved);
-        if (!updatedEntity) return res.status(404).json({ message: "Story not found" });
-      } else if (approvalId.startsWith("job-")) {
-        targetType = "job";
-        targetId = approvalId.replace("job-", "");
-        // Only Drizzle SQL can be used safely here for jobs and companies right now
-        // so we'll do raw updates. For job:
-        const jobStatus = isApproved ? "active" : "rejected";
-        const isActive = isApproved;
-        const [jobRow] = await db.execute(sql`
-          UPDATE jobs SET status = ${jobStatus}, is_active = ${isActive}
-          WHERE id = ${targetId} RETURNING *
-        `).then(res => res.rows);
-        if (!jobRow) return res.status(404).json({ message: "Job not found" });
-        updatedEntity = jobRow;
-      } else if (approvalId.startsWith("company-")) {
-        targetType = "company";
-        targetId = approvalId.replace("company-", "");
-        const compStatus = isApproved ? "approved" : "rejected";
-        const [compRow] = await db.execute(sql`
-          UPDATE companies SET status = ${compStatus}
-          WHERE id = ${targetId} RETURNING *
-        `).then(res => res.rows);
-        if (!compRow) return res.status(404).json({ message: "Company not found" });
-        updatedEntity = compRow;
-      } else {
-        return res.status(400).json({ message: "Invalid approval id" });
-      }
-
-      // Phase 6: Audit Logging
-      const modRecord = await storage.getModerationRecordForEntity(targetType, targetId);
-      let aiFollowed: boolean | null = null;
-      if (modRecord) {
-        const aiAction = modRecord.suggestedAction;
-        if (aiAction === "approve") aiFollowed = isApproved;
-        else if (aiAction === "reject" || aiAction === "suspend") aiFollowed = !isApproved;
-        // if 'flag_for_review' or 'none', it stays null
-      }
-
-      await storage.createAuditLog({
-        adminId,
-        action: normalizedStatus, // 'approved' or 'rejected'
-        targetType,
-        targetId,
-        adminReason: reason || null,
-        aiRiskLevel: modRecord?.riskLevel || null,
-        aiSuggested: modRecord?.suggestedAction || null,
-        aiReasoning: modRecord?.reasoning || null,
-        aiFollowed,
-      });
-
-      // Invalidate audit summary cache
-      const { invalidateAiAdminCache } = await import("./routes/ai-admin");
-      invalidateAiAdminCache("all");
-
-      return res.json(updatedEntity);
-    } catch (error) {
-      handleError(res, error, "Failed to update approval");
-    }
-  });
 
   // Admin: Get analytics data (live DB-backed)
   app.get("/api/admin/analytics", requireAdmin, async (req, res) => {
