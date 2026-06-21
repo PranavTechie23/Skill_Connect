@@ -3,6 +3,7 @@ import { db } from '../db';
 import { applications } from '../../../shared/schema';
 import { storage as appStorage } from '../storage';
 import { notifyApplicationSubmitted } from '../lib/activity-notifications';
+import { runModerationScan } from '../ai/moderation-scanner';
 import { z } from 'zod';
 
 import multer from 'multer';
@@ -170,6 +171,29 @@ export const createApplication = async (req: Request, res: Response) => {
       applicationId: application.id,
       jobTitle: (job as { title?: string } | null)?.title,
     }).catch((err) => console.error('Submit notification failed:', err));
+
+    // Phase 6: Background moderation scan (modifies status if high risk)
+    setImmediate(async () => {
+      try {
+        const user = await appStorage.getUser(userId);
+        const scanResult = await runModerationScan({
+          entityType: "application",
+          entityId: String(application.id),
+          details: {
+            coverLetter: coverLetter || "",
+            applicantName: user ? [user.firstName, user.lastName].filter(Boolean).join(" ") : "Unknown Applicant",
+          },
+        });
+
+        if (scanResult.riskLevel === "medium" || scanResult.riskLevel === "high") {
+          // Explicitly separate status so Phase 4 stale-check ignores it
+          await appStorage.updateApplication(String(application.id), { status: "moderation_hold" });
+          console.warn(`[Moderation] Application ${application.id} flagged (${scanResult.riskLevel} risk). Status set to moderation_hold.`);
+        }
+      } catch (modError) {
+        console.error(`[Moderation] Application ${application.id} scan error:`, modError);
+      }
+    });
 
     res.status(201).json(application);
   } catch (error) {

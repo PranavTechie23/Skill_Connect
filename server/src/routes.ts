@@ -5,6 +5,11 @@ import resumesRouter from "./routes/resumes";
 import recommendationsRouter from "./routes/recommendations";
 import aiReviewRouter from "./routes/ai-review";
 import aiAdminRouter from "./routes/ai-admin";
+import agentsRouter from "./routes/agents";
+import semanticSearchRouter from "./routes/semantic-search";
+import aiCandidateRouter from "./routes/ai-candidate";
+import aiEmployerRouter from "./routes/ai-employer";
+import aiFeedbackRouter from "./routes/ai-feedback";
 import {
   buildEmployerAnalytics,
   mapApplicationsForAnalytics,
@@ -171,6 +176,7 @@ const updateUserSchema = z.object({
   profilePhoto: z.string().optional(),
   accountStatus: z.enum(USER_ACCOUNT_STATUSES).optional(),
   status: z.enum(USER_ACCOUNT_STATUSES).optional(),
+  privacySettings: z.any().optional(),
 });
 
 const insertCompanySchema = z.object({
@@ -342,7 +348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     );
 
     // Passport initialization for OAuth routes
-    app.use(oauthPassport.initialize());
+    app.use(oauthPassport.initialize() as any);
 
     // Add middleware to ensure session cookie always has correct path
     app.use((req, res, next) => {
@@ -953,6 +959,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // --- Authenticated Routes ---
   const authRouter = Router();
 
+  // Semantic search for jobs (mounted before /jobs to avoid clash with GET /jobs/:id)
+  authRouter.use("/jobs/semantic-search", semanticSearchRouter);
+
   // Job routes (assuming they might need auth features later)
   authRouter.use("/jobs", jobsRouter);
 
@@ -1120,7 +1129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const metadata = assistantEventMetadata(req.body);
 
     try {
-      const reply = await createAssistantReply(req.body);
+      const reply = await createAssistantReply(req.body, userId);
       logAssistantAiEvent({
         userId,
         status: "success",
@@ -2335,6 +2344,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/applications", applicationsRouter);
   app.use("/api/ai/applications", aiReviewRouter);
   app.use("/api/ai/admin", aiAdminRouter);
+  app.use("/api/ai/candidate", aiCandidateRouter);
+  app.use("/api/ai/employer", aiEmployerRouter);
+  app.use("/api/ai/feedback", aiFeedbackRouter);
+  app.use("/api/agents", agentsRouter);
   
   // Log registered routes for debugging
   console.log('✅ Routes registered:');
@@ -2932,79 +2945,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: Get pending approvals (live DB-backed)
   app.get("/api/admin/approvals", requireAdmin, async (req, res) => {
     try {
-      const [applications, stories] = await Promise.all([
+      const [applications, stories, jobsResult, companies] = await Promise.all([
         storage.getApplicationsByJob("all"),
         storage.getAllStories(),
+        storage.getJobs({ includeInactive: true }),
+        storage.getAllCompanies(),
       ]);
 
-      const pendingApplicationStatuses = new Set(["applied", "review", "reviewing", "pending"]);
+      const pendingApplicationStatuses = new Set(["applied", "review", "reviewing", "pending", "moderation_hold"]);
+      const rawPendingApplications = applications
+        .filter((app: any) => pendingApplicationStatuses.has(String(app.status || "").toLowerCase()))
+        .slice(0, 50);
+
       const pendingApplications = await Promise.all(
-        applications
-          .filter((app: any) => pendingApplicationStatuses.has(String(app.status || "").toLowerCase()))
-          .slice(0, 50)
-          .map(async (app: any) => {
-            const normalizedApp = normalizeApplication(app);
-            const jobId = normalizedApp.jobId ? String(normalizedApp.jobId) : "";
-            const applicantId = normalizedApp.applicantId ? String(normalizedApp.applicantId) : "";
+        rawPendingApplications.map(async (app: any) => {
+          const normalizedApp = normalizeApplication(app);
+          const jobId = normalizedApp.jobId ? String(normalizedApp.jobId) : "";
+          const applicantId = normalizedApp.applicantId ? String(normalizedApp.applicantId) : "";
 
-            const [job, applicant] = await Promise.all([
-              jobId ? storage.getJob(jobId).catch(() => null) : null,
-              applicantId ? storage.getUser(applicantId).catch(() => null) : null,
-            ]);
+          const [job, applicant, modRecord] = await Promise.all([
+            jobId ? storage.getJob(jobId).catch(() => null) : null,
+            applicantId ? storage.getUser(applicantId).catch(() => null) : null,
+            storage.getModerationRecordForEntity("application", String(app.id)),
+          ]);
 
-            const jobTitle =
-              (job as any)?.title ||
-              (job as any)?.job_title ||
-              (jobId ? `Job ${jobId}` : "Job application");
+          const jobTitle =
+            (job as any)?.title ||
+            (job as any)?.job_title ||
+            (jobId ? `Job ${jobId}` : "Job application");
 
-            const applicantName = applicant
-              ? `${(applicant as any)?.firstName || (applicant as any)?.first_name || ""} ${(applicant as any)?.lastName || (applicant as any)?.last_name || ""}`.trim()
-              : "";
+          const applicantName = applicant
+            ? `${(applicant as any)?.firstName || (applicant as any)?.first_name || ""} ${(applicant as any)?.lastName || (applicant as any)?.last_name || ""}`.trim()
+            : "";
 
-            return {
-              id: `application-${app.id}`,
-              type: "application",
+          return {
+            id: `application-${app.id}`,
+            type: "application",
+            status: normalizedApp.status,
+            createdAt: normalizedApp.appliedAt || null,
+            title: jobTitle,
+            subtitle: applicantName || "Unknown applicant",
+            submittedBy: applicantName || applicantId || "Unknown applicant",
+            submittedDate: normalizedApp.appliedAt || normalizedApp.submittedAt || null,
+            priority: modRecord?.riskLevel === "high" ? "high" : "low",
+            details: {
               status: normalizedApp.status,
-              createdAt: normalizedApp.appliedAt || null,
-              title: jobTitle,
-              subtitle: applicantName || "Unknown applicant",
-              submittedBy: applicantName || applicantId || "Unknown applicant",
-              submittedDate: normalizedApp.appliedAt || normalizedApp.submittedAt || null,
-              priority: "low",
-              details: {
-                status: normalizedApp.status,
-                jobId,
-                applicantId,
-                jobTitle,
-                applicantName: applicantName || applicantId || "Unknown applicant",
-                appliedAt: normalizedApp.appliedAt,
-                submittedAt: normalizedApp.submittedAt,
-                resume: normalizedApp.resume,
-                coverLetter: normalizedApp.coverLetter,
-                notes: normalizedApp.notes,
-              },
-              data: normalizedApp,
-            };
-          })
+              jobId,
+              applicantId,
+              jobTitle,
+              applicantName: applicantName || applicantId || "Unknown applicant",
+              appliedAt: normalizedApp.appliedAt,
+              submittedAt: normalizedApp.submittedAt,
+              resume: normalizedApp.resume,
+              coverLetter: normalizedApp.coverLetter,
+              notes: normalizedApp.notes,
+            },
+            data: normalizedApp,
+            moderationScan: modRecord ? {
+              riskLevel: modRecord.riskLevel,
+              flags: modRecord.flags,
+              reasoning: modRecord.reasoning,
+              suggestedAction: modRecord.suggestedAction,
+            } : null,
+          };
+        })
       );
 
-      const pendingStories = stories
+      const rawPendingStories = stories
         .filter((story: any) => story.approved !== true)
-        .slice(0, 50)
-        .map((story: any) => ({
-          id: `story-${story.id}`,
-          type: "story",
-          status: "pending",
-          createdAt: story.createdAt || (story as any).created_at || null,
-          data: story,
-        }));
+        .slice(0, 50);
 
-      const pendingItems = [...pendingApplications, ...pendingStories]
-        .sort((a, b) => {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return bTime - aTime;
-        });
+      const pendingStories = await Promise.all(
+        rawPendingStories.map(async (story: any) => {
+          const modRecord = await storage.getModerationRecordForEntity("story", String(story.id));
+          return {
+            id: `story-${story.id}`,
+            type: "story",
+            status: "pending",
+            createdAt: story.createdAt || (story as any).created_at || null,
+            data: story,
+            moderationScan: modRecord ? {
+              riskLevel: modRecord.riskLevel,
+              flags: modRecord.flags,
+              reasoning: modRecord.reasoning,
+              suggestedAction: modRecord.suggestedAction,
+            } : null,
+          };
+        })
+      );
+
+      // Phase 6: Jobs and Companies
+      const pendingJobStatuses = new Set(["flagged", "pending_scan", "scan_skipped", "scan_failed"]);
+      const rawPendingJobs = (jobsResult.jobs as any[])
+        .filter((job) => pendingJobStatuses.has(String(job.status || "").toLowerCase()))
+        .slice(0, 50);
+
+      const pendingJobs = await Promise.all(
+        rawPendingJobs.map(async (job) => {
+          const modRecord = await storage.getModerationRecordForEntity("job", String(job.id));
+          return {
+            id: `job-${job.id}`,
+            type: "job",
+            status: job.status,
+            createdAt: job.createdAt || job.created_at || null,
+            title: job.title || "Unknown Job",
+            subtitle: job.companyName || "Unknown Company",
+            data: job,
+            moderationScan: modRecord ? {
+              riskLevel: modRecord.riskLevel,
+              flags: modRecord.flags,
+              reasoning: modRecord.reasoning,
+              suggestedAction: modRecord.suggestedAction,
+            } : null,
+          };
+        })
+      );
+
+      const pendingCompanyStatuses = new Set(["pending", "pending_scan", "scan_skipped"]);
+      const rawPendingCompanies = companies
+        .filter((company: any) => pendingCompanyStatuses.has(String(company.status || "").toLowerCase()))
+        .slice(0, 50);
+
+      const pendingCompanies = await Promise.all(
+        rawPendingCompanies.map(async (company: any) => {
+          const modRecord = await storage.getModerationRecordForEntity("company", String(company.id));
+          return {
+            id: `company-${company.id}`,
+            type: "employer", // mapped to employer in approvals UI
+            status: company.status,
+            createdAt: company.createdAt || company.created_at || null,
+            title: company.name || "Unknown Company",
+            subtitle: company.industry || "Unknown Industry",
+            data: company,
+            moderationScan: modRecord ? {
+              riskLevel: modRecord.riskLevel,
+              flags: modRecord.flags,
+              reasoning: modRecord.reasoning,
+              suggestedAction: modRecord.suggestedAction,
+            } : null,
+          };
+        })
+      );
+
+      const pendingItems = [
+        ...pendingApplications,
+        ...pendingStories,
+        ...pendingJobs,
+        ...pendingCompanies
+      ].sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime;
+      });
 
       res.json(pendingItems);
     } catch (error) {
@@ -3015,7 +3107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: Update approval status (application or story)
   app.put("/api/admin/approvals/:id", requireAdmin, async (req, res) => {
     try {
-      const { status } = req.body as { status?: string };
+      const { status, reason } = req.body as { status?: string; reason?: string };
       if (!status) {
         return res.status(400).json({ message: "Status is required" });
       }
@@ -3023,36 +3115,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const approvalId = String(req.params.id || "");
       const isApproved = status === "approved";
       const normalizedStatus = isApproved ? "approved" : "rejected";
+      const adminId = (req.session as any)?.userId || "admin-001";
+      
+      let targetType = "";
+      let targetId = "";
+      let updatedEntity: any = null;
 
       if (approvalId.startsWith("application-")) {
-        const applicationId = approvalId.replace("application-", "");
-        const existing = await storage.getApplication(applicationId);
-        const updatedApplication = await storage.updateApplication(applicationId, {
+        targetType = "application";
+        targetId = approvalId.replace("application-", "");
+        const existing = await storage.getApplication(targetId);
+        updatedEntity = await storage.updateApplication(targetId, {
           status: normalizedStatus,
         });
         if (existing && String(normalizedStatus) !== String(existing.status)) {
           await emitApplicationStatusNotification(
             {
-              id: updatedApplication.id,
-              applicantId: String(updatedApplication.applicantId),
-              jobId: updatedApplication.jobId ? String(updatedApplication.jobId) : null,
-              status: updatedApplication.status,
+              id: updatedEntity.id,
+              applicantId: String(updatedEntity.applicantId),
+              jobId: updatedEntity.jobId ? String(updatedEntity.jobId) : null,
+              status: updatedEntity.status,
             },
             existing.status,
             normalizedStatus
           );
         }
-        return res.json(updatedApplication);
+      } else if (approvalId.startsWith("story-")) {
+        targetType = "story";
+        targetId = approvalId.replace("story-", "");
+        updatedEntity = await storage.updateStoryApproval(targetId, isApproved);
+        if (!updatedEntity) return res.status(404).json({ message: "Story not found" });
+      } else if (approvalId.startsWith("job-")) {
+        targetType = "job";
+        targetId = approvalId.replace("job-", "");
+        // Only Drizzle SQL can be used safely here for jobs and companies right now
+        // so we'll do raw updates. For job:
+        const jobStatus = isApproved ? "active" : "rejected";
+        const isActive = isApproved;
+        const [jobRow] = await db.execute(sql`
+          UPDATE jobs SET status = ${jobStatus}, is_active = ${isActive}
+          WHERE id = ${targetId} RETURNING *
+        `).then(res => res.rows);
+        if (!jobRow) return res.status(404).json({ message: "Job not found" });
+        updatedEntity = jobRow;
+      } else if (approvalId.startsWith("company-")) {
+        targetType = "company";
+        targetId = approvalId.replace("company-", "");
+        const compStatus = isApproved ? "approved" : "rejected";
+        const [compRow] = await db.execute(sql`
+          UPDATE companies SET status = ${compStatus}
+          WHERE id = ${targetId} RETURNING *
+        `).then(res => res.rows);
+        if (!compRow) return res.status(404).json({ message: "Company not found" });
+        updatedEntity = compRow;
+      } else {
+        return res.status(400).json({ message: "Invalid approval id" });
       }
 
-      if (approvalId.startsWith("story-")) {
-        const storyId = approvalId.replace("story-", "");
-        const updatedStory = await storage.updateStoryApproval(storyId, isApproved);
-        if (!updatedStory) return res.status(404).json({ message: "Story not found" });
-        return res.json(updatedStory);
+      // Phase 6: Audit Logging
+      const modRecord = await storage.getModerationRecordForEntity(targetType, targetId);
+      let aiFollowed: boolean | null = null;
+      if (modRecord) {
+        const aiAction = modRecord.suggestedAction;
+        if (aiAction === "approve") aiFollowed = isApproved;
+        else if (aiAction === "reject" || aiAction === "suspend") aiFollowed = !isApproved;
+        // if 'flag_for_review' or 'none', it stays null
       }
 
-      return res.status(400).json({ message: "Invalid approval id" });
+      await storage.createAuditLog({
+        adminId,
+        action: normalizedStatus, // 'approved' or 'rejected'
+        targetType,
+        targetId,
+        adminReason: reason || null,
+        aiRiskLevel: modRecord?.riskLevel || null,
+        aiSuggested: modRecord?.suggestedAction || null,
+        aiReasoning: modRecord?.reasoning || null,
+        aiFollowed,
+      });
+
+      // Invalidate audit summary cache
+      const { invalidateAiAdminCache } = await import("./routes/ai-admin");
+      invalidateAiAdminCache("all");
+
+      return res.json(updatedEntity);
     } catch (error) {
       handleError(res, error, "Failed to update approval");
     }

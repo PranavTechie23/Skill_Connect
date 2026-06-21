@@ -16,6 +16,34 @@
         } catch (e) {}
       })();
     </script>
+    <!-- Measure any fixed navbar early and expose as CSS variable to avoid content clipping on first paint -->
+    <script>
+      (function(){
+        try {
+          // Default nav height (112px) as a safer fallback for various browser UI offsets
+          var defaultNav = 112;
+          function setNavVar(px){
+            document.documentElement.style.setProperty('--nav-height', px + 'px');
+          }
+          // If a nav element already exists in the static HTML, measure it.
+          var nav = document.querySelector('nav');
+          if (nav) setNavVar(Math.ceil(nav.getBoundingClientRect().height));
+          else setNavVar(defaultNav);
+          // Also update on resize and when DOM changes slightly
+          window.addEventListener('resize', function(){
+            var n = document.querySelector('nav');
+            if (n) setNavVar(Math.ceil(n.getBoundingClientRect().height));
+          });
+          var mo = new MutationObserver(function(){
+            var n = document.querySelector('nav');
+            if (n) setNavVar(Math.ceil(n.getBoundingClientRect().height));
+          });
+          mo.observe(document.documentElement, {childList:true, subtree:true});
+        } catch(e) {
+          try{document.documentElement.style.setProperty('--nav-height', '96px');}catch{}
+        }
+      })();
+    </script>
   </head>
   <body class="bg-background text-foreground">
     <div id="root"></div>

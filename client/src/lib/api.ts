@@ -88,9 +88,10 @@ export const apiFetch = async (url: string, options?: RequestInit) => {
 			credentials: options?.credentials ?? "include",
 		});
 
-		if (!response.ok) {
-			console.warn(`API request failed: ${fullUrl}`, response.status, response.statusText);
-		}
+    // Don't emit console warnings for known "silent" endpoints (auth checks, polling, etc.).
+    if (!response.ok && !skipLoader) {
+      console.warn(`API request failed: ${fullUrl}`, response.status, response.statusText);
+    }
 
 		return response;
 	} catch (error: unknown) {

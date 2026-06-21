@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -47,6 +47,7 @@ import EmployerStories from "./pages/employer/stories";
 import EmployerMessages from "./pages/employer/messages";
 import EmployerApplications from "./pages/employer/applications";
 import AdminRoutes from "./pages/admin";
+import AgentsPage from "./pages/agents";
 
 const ROUTES = {
   PUBLIC: {
@@ -75,6 +76,7 @@ const ROUTES = {
     PROFILE: "/employee/profile",
     STORY: "/employee/story",
     SETTINGS: "/employee/settings",
+    AGENTS: "/employee/agents",
   },
   EMPLOYER: {
     BASE: "/employer",
@@ -86,6 +88,7 @@ const ROUTES = {
     APPLICATIONS: "/employer/applications",
     ANALYTICS: "/employer/analytics",
     STORIES: "/employer/stories",
+    AGENTS: "/employer/agents",
   },
   ADMIN: {
     BASE: "/admin/*",
@@ -159,6 +162,7 @@ const routeConfig = {
     { path: ROUTES.EMPLOYEE.PROFILE, element: <EmployeeProfile /> },
     { path: ROUTES.EMPLOYEE.STORY, element: <EmployeeStory /> },
     { path: ROUTES.EMPLOYEE.SETTINGS, element: <EmployeeSettings /> },
+    { path: ROUTES.EMPLOYEE.AGENTS, element: <AgentsPage /> },
     { path: "/employee/activity", element: <Navigate to={ROUTES.EMPLOYEE.APPLICATIONS} replace /> },
   ],
   employer: [
@@ -170,6 +174,7 @@ const routeConfig = {
     { path: ROUTES.EMPLOYER.APPLICATIONS, element: <EmployerApplications /> },
     { path: ROUTES.EMPLOYER.ANALYTICS, element: <EmployerAnalytics /> },
     { path: ROUTES.EMPLOYER.STORIES, element: <EmployerStories /> },
+    { path: ROUTES.EMPLOYER.AGENTS, element: <AgentsPage /> },
     { path: "/employer/candidates", element: <Navigate to={ROUTES.EMPLOYER.APPLICATIONS} replace /> },
   ],
   admin: [{ path: ROUTES.ADMIN.BASE, element: <AdminRoutes /> }],
@@ -184,17 +189,46 @@ function useRouteVisibility() {
 
   return {
     showNavbar: !isSpecialRoute,
-    mainPadding: isSpecialRoute ? "p-0" : "pt-16",
+    // Increase top padding to accommodate larger/flexible navbar heights (prevents overlap at 100% zoom)
+    // Use a slightly larger fallback so guests don't see clipped content before JS measures nav height.
+    mainPadding: isSpecialRoute ? "p-0" : "pt-24",
   };
 }
 
 function AppContent() {
   const { showNavbar, mainPadding } = useRouteVisibility();
+  const [navHeight, setNavHeight] = useState(0);
+
+  useEffect(() => {
+    function measure() {
+      const nav = document.querySelector("nav");
+      const height = nav ? nav.getBoundingClientRect().height : 0;
+      setNavHeight(Math.ceil(height));
+    }
+    // Measure once and on resize to handle zoom/font changes
+    measure();
+    window.addEventListener("resize", measure);
+    // Also observe DOM changes to account for dynamic nav height changes
+    const ro = new MutationObserver(measure);
+    const navEl = document.querySelector("nav");
+    if (navEl) ro.observe(navEl, { attributes: true, childList: true, subtree: true });
+    return () => {
+      window.removeEventListener("resize", measure);
+      ro.disconnect();
+    };
+  }, []);
 
   return (
-    <div className="min-h-screen w-full flex flex-col overflow-x-hidden">
+    <div className="min-h-screen w-full flex flex-col">
       {showNavbar && <Navbar />}
-      <main className={`flex-1 ${mainPadding}`}>
+      <main
+        className={`flex-1 ${mainPadding}`}
+        style={{
+          // Use CSS variable set early by index.html to avoid initial clipping,
+          // but still update with precise measured px value once mounted.
+          paddingTop: showNavbar && mainPadding !== "p-0" ? (navHeight ? `${navHeight}px` : 'var(--nav-height, 112px)') : undefined,
+        }}
+      >
         <Routes>
           {routeConfig.public.map(({ path, element }) => (
             <Route key={path} path={path} element={element} />

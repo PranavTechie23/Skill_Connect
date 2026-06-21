@@ -1,8 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { type User, type InsertUser, type Company, type InsertCompany, type Job, type InsertJob, type Application, type InsertApplication, type Message, type InsertMessage, type Experience, type InsertExperience, type Story, type ProfessionalProfile, type InsertProfessionalProfile, type Notification, type AiEvent } from "../../shared/schema";
+import { type User, type InsertUser, type Company, type InsertCompany, type Job, type InsertJob, type Application, type InsertApplication, type Message, type InsertMessage, type Experience, type InsertExperience, type Story, type ProfessionalProfile, type InsertProfessionalProfile, type Notification, type AiEvent, type ModerationRecord, type InsertModerationRecord, type AuditLog, type InsertAuditLog, jobs, professionalProfiles, moderationRecords, auditLogs } from "../../shared/schema";
 import { db } from "./db";
-import { sql } from "drizzle-orm";
+import { sql, eq, desc } from "drizzle-orm";
 import { resolveEmployeeMessagingAccess } from "./lib/messaging-policy";
+import { generateTextEmbedding, buildJobEmbeddingText, buildProfileEmbeddingText } from "./ai/embeddings";
+import { invalidateSuggestionsCache } from "./ai/suggestions-cache";
+import { runModerationScan } from "./ai/moderation-scanner";
 
 function parseJobPostingsCount(value: unknown): number {
   if (value == null) return 0;
@@ -223,6 +226,10 @@ export class Storage {
       if (accountStatus !== undefined) {
         setClauses.push(sql`account_status = ${accountStatus}`);
       }
+      const privacySettings = (updates as { privacySettings?: any }).privacySettings;
+      if (privacySettings !== undefined) {
+        setClauses.push(sql`privacy_settings = ${privacySettings}`);
+      }
 
       if (setClauses.length === 0) {
         throw new Error("No valid fields to update");
@@ -235,6 +242,7 @@ export class Storage {
       if (!result.rows[0]) {
         throw new Error("User not found");
       }
+      invalidateSuggestionsCache(id);
       return result.rows[0] as User;
     } catch (error) {
       console.error('Error in updateUser:', error);
@@ -433,6 +441,7 @@ export class Storage {
           isActive: Boolean(row.is_active),
           status: String(row.status || 'active'),
           createdAt: new Date(row.created_at),
+          embedding: Array.isArray(row.embedding) ? row.embedding : null,
           company: row.company_name ? {
             name: String(row.company_name),
             location: String(row.company_location),
@@ -569,7 +578,35 @@ export class Storage {
         throw new Error('Job not found');
       }
 
-      return castDbResult<Job>(result.rows[0]);
+      const updatedJob = castDbResult<Job>(result.rows[0]);
+
+      if (updatedJob && (updates.title !== undefined || updates.description !== undefined || updates.requirements !== undefined || updates.skills !== undefined)) {
+        setImmediate(async () => {
+          try {
+            const text = buildJobEmbeddingText({
+              title: updatedJob.title,
+              description: updatedJob.description ?? "",
+              requirements: updatedJob.requirements,
+              skills: Array.isArray(updatedJob.skills) ? updatedJob.skills as string[] : [],
+            });
+            const embedding = await generateTextEmbedding(text);
+            if (embedding && embedding.length > 0) {
+              await db.update(jobs)
+                .set({ embedding })
+                .where(eq(jobs.id, updatedJob.id));
+              console.log(`[Background Embedding] Successfully updated embedding for updated job ${updatedJob.id}`);
+            }
+          } catch (error) {
+            console.warn(`[Background Embedding] Failed to generate/save embedding for updated job ${updatedJob.id}:`, error);
+          }
+        });
+      }
+
+      if (!updatedJob) {
+        throw new Error('Failed to retrieve updated job from database');
+      }
+
+      return updatedJob;
     } catch (error) {
       console.error('Error in updateJob:', error);
       throw error;
@@ -654,11 +691,64 @@ export class Storage {
           ${companyId},
           ${job.employerId},
           ${job.deadline ? new Date(String(job.deadline)) : null},
-          ${job.isActive !== false},
+          ${false},
           ${new Date()}
         ) RETURNING *
       `);
-      return result.rows[0] as Job;
+      const insertedJob = result.rows[0] as Job;
+
+      setImmediate(async () => {
+        try {
+          const text = buildJobEmbeddingText({
+            title: insertedJob.title,
+            description: insertedJob.description ?? "",
+            requirements: insertedJob.requirements,
+            skills: Array.isArray(insertedJob.skills) ? insertedJob.skills as string[] : [],
+          });
+          const embedding = await generateTextEmbedding(text);
+          if (embedding && embedding.length > 0) {
+            await db.update(jobs)
+              .set({ embedding })
+              .where(eq(jobs.id, insertedJob.id));
+            console.log(`[Background Embedding] Successfully updated embedding for job ${insertedJob.id}`);
+          }
+        } catch (error) {
+          console.warn(`[Background Embedding] Failed to generate/save embedding for job ${insertedJob.id}:`, error);
+        }
+
+        // Phase 6: Background moderation scan (fail-closed)
+        try {
+          const scanResult = await runModerationScan({
+            entityType: "job",
+            entityId: insertedJob.id,
+            details: {
+              title: insertedJob.title,
+              description: insertedJob.description ?? "",
+              requirements: insertedJob.requirements ?? "",
+            },
+          });
+
+          if (scanResult.skipped) {
+            // Rate limit exhausted — leave inactive, status = scan_skipped
+            await db.execute(sql`UPDATE jobs SET status = 'scan_skipped' WHERE id = ${insertedJob.id}`);
+            console.warn(`[Moderation] Job ${insertedJob.id} scan skipped (rate limit). Status: scan_skipped`);
+          } else if (scanResult.riskLevel === "low") {
+            // Low risk — activate the job
+            await db.execute(sql`UPDATE jobs SET is_active = true, status = 'active' WHERE id = ${insertedJob.id}`);
+            console.log(`[Moderation] Job ${insertedJob.id} approved (low risk). Now active.`);
+          } else {
+            // Medium/high risk — keep inactive, flagged for review
+            await db.execute(sql`UPDATE jobs SET status = 'flagged' WHERE id = ${insertedJob.id}`);
+            console.warn(`[Moderation] Job ${insertedJob.id} flagged (${scanResult.riskLevel} risk). Requires admin review.`);
+          }
+        } catch (modError) {
+          // Scan infrastructure failure — keep inactive, mark scan_failed
+          await db.execute(sql`UPDATE jobs SET status = 'scan_failed' WHERE id = ${insertedJob.id}`).catch(() => {});
+          console.error(`[Moderation] Job ${insertedJob.id} scan infrastructure error:`, modError);
+        }
+      });
+
+      return insertedJob;
     } catch (error) {
       console.error('Error in createJob:', error);
       throw error;
@@ -726,7 +816,7 @@ export class Storage {
       }
 
       const row = result.rows[0];
-      return {
+      const createdStory = {
         id: Number(row.id),
         title: String(row.title),
         content: String(row.content),
@@ -736,6 +826,26 @@ export class Storage {
         tags: Array.isArray(row.tags) ? row.tags : [],
         createdAt: row.createdAt instanceof Date ? row.createdAt : new Date(String(row.createdAt))
       };
+
+      // Phase 6: Advisory moderation scan (stories already gate on approved=false)
+      setImmediate(async () => {
+        try {
+          await runModerationScan({
+            entityType: "story",
+            entityId: String(createdStory.id),
+            details: {
+              title: createdStory.title,
+              content: createdStory.content,
+              tags: createdStory.tags,
+            },
+          });
+          console.log(`[Moderation] Story ${createdStory.id} advisory scan completed.`);
+        } catch (modError) {
+          console.error(`[Moderation] Story ${createdStory.id} advisory scan error:`, modError);
+        }
+      });
+
+      return createdStory;
     } catch (error) {
       console.error('Error in createStory:', error);
       throw error;
@@ -777,7 +887,28 @@ export class Storage {
           ${JSON.stringify((profile as any).education || [])}::jsonb
         ) RETURNING *
       `);
-      return result.rows[0] as ProfessionalProfile;
+      const insertedProfile = result.rows[0] as ProfessionalProfile;
+
+      setImmediate(async () => {
+        try {
+          const text = buildProfileEmbeddingText({
+            headline: insertedProfile.headline,
+            bio: insertedProfile.bio,
+            skills: Array.isArray(insertedProfile.skills) ? insertedProfile.skills as string[] : [],
+          });
+          const embedding = await generateTextEmbedding(text);
+          if (embedding && embedding.length > 0) {
+            await db.update(professionalProfiles)
+              .set({ embedding })
+              .where(eq(professionalProfiles.id, insertedProfile.id));
+            console.log(`[Background Embedding] Successfully updated embedding for profile ${insertedProfile.id}`);
+          }
+        } catch (error) {
+          console.warn(`[Background Embedding] Failed to generate/save embedding for profile ${insertedProfile.id}:`, error);
+        }
+      });
+
+      return insertedProfile;
     } catch (error) {
       console.error('Error in createProfessionalProfile:', error);
       throw error;
@@ -820,6 +951,7 @@ export class Storage {
         WHERE user_id = ${userId}
         RETURNING *
       `);
+      invalidateSuggestionsCache(userId);
       return result.rows[0] as ProfessionalProfile;
     } catch (error) {
       console.error('Error in updateProfessionalProfileResume:', error);
@@ -835,6 +967,7 @@ export class Storage {
         WHERE user_id = ${userId}
         RETURNING *
       `);
+      invalidateSuggestionsCache(userId);
       return (result.rows[0] as ProfessionalProfile) || null;
     } catch (error) {
       console.error('Error in clearProfessionalProfileResume:', error);
@@ -874,7 +1007,31 @@ export class Storage {
         });
       }
 
-      return result.rows[0] as ProfessionalProfile;
+      const updatedProfile = result.rows[0] as ProfessionalProfile;
+
+      if (updates.headline !== undefined || updates.bio !== undefined || updates.skills !== undefined) {
+        setImmediate(async () => {
+          try {
+            const text = buildProfileEmbeddingText({
+              headline: updatedProfile.headline,
+              bio: updatedProfile.bio,
+              skills: Array.isArray(updatedProfile.skills) ? updatedProfile.skills as string[] : [],
+            });
+            const embedding = await generateTextEmbedding(text);
+            if (embedding && embedding.length > 0) {
+              await db.update(professionalProfiles)
+                .set({ embedding })
+                .where(eq(professionalProfiles.id, updatedProfile.id));
+              console.log(`[Background Embedding] Successfully updated embedding for updated profile ${updatedProfile.id}`);
+            }
+          } catch (error) {
+            console.warn(`[Background Embedding] Failed to generate/save embedding for updated profile ${updatedProfile.id}:`, error);
+          }
+        });
+      }
+
+      invalidateSuggestionsCache(userId);
+      return updatedProfile;
     } catch (error) {
       console.error('Error in updateProfessionalProfile:', error);
       throw error;
@@ -895,6 +1052,7 @@ export class Storage {
           industry,
           size,
           owner_id,
+          status,
           created_at
         ) VALUES (
           ${companyId},
@@ -905,10 +1063,41 @@ export class Storage {
           ${company.industry || null},
           ${company.size || null},
           ${company.ownerId},
+          ${'pending_scan'},
           ${new Date()}
         ) RETURNING *
       `);
-      return result.rows[0] as Company;
+      const insertedCompany = result.rows[0] as Company;
+
+      // Phase 6: Background moderation scan (fail-closed)
+      setImmediate(async () => {
+        try {
+          const scanResult = await runModerationScan({
+            entityType: "company",
+            entityId: insertedCompany.id,
+            details: {
+              name: insertedCompany.name,
+              description: insertedCompany.description ?? "",
+            },
+          });
+
+          if (scanResult.skipped) {
+            await db.execute(sql`UPDATE companies SET status = 'scan_skipped' WHERE id = ${insertedCompany.id}`);
+            console.warn(`[Moderation] Company ${insertedCompany.id} scan skipped (rate limit).`);
+          } else if (scanResult.riskLevel === "low") {
+            await db.execute(sql`UPDATE companies SET status = 'approved' WHERE id = ${insertedCompany.id}`);
+            console.log(`[Moderation] Company ${insertedCompany.id} approved (low risk).`);
+          } else {
+            await db.execute(sql`UPDATE companies SET status = 'pending' WHERE id = ${insertedCompany.id}`);
+            console.warn(`[Moderation] Company ${insertedCompany.id} flagged (${scanResult.riskLevel} risk). Requires admin review.`);
+          }
+        } catch (modError) {
+          await db.execute(sql`UPDATE companies SET status = 'scan_skipped' WHERE id = ${insertedCompany.id}`).catch(() => {});
+          console.error(`[Moderation] Company ${insertedCompany.id} scan infrastructure error:`, modError);
+        }
+      });
+
+      return insertedCompany;
     } catch (error) {
       console.error('Error in createCompany:', error);
       throw error;
@@ -2461,6 +2650,141 @@ export class Storage {
     } catch (error) {
       console.warn("AI event analytics unavailable:", error instanceof Error ? error.message : error);
       return emptyPayload;
+    }
+  }
+
+  // ── Phase 6: Moderation & Audit helpers ─────────────────────────────
+
+  async createModerationRecord(record: InsertModerationRecord): Promise<ModerationRecord | null> {
+    try {
+      const result = await db.insert(moderationRecords).values(record).returning();
+      return result[0] ?? null;
+    } catch (error) {
+      console.warn("Failed to create moderation record:", error instanceof Error ? error.message : error);
+      return null;
+    }
+  }
+
+  async getModerationRecordForEntity(entityType: string, entityId: string): Promise<ModerationRecord | null> {
+    try {
+      const result = await db.execute(sql`
+        SELECT * FROM moderation_records
+        WHERE entity_type = ${entityType} AND entity_id = ${entityId}
+        ORDER BY created_at DESC LIMIT 1
+      `);
+      return (result.rows[0] as ModerationRecord) ?? null;
+    } catch (error) {
+      console.warn("Failed to get moderation record:", error instanceof Error ? error.message : error);
+      return null;
+    }
+  }
+
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog | null> {
+    try {
+      const result = await db.insert(auditLogs).values(log).returning();
+      return result[0] ?? null;
+    } catch (error) {
+      console.warn("Failed to create audit log:", error instanceof Error ? error.message : error);
+      return null;
+    }
+  }
+
+  async getRecentAuditLogs(limit: number = 20): Promise<any[]> {
+    try {
+      const result = await db.execute(sql`
+        SELECT al.*, u.first_name, u.last_name, u.email
+        FROM audit_logs al
+        LEFT JOIN users u ON al.admin_id = u.id
+        ORDER BY al.created_at DESC
+        LIMIT ${limit}
+      `);
+      return result.rows.map((row: any) => ({
+        id: Number(row.id),
+        adminId: String(row.admin_id),
+        adminName: [row.first_name, row.last_name].filter(Boolean).join(" ").trim() || row.email || "Admin",
+        action: String(row.action),
+        targetType: String(row.target_type),
+        targetId: String(row.target_id),
+        adminReason: row.admin_reason ? String(row.admin_reason) : null,
+        aiRiskLevel: row.ai_risk_level ? String(row.ai_risk_level) : null,
+        aiSuggested: row.ai_suggested ? String(row.ai_suggested) : null,
+        aiReasoning: row.ai_reasoning ? String(row.ai_reasoning) : null,
+        aiFollowed: row.ai_followed,
+        createdAt: row.created_at ? new Date(String(row.created_at)).toISOString() : new Date().toISOString(),
+      }));
+    } catch (error) {
+      console.warn("Failed to get recent audit logs:", error instanceof Error ? error.message : error);
+      return [];
+    }
+  }
+
+  async getAuditSummary(): Promise<{
+    totalActions: number;
+    aiFollowedCount: number;
+    aiDisagreedCount: number;
+    agreementRate: number;
+  }> {
+    try {
+      const result = await db.execute(sql`
+        SELECT
+          COUNT(*)::int AS total_actions,
+          COUNT(CASE WHEN ai_followed = true THEN 1 END)::int AS ai_followed_count,
+          COUNT(CASE WHEN ai_followed = false THEN 1 END)::int AS ai_disagreed_count
+        FROM audit_logs
+      `);
+      const row = result.rows[0] as any;
+      const followed = Number(row?.ai_followed_count ?? 0);
+      const disagreed = Number(row?.ai_disagreed_count ?? 0);
+      const total = followed + disagreed;
+      return {
+        totalActions: Number(row?.total_actions ?? 0),
+        aiFollowedCount: followed,
+        aiDisagreedCount: disagreed,
+        agreementRate: total > 0 ? Math.round((followed / total) * 1000) / 10 : 0,
+      };
+    } catch (error) {
+      console.warn("Failed to get audit summary:", error instanceof Error ? error.message : error);
+      return { totalActions: 0, aiFollowedCount: 0, aiDisagreedCount: 0, agreementRate: 0 };
+    }
+  }
+
+  async getRiskQueue(): Promise<any[]> {
+    try {
+      const result = await db.execute(sql`
+        SELECT mr.*,
+          CASE
+            WHEN mr.entity_type = 'job' THEN (SELECT title FROM jobs WHERE id = mr.entity_id)
+            WHEN mr.entity_type = 'company' THEN (SELECT name FROM companies WHERE id = mr.entity_id)
+            WHEN mr.entity_type = 'story' THEN (SELECT title FROM stories WHERE id::text = mr.entity_id)
+            WHEN mr.entity_type = 'application' THEN (
+              SELECT u.first_name || ' ' || u.last_name
+              FROM applications a
+              JOIN users u ON a.applicant_id = u.id
+              WHERE a.id::text = mr.entity_id
+            )
+            ELSE 'Unknown'
+          END AS entity_label
+        FROM moderation_records mr
+        WHERE mr.risk_level IN ('medium', 'high')
+        ORDER BY
+          CASE mr.risk_level WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
+          mr.created_at DESC
+      `);
+      return result.rows.map((row: any) => ({
+        id: Number(row.id),
+        entityType: String(row.entity_type),
+        entityId: String(row.entity_id),
+        entityLabel: row.entity_label ? String(row.entity_label) : "Unknown",
+        riskLevel: String(row.risk_level),
+        flags: Array.isArray(row.flags) ? row.flags : [],
+        reasoning: String(row.reasoning),
+        suggestedAction: String(row.suggested_action),
+        scanStatus: String(row.scan_status),
+        scannedAt: row.created_at ? new Date(String(row.created_at)).toISOString() : new Date().toISOString(),
+      }));
+    } catch (error) {
+      console.warn("Failed to get risk queue:", error instanceof Error ? error.message : error);
+      return [];
     }
   }
 }
