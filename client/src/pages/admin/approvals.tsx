@@ -12,6 +12,7 @@ import { aiAdminService } from '@/lib/ai-admin-service';
 import type { ModerationResult } from '../../../../shared/schema';
 import { useToast } from '@/hooks/use-toast';
 import { scrollDashboardToTop } from '@/lib/scroll-to-top';
+import { Pagination } from '@/components/Pagination';
 import {
   ApprovalActionButton,
   type ApprovalActionPhase,
@@ -1104,68 +1105,14 @@ const AdminApprovals: React.FC<AdminApprovalsProps> = ({
         </div>
 
         {/* Pagination */}
-        {!loading && totalPages > 1 && (
-          <div className={`rounded-3xl shadow-lg p-6 border-2 mt-6 ${
-            darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'
-          }`}>
-            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <p className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                Showing <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{(currentPage - 1) * itemsPerPage + 1}</span> to <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{Math.min(currentPage * itemsPerPage, filteredItems.length)}</span> of <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{filteredItems.length}</span> items
-              </p>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className={`p-2 rounded-lg transition-colors ${
-                    currentPage === 1
-                      ? darkMode ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 cursor-not-allowed'
-                      : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <div className="flex gap-1">
-                  {(() => {
-                    const getVisiblePages = (current: number, total: number) => {
-                      if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-                      if (current <= 3) return [1, 2, 3, 4, '...', total];
-                      if (current >= total - 2) return [1, '...', total - 3, total - 2, total - 1, total];
-                      return [1, '...', current - 1, current, current + 1, '...', total];
-                    };
-                    return getVisiblePages(currentPage, totalPages).map((page, index) => (
-                      page === '...' ? (
-                        <span key={`ellipsis-${index}`} className={`px-2 font-bold flex items-center justify-center ${darkMode ? 'text-gray-600' : 'text-gray-400'}`}>…</span>
-                      ) : (
-                        <button
-                          key={`page-${page}`}
-                          onClick={() => handlePageChange(page as number)}
-                          className={`w-10 h-10 rounded-lg font-bold transition-all ${
-                            currentPage === page
-                              ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg'
-                              : darkMode ? 'text-gray-400 hover:bg-gray-700 hover:text-gray-200' : 'text-gray-600 hover:bg-gray-100'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      )
-                    ));
-                  })()}
-                </div>
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className={`p-2 rounded-lg transition-colors ${
-                    currentPage === totalPages
-                      ? darkMode ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 cursor-not-allowed'
-                      : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredItems.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={handlePageChange}
+          itemName="items"
+        />
 
         {loading && pendingItems.length === 0 && (
           <div className={`rounded-3xl shadow-xl p-12 text-center border-2 ${

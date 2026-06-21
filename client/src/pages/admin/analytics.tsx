@@ -6,13 +6,14 @@ import {
   Calendar, DollarSign, Target, Activity, PieChart, LineChart,
   UserCheck, Building2, CheckCircle, Clock, Filter, Download,
   Eye, Sparkles, Zap, Star, Award, TrendingDown, FileText,
-  ChevronDown, MoreHorizontal, RefreshCw, Bell
+  ChevronDown, MoreHorizontal, RefreshCw, Bell, Loader2
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   Pie, Cell, PieChart as RechartsPieChart, AreaChart, Area, RadialBarChart, RadialBar
 } from 'recharts';
 import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
 import { adminService, type AdminAnalyticsData } from '@/lib/admin-service';
 
@@ -302,9 +303,11 @@ const Analytics = ({ quickActionIntent = null, onQuickActionConsumed }: Analytic
   const [analyticsData, setAnalyticsData] = useState<AnalyticsViewData>(EMPTY_ANALYTICS);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'performance'>('overview');
   const exportRef = useRef<HTMLDivElement | null>(null);
   const timeRangeRef = useRef<HTMLDivElement | null>(null);
+  const dashboardRef = useRef<HTMLDivElement | null>(null);
 
   const fetchAnalytics = async (range: TimeRangeKey) => {
     setLoading(true);
@@ -381,27 +384,40 @@ const Analytics = ({ quickActionIntent = null, onQuickActionConsumed }: Analytic
     XLSX.writeFile(wb, `analytics-${timeRange}.xlsx`);
   };
 
-  const exportPDF = () => {
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    let y = 48;
-    doc.setFontSize(18); doc.text('Analytics Dashboard Report', 40, y); y += 22;
-    doc.setFontSize(11); doc.text(`Time Range: ${getRangeLabel()}`, 40, y); y += 16;
-    doc.text(`Exported At: ${new Date().toLocaleString()}`, 40, y); y += 26;
-    doc.setFontSize(13); doc.text('Key Stats', 40, y); y += 18;
-    doc.setFontSize(11);
-    Object.entries(analyticsData.stats).forEach(([k, v]) => { doc.text(`${k}: ${v}`, 46, y); y += 14; });
-    y += 10; doc.setFontSize(13); doc.text('Performance Metrics', 40, y); y += 18;
-    doc.setFontSize(11);
-    Object.entries(analyticsData.performanceMetrics).forEach(([k, v]) => { doc.text(`${k}: ${v}`, 46, y); y += 14; });
-    y += 10; doc.setFontSize(13); doc.text('Top Job Categories', 40, y); y += 18;
-    doc.setFontSize(11);
-    analyticsData.jobCategories.forEach(c => { doc.text(`${c.name}: ${c.value}%`, 46, y); y += 14; });
-    doc.save(`analytics-${timeRange}.pdf`);
+  const exportPDF = async () => {
+    if (!dashboardRef.current) return;
+    setIsExportingPDF(true);
+    setExportOpen(false); // Close dropdown before capturing
+    try {
+      // Give React time to remove the export dropdown from the DOM before capturing
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      const canvas = await html2canvas(dashboardRef.current, {
+        scale: 2, // High resolution
+        useCORS: true,
+        backgroundColor: dark ? '#0a0c12' : '#f4f5fb',
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height],
+      });
+
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`SkillConnect-Analytics-${timeRange}.pdf`);
+    } catch (err) {
+      console.error('Failed to generate PDF report:', err);
+    } finally {
+      setIsExportingPDF(false);
+    }
   };
 
   const handleExport = (format: 'pdf' | 'excel' | 'json' | 'csv') => {
+    if (format !== 'pdf') setExportOpen(false);
     ({ pdf: exportPDF, excel: exportExcel, json: exportJSON, csv: exportCSV })[format]();
-    setExportOpen(false);
   };
 
   /* ─── Derived radial data for perf rings ─── */
@@ -470,7 +486,7 @@ const Analytics = ({ quickActionIntent = null, onQuickActionConsumed }: Analytic
         </div>
       )}
 
-      <div className={`${embedded ? '' : 'max-w-[1440px] mx-auto'} relative z-10`}>
+      <div ref={dashboardRef} className={`${embedded ? '' : 'max-w-[1440px] mx-auto'} relative z-10`}>
 
         {/* ── Header ── */}
         <div className="mb-8">
@@ -582,17 +598,18 @@ const Analytics = ({ quickActionIntent = null, onQuickActionConsumed }: Analytic
               <div className={`relative w-fit ${exportOpen ? 'z-50' : 'z-10'}`} ref={exportRef}>
                 <button
                   onClick={() => setExportOpen(v => !v)}
-                  className="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold text-white transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg"
+                  disabled={isExportingPDF}
+                  className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold text-white transition-all duration-200 shadow-lg ${isExportingPDF ? 'opacity-80 cursor-wait' : 'hover:scale-105 active:scale-95'}`}
                   style={{
                     background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                     boxShadow: '0 8px 24px -6px rgba(99,102,241,0.5)'
                   }}
                 >
-                  <Download className="w-4 h-4" />
-                  Export
-                  <ChevronDown className={`w-3 h-3 transition-transform ${exportOpen ? 'rotate-180' : ''}`} />
+                  {isExportingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  {isExportingPDF ? 'Generating...' : 'Export'}
+                  {!isExportingPDF && <ChevronDown className={`w-3 h-3 transition-transform ${exportOpen ? 'rotate-180' : ''}`} />}
                 </button>
-                {exportOpen && (
+                {exportOpen && !isExportingPDF && (
                   <div
                     data-floating-menu
                     className={`absolute top-full right-0 mt-2 w-52 rounded-2xl overflow-hidden z-50 ${

@@ -5,6 +5,7 @@ import { useTheme } from '@/components/theme-provider';
 import { apiFetch } from '../../lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { scrollDashboardToTop } from '@/lib/scroll-to-top';
+import { Pagination } from '@/components/Pagination';
 import {
   adminFormDialogBodyScrollClass,
   adminFormModalCancelBtnClass,
@@ -604,75 +605,19 @@ const SuccessStoriesAdmin = () => {
         )}
 
         {/* Pagination */}
-        {!isLoading && !error && totalPages > 1 && (
-          <div className={`mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 ${theme.cardBg} rounded-2xl border ${theme.cardBorder} px-6 py-4`}>
-            <p className={`text-sm font-medium ${theme.textSecondary}`}>
-              Showing{' '}
-              <span className={`font-bold ${theme.text}`}>{(currentPage - 1) * storiesPerPage + 1}</span>
-              {' '}to{' '}
-              <span className={`font-bold ${theme.text}`}>{Math.min(currentPage * storiesPerPage, filteredStories.length)}</span>
-              {' '}of{' '}
-              <span className={`font-bold ${theme.text}`}>{filteredStories.length}</span>
-              {' '}stories
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className={`p-2 rounded-lg transition-colors ${
-                  currentPage === 1
-                    ? `${theme.textMuted} cursor-not-allowed opacity-40`
-                    : `${theme.textSecondary} ${theme.hover}`
-                }`}
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <div className="flex gap-1">
-                {(() => {
-                  const getVisiblePages = (current: number, total: number) => {
-                    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-                    if (current <= 3) return [1, 2, 3, 4, '...', total];
-                    if (current >= total - 2) return [1, '...', total - 3, total - 2, total - 1, total];
-                    return [1, '...', current - 1, current, current + 1, '...', total];
-                  };
-                  return getVisiblePages(currentPage, totalPages).map((page, index) => (
-                    page === '...' ? (
-                      <span key={`ellipsis-${index}`} className={`px-2 font-bold flex items-center justify-center ${theme.textMuted}`}>…</span>
-                    ) : (
-                      <button
-                        key={`page-${page}`}
-                        onClick={() => handlePageChange(page as number)}
-                        className={`w-9 h-9 rounded-lg text-sm font-semibold transition-all ${
-                          currentPage === page
-                            ? `bg-gradient-to-r ${theme.accent} text-white shadow-md shadow-violet-500/30`
-                            : `${theme.textSecondary} ${theme.hover}`
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    )
-                  ));
-                })()}
-              </div>
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className={`p-2 rounded-lg transition-colors ${
-                  currentPage === totalPages
-                    ? `${theme.textMuted} cursor-not-allowed opacity-40`
-                    : `${theme.textSecondary} ${theme.hover}`
-                }`}
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredStories.length}
+          itemsPerPage={storiesPerPage}
+          onPageChange={handlePageChange}
+          itemName="stories"
+        />
         
 
         {/* Detail Modal */}
         {selectedStory && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={() => setSelectedStory(null)}>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[60]" onClick={() => setSelectedStory(null)}>
             <div className={`${theme.cardBg} rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden`} onClick={(e) => e.stopPropagation()}>
               <div className={`p-6 border-b ${theme.cardBorder} flex items-center justify-between`}>
                 <h2 className={`text-xl font-bold ${theme.text}`}>Story Details</h2>

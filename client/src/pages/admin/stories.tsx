@@ -213,7 +213,7 @@ export default function AdminStories() {
 
       {/* Story Preview Modal */}
       {selectedStory && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
           <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto">
             <CardHeader>
               <CardTitle>{selectedStory.title}</CardTitle>

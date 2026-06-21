@@ -8,6 +8,7 @@ import { adminService } from '@/lib/admin-service';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { scrollDashboardToTop } from '@/lib/scroll-to-top';
+import { Pagination } from '@/components/Pagination';
 import { apiFetch } from '@/lib/api';
 import {
   Dialog,
@@ -109,7 +110,7 @@ export default function JobPostings({ quickActionIntent = null, onQuickActionCon
   const [filterJobType, setFilterJobType] = useState('All Types');
   const [filterCompany, setFilterCompany] = useState('All Companies');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 9;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -396,7 +397,7 @@ export default function JobPostings({ quickActionIntent = null, onQuickActionCon
   return (
     <>
       {selectedJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setSelectedJob(null)}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setSelectedJob(null)}>
           <div
             className={`w-full max-w-2xl rounded-3xl border-2 p-7 shadow-2xl ${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-200'}`}
             onClick={(e) => e.stopPropagation()}
@@ -437,7 +438,7 @@ export default function JobPostings({ quickActionIntent = null, onQuickActionCon
       )}
 
       {jobToEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setJobToEdit(null)}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setJobToEdit(null)}>
           <div
             className={`w-full max-w-3xl rounded-3xl border-2 p-7 shadow-2xl ${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-200'}`}
             onClick={(e) => e.stopPropagation()}
@@ -500,7 +501,7 @@ export default function JobPostings({ quickActionIntent = null, onQuickActionCon
       )}
 
       {jobToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className={`w-full max-w-md rounded-3xl border-2 p-7 shadow-2xl ${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-200'}`}>
             <div className="mb-4 flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-red-500" />
@@ -701,20 +702,20 @@ export default function JobPostings({ quickActionIntent = null, onQuickActionCon
         <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl shadow-xl border-2 w-full`}>
           {/* Search and Filter Bar */}
           <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-            <div className="flex flex-col gap-4">
-              <div className="flex-1 relative">
+            <div className="flex flex-col lg:flex-row gap-4 items-center">
+              <div className="flex-1 relative w-full">
                 <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${darkMode ? 'text-gray-500' : 'text-gray-400'} w-5 h-5`} />
                 <input
                   type="text"
                   placeholder="Search jobs by title, company, or location..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full pl-11 pr-4 py-4 border-2 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all ${
+                  className={`w-full pl-11 pr-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all ${
                     darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-500'
                   }`}
                 />
               </div>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap sm:flex-nowrap gap-3 w-full lg:w-auto">
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
@@ -768,7 +769,7 @@ export default function JobPostings({ quickActionIntent = null, onQuickActionCon
               </div>
             </div>
           ) : (
-          <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 lg:grid-cols-2 xl:grid-cols-3">
             {paginatedJobs.map((job) => {
               const initials = (job.company || job.title || 'J')
                 .split(/\s+/)
@@ -780,12 +781,12 @@ export default function JobPostings({ quickActionIntent = null, onQuickActionCon
               const postedLabel = formatJobPostedDate(job.createdAt);
 
               return (
-              <div key={job.id} className={`relative rounded-2xl border p-4 sm:p-5 transition-all hover:shadow-lg ${actionMenuJobId === job.id ? 'z-50' : 'z-10'} ${
+              <div key={job.id} className={`relative rounded-2xl border p-4 sm:p-5 transition-all hover:shadow-lg flex flex-col justify-between ${actionMenuJobId === job.id ? 'z-50' : 'z-10'} ${
                 darkMode ? 'border-gray-700 bg-gray-800/60 hover:border-orange-500/40' : 'border-gray-200 bg-white hover:border-orange-200'
               }`}>
                 <div className="flex items-start justify-between gap-3 sm:gap-4">
                   <div className="flex min-w-0 flex-1 items-start gap-3 sm:gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 text-sm font-bold text-white shadow-lg sm:h-14 sm:w-14">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 text-sm font-bold text-white shadow-lg sm:h-12 sm:w-12">
                       {initials}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -796,10 +797,6 @@ export default function JobPostings({ quickActionIntent = null, onQuickActionCon
                         <span className="inline-flex max-w-full items-center gap-1 truncate">
                           <Building2 className="h-3.5 w-3.5 shrink-0" />
                           <span className="truncate">{job.company}</span>
-                        </span>
-                        <span className="inline-flex max-w-full items-center gap-1 truncate">
-                          <MapPin className="h-3.5 w-3.5 shrink-0" />
-                          <span className="truncate">{job.location}</span>
                         </span>
                         <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
                           darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
@@ -832,30 +829,12 @@ export default function JobPostings({ quickActionIntent = null, onQuickActionCon
                     }`}>
                       <button
                         type="button"
-                        title="View job"
+                        title="View job details"
                         onClick={() => setSelectedJob(job)}
                         className={`rounded-lg p-1.5 transition-colors sm:p-2 ${
-                        darkMode ? 'text-gray-400 hover:bg-gray-700 hover:text-white' : 'text-gray-600 hover:bg-white hover:text-gray-900'
+                        darkMode ? 'text-blue-400 hover:bg-gray-700 hover:text-blue-300' : 'text-blue-600 hover:bg-white hover:text-blue-700'
                       }`}>
                         <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Edit job"
-                        onClick={() => openEditModal(job)}
-                        className={`rounded-lg p-1.5 transition-colors sm:p-2 ${
-                        darkMode ? 'text-blue-300 hover:bg-blue-500/15' : 'text-blue-600 hover:bg-blue-50'
-                      }`}>
-                        <Edit className="h-4 w-4 sm:h-5 sm:w-5" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Delete job"
-                        onClick={() => setJobToDelete(job)}
-                        className={`rounded-lg p-1.5 transition-colors sm:p-2 ${
-                        darkMode ? 'text-red-400 hover:bg-red-900/20' : 'text-red-600 hover:bg-red-50'
-                      }`}>
-                        <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
                       </button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -871,6 +850,27 @@ export default function JobPostings({ quickActionIntent = null, onQuickActionCon
                         <DropdownMenuContent align="end" className={`w-44 rounded-xl border p-2 shadow-xl ${
                           darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
                         }`}>
+                          <DropdownMenuItem
+                            onClick={() => openEditModal(job)}
+                            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium cursor-pointer ${
+                              darkMode ? 'text-blue-300 focus:bg-blue-900/20' : 'text-blue-600 focus:bg-blue-50'
+                            }`}
+                          >
+                            <Edit className="h-4 w-4" />
+                            Edit Job
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setJobToDelete(job)}
+                            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium cursor-pointer ${
+                              darkMode ? 'text-red-300 focus:bg-red-900/20' : 'text-red-600 focus:bg-red-50'
+                            }`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete Job
+                          </DropdownMenuItem>
+                          
+                          <div className={`my-1 h-px ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`} />
+                          
                           <DropdownMenuItem
                             onClick={() => updateJobStatus(job, 'Active')}
                             className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium cursor-pointer ${
@@ -972,64 +972,14 @@ export default function JobPostings({ quickActionIntent = null, onQuickActionCon
           )}
 
           {/* Pagination Controls */}
-          {!loading && totalPages > 1 && (
-            <div className={`p-6 border-t flex flex-col sm:flex-row gap-4 items-center justify-between ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredJobs.length)}</span> of <span className="font-medium">{filteredJobs.length}</span> results
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handlePageChange(Math.max(currentPage - 1, 1))}
-                  disabled={currentPage === 1}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    currentPage === 1 
-                      ? (darkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-400 cursor-not-allowed')
-                      : (darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-white border hover:bg-gray-50 text-gray-700')
-                  }`}
-                >
-                  Previous
-                </button>
-                <div className="items-center gap-1 hidden sm:flex">
-                  {(() => {
-                    const getVisiblePages = (current: number, total: number) => {
-                      if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-                      if (current <= 3) return [1, 2, 3, 4, '...', total];
-                      if (current >= total - 2) return [1, '...', total - 3, total - 2, total - 1, total];
-                      return [1, '...', current - 1, current, current + 1, '...', total];
-                    };
-                    return getVisiblePages(currentPage, totalPages).map((page, index) => (
-                      page === '...' ? (
-                        <span key={`ellipsis-${index}`} className={`px-2 font-medium ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>...</span>
-                      ) : (
-                        <button
-                          key={`page-${page}`}
-                          onClick={() => handlePageChange(page as number)}
-                          className={`w-10 h-10 rounded-lg font-medium transition-colors ${
-                            currentPage === page
-                              ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md'
-                              : (darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-white border text-gray-600 hover:bg-gray-50')
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      )
-                    ));
-                  })()}
-                </div>
-                <button
-                  onClick={() => handlePageChange(Math.min(currentPage + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    currentPage === totalPages
-                      ? (darkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-400 cursor-not-allowed')
-                      : (darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-white border hover:bg-gray-50 text-gray-700')
-                  }`}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredJobs.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={handlePageChange}
+            itemName="jobs"
+          />
 
           {!loading && filteredJobs.length === 0 && (
             <div className="p-12 text-center">

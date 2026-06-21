@@ -5,6 +5,7 @@ import { Users, Search, Plus, Edit, Trash2, Mail, MapPin, Briefcase, Eye, CheckC
 import { adminService, User, CreateUserData, AdminStats } from '@/lib/admin-service';
 import { useToast } from '@/hooks/use-toast';
 import { scrollDashboardToTop } from '@/lib/scroll-to-top';
+import { Pagination } from '@/components/Pagination';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ interface EditEmployeeFormData {
   email: string;
   title: string;
   location: string;
+  status: string;
 }
 
 export default function AdminEmployees() {
@@ -48,7 +50,7 @@ export default function AdminEmployees() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  const itemsPerPage = 9;
   const { toast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
@@ -63,7 +65,8 @@ export default function AdminEmployees() {
     lastName: '',
     email: '',
     title: '',
-    location: ''
+    location: '',
+    status: 'active'
   });
   const [newEmployee, setNewEmployee] = useState<Omit<CreateUserData, 'userType'>>({
     email: '',
@@ -128,8 +131,9 @@ export default function AdminEmployees() {
       firstName: getEmployeeFirstName(employee),
       lastName: getEmployeeLastName(employee),
       email: employee.email || '',
-      title: employee.title || (employee as any).designation || '',
-      location: employee.location || ''
+      title: employee.title || (employee as any).designation || employee.profile?.headline || '',
+      location: employee.location || '',
+      status: employee.status || 'active'
     });
   };
 
@@ -151,7 +155,9 @@ export default function AdminEmployees() {
         lastName: editFormData.lastName,
         email: editFormData.email,
         title: editFormData.title,
-        location: editFormData.location
+        location: editFormData.location,
+        status: editFormData.status as any,
+        accountStatus: editFormData.status as any
       });
       setEmployees(prev => prev.map(user => (user.id === employeeToEdit.id ? { ...user, ...updatedEmployee } : user)));
       setEmployeeToEdit(null);
@@ -369,7 +375,7 @@ export default function AdminEmployees() {
   return (
     <>
       {selectedEmployee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setSelectedEmployee(null)}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setSelectedEmployee(null)}>
           <div
             className={`w-full max-w-2xl rounded-3xl border-2 p-8 shadow-2xl ${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-200'}`}
             onClick={(e) => e.stopPropagation()}
@@ -420,7 +426,7 @@ export default function AdminEmployees() {
       )}
 
       {employeeToEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setEmployeeToEdit(null)}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={() => setEmployeeToEdit(null)}>
           <div
             className={`w-full max-w-2xl rounded-3xl border-2 p-8 shadow-2xl ${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-200'}`}
             onClick={(e) => e.stopPropagation()}
@@ -455,6 +461,22 @@ export default function AdminEmployees() {
                 <Label htmlFor="editLocation" className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Location</Label>
                 <Input id="editLocation" value={editFormData.location} onChange={(e) => setEditFormData(prev => ({ ...prev, location: e.target.value }))} />
               </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="editStatus" className={`${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Account Status</Label>
+                <select
+                  id="editStatus"
+                  value={editFormData.status}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, status: e.target.value }))}
+                  className={`flex h-10 w-full items-center justify-between rounded-md border px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                    darkMode ? 'bg-slate-950 border-slate-800 text-slate-300' : 'bg-white border-gray-200 text-gray-900'
+                  }`}
+                >
+                  <option value="active">Active</option>
+                  <option value="pending">Pending</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="flagged">Flagged</option>
+                </select>
+              </div>
             </div>
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
@@ -479,7 +501,7 @@ export default function AdminEmployees() {
       )}
 
       {employeeToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className={`w-full max-w-md rounded-3xl border-2 p-7 shadow-2xl ${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-200'}`}>
             <div className="mb-4 flex items-center gap-3">
               <div className={`rounded-full p-2 ${darkMode ? 'bg-red-500/20' : 'bg-red-50'}`}>
@@ -775,51 +797,27 @@ export default function AdminEmployees() {
                   })()}
                 </div>
 
-                {/* Skills */}
-                <div className="mb-4 min-h-[4.5rem]">
-                  <p className={`text-[10px] uppercase tracking-wider ${darkMode ? 'text-gray-500' : 'text-gray-400'} mb-2 font-bold`}>Skills</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {employee.skills && employee.skills.length > 0 ? (
-                      employee.skills.slice(0, 4).map((skill, idx) => (
-                        <span key={idx} className={`px-2.5 py-0.5 rounded-md text-xs font-semibold transition-colors duration-200 ${
-                          darkMode 
-                            ? 'bg-slate-800/80 border border-slate-700/50 text-slate-300 hover:bg-slate-700/80 hover:text-white'
-                            : 'bg-gray-100/80 border border-gray-200/40 text-gray-700 hover:bg-gray-200 hover:text-gray-950'
-                        }`}>
-                          {skill}
-                        </span>
-                      ))
-                    ) : (
-                      <span className={`text-xs italic ${darkMode ? 'text-gray-600' : 'text-gray-400'}`}></span>
-                    )}
-                    {employee.skills && employee.skills.length > 4 && (
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                        darkMode ? 'bg-slate-800/50 text-slate-400' : 'bg-gray-50 text-gray-500'
-                      }`}>
-                        +{employee.skills.length - 4} more
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Stats Row */}
-                <div className={`grid grid-cols-3 gap-2 mb-4 rounded-xl p-3 border transition-colors duration-300 ${
+                {/* Designation & Joined */}
+                <div className={`flex items-center gap-3 mb-4 rounded-xl px-3.5 py-3 border transition-colors duration-300 ${
                   darkMode 
                     ? 'bg-slate-900/60 border-slate-800/80' 
-                    : 'bg-gray-50/80 border-gray-150'
+                    : 'bg-gray-50/80 border-gray-200/60'
                 }`}>
-                  <div>
-                    <p className={`text-[9px] uppercase tracking-wider ${darkMode ? 'text-gray-500' : 'text-gray-400'} font-bold mb-0.5`}>Apps</p>
-                    <p className={`font-bold text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>N/A</p>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[9px] uppercase tracking-wider ${darkMode ? 'text-gray-500' : 'text-gray-400'} font-bold mb-0.5`}>Designation</p>
+                    <p className={`font-bold text-sm truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {employee.title || (employee as any).designation || employee.profile?.headline || 'Not specified'}
+                    </p>
                   </div>
-                  <div>
+                  <div className={`w-px h-8 ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`} />
+                  <div className="shrink-0">
                     <p className={`text-[9px] uppercase tracking-wider ${darkMode ? 'text-gray-500' : 'text-gray-400'} font-bold mb-0.5`}>Joined</p>
-                    <p className={`font-bold text-xs leading-none truncate mt-0.5 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <p className={`font-bold text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                       {employee.createdAt 
                         ? (() => {
                             try {
                               const date = new Date(employee.createdAt);
-                              return isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString(undefined, {month: 'numeric', day: 'numeric', year: '2-digit'});
+                              return isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'});
                             } catch {
                               return 'N/A';
                             }
@@ -827,10 +825,6 @@ export default function AdminEmployees() {
                         : 'N/A'
                       }
                     </p>
-                  </div>
-                  <div>
-                    <p className={`text-[9px] uppercase tracking-wider ${darkMode ? 'text-gray-500' : 'text-gray-400'} font-bold mb-0.5`}>Active</p>
-                    <p className={`font-bold text-xs leading-none mt-0.5 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{'N/A'}</p>
                   </div>
                 </div>
 
@@ -898,66 +892,15 @@ export default function AdminEmployees() {
             </div>
           )}
           {/* Pagination Controls */}
-          {!loading && totalPages > 1 && (
-            <div className={`p-6 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-              <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-                <p className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Showing <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{(currentPage - 1) * itemsPerPage + 1}</span> to <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{Math.min(currentPage * itemsPerPage, filteredEmployees.length)}</span> of <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{filteredEmployees.length}</span> employees
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className={`p-2 rounded-lg font-medium transition-colors ${
-                      currentPage === 1
-                        ? darkMode ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 cursor-not-allowed'
-                        : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    Previous
-                  </button>
-                  <div className="flex gap-1">
-                    {(() => {
-                      const getVisiblePages = (current: number, total: number) => {
-                        if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-                        if (current <= 3) return [1, 2, 3, 4, '...', total];
-                        if (current >= total - 2) return [1, '...', total - 3, total - 2, total - 1, total];
-                        return [1, '...', current - 1, current, current + 1, '...', total];
-                      };
-                      return getVisiblePages(currentPage, totalPages).map((page, index) => (
-                        page === '...' ? (
-                          <span key={`ellipsis-${index}`} className={`px-2 font-bold flex items-center justify-center ${darkMode ? 'text-gray-600' : 'text-gray-400'}`}>…</span>
-                        ) : (
-                          <button
-                            key={`page-${page}`}
-                            onClick={() => handlePageChange(page as number)}
-                            className={`w-10 h-10 rounded-lg font-bold transition-colors ${
-                              currentPage === page
-                                ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg'
-                                : darkMode ? 'text-gray-400 hover:bg-gray-700 hover:text-gray-200' : 'text-gray-600 hover:bg-gray-100'
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        )
-                      ));
-                    })()}
-                  </div>
-                  <button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className={`p-2 rounded-lg font-medium transition-colors ${
-                      currentPage === totalPages
-                        ? darkMode ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 cursor-not-allowed'
-                        : darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Pagination Controls */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredEmployees.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={handlePageChange}
+            itemName="employees"
+          />
         </div>
       </div>
     </div>

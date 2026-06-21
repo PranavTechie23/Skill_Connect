@@ -1,13 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Users, Search, Eye, Edit, Trash2, Ban,
   CheckCircle, Plus, RefreshCw, AlertTriangle,
   Shield, Activity, Clock, Zap, TrendingUp, X, Save, Loader2,
-  ChevronLeft, ChevronRight, ChevronDown
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { adminService, type UserAccountStatus } from '@/lib/admin-service';
 import { useToast } from '@/hooks/use-toast';
+import { Pagination } from '@/components/Pagination';
 import { scrollDashboardToTop } from '@/lib/scroll-to-top';
 import AdminBackButton, { useAdminEmbedded } from '@/components/AdminBackButton';
 import { useTheme } from '@/components/theme-provider';
@@ -314,15 +315,15 @@ const ViewUserModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-2 sm:p-4" onClick={onClose}>
       <div 
-        className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white'} rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-2`}
+        className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white'} rounded-2xl sm:rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-2`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-8">
+        <div className="p-4 sm:p-8">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
-            <h2 className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>User Details</h2>
+            <h2 className={`text-xl sm:text-3xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>User Details</h2>
             <button
               onClick={onClose}
               className={`p-2 rounded-lg transition-all ${
@@ -337,19 +338,19 @@ const ViewUserModal = ({
           <div className="space-y-6">
             {/* Avatar and Name */}
             <div className="flex items-center gap-6">
-              <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white shadow-lg ${
+              <div className={`w-14 h-14 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-2xl font-bold text-white shadow-lg ${
                 userType === 'Professional' ? 'bg-gradient-to-br from-blue-500 to-indigo-600' : 'bg-gradient-to-br from-purple-500 to-pink-600'
               }`}>
                 {getInitials()}
               </div>
               <div>
-                <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{fullName}</h3>
+                <h3 className={`text-lg sm:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{fullName}</h3>
                 <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{user.email}</p>
               </div>
             </div>
 
             {/* Details Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
               <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
                 <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Designation</p>
                 <p className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{designation}</p>
@@ -478,7 +479,7 @@ const AddUserModal = ({
         className={adminFormModalPanelClass(darkMode)}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className={`relative overflow-hidden border-b px-8 py-7 ${
+        <div className={`relative overflow-hidden border-b px-4 py-4 sm:px-8 sm:py-7 ${
           darkMode ? 'border-white/10 bg-slate-900/40' : 'border-violet-200/70 bg-white/75'
         }`}>
           <div className={`pointer-events-none absolute inset-0 ${
@@ -487,13 +488,13 @@ const AddUserModal = ({
               : 'bg-[radial-gradient(circle_at_top_left,rgba(192,132,252,0.18),transparent_30%),radial-gradient(circle_at_top_right,rgba(96,165,250,0.1),transparent_26%),linear-gradient(135deg,rgba(255,255,255,0.98),rgba(245,243,255,0.92))]'
           }`} />
           <div className="relative flex items-start justify-between gap-4">
-            <div className="flex items-start gap-5">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-br from-fuchsia-500 via-violet-500 to-indigo-500 text-white shadow-[0_18px_45px_rgba(139,92,246,0.45)] ring-1 ring-white/20">
-                <Users className="h-7 w-7" />
+            <div className="flex items-start gap-3 sm:gap-5">
+              <div className="flex h-11 w-11 sm:h-16 sm:w-16 shrink-0 items-center justify-center rounded-2xl sm:rounded-3xl bg-gradient-to-br from-fuchsia-500 via-violet-500 to-indigo-500 text-white shadow-[0_18px_45px_rgba(139,92,246,0.45)] ring-1 ring-white/20">
+                <Users className="h-5 w-5 sm:h-7 sm:w-7" />
               </div>
               <div>
-                <h2 className="text-4xl font-black tracking-tight">Add New User</h2>
-                <p className={`mt-2 text-base font-medium ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                <h2 className="text-2xl sm:text-4xl font-black tracking-tight">Add New User</h2>
+                <p className={`mt-1 sm:mt-2 text-xs sm:text-base font-medium ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
                   Create a new platform account with role, contact, and skill details.
                 </p>
               </div>
@@ -510,8 +511,8 @@ const AddUserModal = ({
         </div>
 
         <div className="max-h-[calc(92vh-150px)] overflow-y-auto">
-          <form onSubmit={handleSubmit} className="space-y-6 px-8 py-7">
-            <div className={`rounded-[1.5rem] border p-6 ${
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6 px-4 py-4 sm:px-8 sm:py-7">
+            <div className={`rounded-xl sm:rounded-[1.5rem] border p-3 sm:p-6 ${
               darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-white/80 bg-white/90 shadow-[0_18px_50px_rgba(148,163,184,0.12)]'
             }`}>
               <div className="mb-6">
@@ -522,8 +523,8 @@ const AddUserModal = ({
                   Keep the information accurate and easy to review.
                 </p>
               </div>
-              <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4 sm:space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className={labelClass}>
                   First Name <span className="text-red-500">*</span>
@@ -550,7 +551,7 @@ const AddUserModal = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
               <div>
                 <label className={labelClass}>
                   Email <span className="text-red-500">*</span>
@@ -577,7 +578,7 @@ const AddUserModal = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
               <div>
                 <label className={labelClass}>
                   Designation (Optional)
@@ -604,7 +605,7 @@ const AddUserModal = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
               <div>
                 <label className={labelClass}>
                   User Type <span className="text-red-500">*</span>
@@ -962,7 +963,7 @@ const ConfirmationModal = ({
   onCancel: () => void; 
   darkMode: boolean; 
 }) => (
-  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
     <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white'} rounded-3xl shadow-2xl max-w-md w-full p-8 border-2`}>
       <div className="text-center">
         <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-gradient-to-br ${
@@ -1019,21 +1020,9 @@ const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: Use
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'Professional' | 'Employer'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | UserAccountStatus>('all');
-  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
-  const statusDropdownRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const { toast } = useToast();
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target as Node)) {
-        setStatusDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   useEffect(() => {
     loadUsers();
@@ -1211,6 +1200,24 @@ const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: Use
 
   const skeletonTone = darkMode ? 'bg-gray-700' : 'bg-gray-200';
   const statLabels = ['Total Users', 'Active', 'Pending', 'Suspended', 'Flagged'];
+  const cardSurfaceClass = darkMode
+    ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]'
+    : 'bg-white border-gray-100';
+  const hasActiveFilters = searchQuery.trim() !== '' || filterType !== 'all' || filterStatus !== 'all';
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setFilterType('all');
+    setFilterStatus('all');
+  };
+
+  const handleStatCardClick = (status: 'all' | UserAccountStatus) => {
+    setFilterStatus((current) => (current === status && status !== 'all' ? 'all' : status));
+  };
+
+  const selectInputClass = `px-4 py-2.5 border-2 rounded-2xl text-sm font-bold cursor-pointer focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all ${
+    darkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
+  }`;
 
   return (
     <>
@@ -1304,314 +1311,251 @@ const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: Use
                 ))
               : (
                 <>
-            <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl p-4 md:p-5 lg:p-6 shadow-lg border-2 hover:shadow-xl transition-all min-w-0`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg">
-                  <Users className="w-6 h-6 text-white" />
-                </div>
-                <Zap className={`w-5 h-5 ${darkMode ? 'text-blue-400' : 'text-blue-500'}`} />
-              </div>
-              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm font-semibold mb-1`}>Total Users</p>
-              <p className={`text-4xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{totalUsers}</p>
-            </div>
-
-            <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl p-4 md:p-5 lg:p-6 shadow-lg border-2 hover:shadow-xl transition-all min-w-0`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg">
-                  <CheckCircle className="w-6 h-6 text-white" />
-                </div>
-                <TrendingUp className={`w-5 h-5 ${darkMode ? 'text-green-400' : 'text-green-500'}`} />
-              </div>
-              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm font-semibold mb-1`}>Active</p>
-              <p className={`text-4xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{activeUsers}</p>
-            </div>
-
-            <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl p-4 md:p-5 lg:p-6 shadow-lg border-2 hover:shadow-xl transition-all min-w-0`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl shadow-lg">
-                  <Clock className="w-6 h-6 text-white" />
-                </div>
-                <Activity className={`w-5 h-5 ${darkMode ? 'text-amber-400' : 'text-amber-500'}`} />
-              </div>
-              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm font-semibold mb-1`}>Pending</p>
-              <p className={`text-4xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{pendingUsers}</p>
-            </div>
-
-            <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl p-4 md:p-5 lg:p-6 shadow-lg border-2 hover:shadow-xl transition-all min-w-0`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl shadow-lg">
-                  <Ban className="w-6 h-6 text-white" />
-                </div>
-                <Shield className={`w-5 h-5 ${darkMode ? 'text-red-400' : 'text-red-500'}`} />
-              </div>
-              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm font-semibold mb-1`}>Suspended</p>
-              <p className={`text-4xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{suspendedUsers}</p>
-            </div>
-
-            <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl p-4 md:p-5 lg:p-6 shadow-lg border-2 hover:shadow-xl transition-all min-w-0`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl shadow-lg">
-                  <AlertTriangle className="w-6 h-6 text-white" />
-                </div>
-                <Shield className={`w-5 h-5 ${darkMode ? 'text-violet-400' : 'text-violet-500'}`} />
-              </div>
-              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm font-semibold mb-1`}>Flagged</p>
-              <p className={`text-4xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{flaggedUsers}</p>
-            </div>
+            {([
+              { label: 'Total Users', value: totalUsers, icon: Users, iconBg: 'from-blue-500 to-blue-600', accent: darkMode ? 'text-blue-400' : 'text-blue-500', accentIcon: Zap, status: 'all' as const },
+              { label: 'Active', value: activeUsers, icon: CheckCircle, iconBg: 'from-green-500 to-emerald-600', accent: darkMode ? 'text-green-400' : 'text-green-500', accentIcon: TrendingUp, status: 'active' as const },
+              { label: 'Pending', value: pendingUsers, icon: Clock, iconBg: 'from-amber-500 to-orange-600', accent: darkMode ? 'text-amber-400' : 'text-amber-500', accentIcon: Activity, status: 'pending' as const },
+              { label: 'Suspended', value: suspendedUsers, icon: Ban, iconBg: 'from-red-500 to-rose-600', accent: darkMode ? 'text-red-400' : 'text-red-500', accentIcon: Shield, status: 'suspended' as const },
+              { label: 'Flagged', value: flaggedUsers, icon: AlertTriangle, iconBg: 'from-violet-500 to-purple-600', accent: darkMode ? 'text-violet-400' : 'text-violet-500', accentIcon: Shield, status: 'flagged' as const },
+            ]).map((stat) => {
+              const StatIcon = stat.icon;
+              const AccentIcon = stat.accentIcon;
+              const isSelected = stat.status !== 'all' && filterStatus === stat.status;
+              return (
+                <button
+                  key={stat.label}
+                  type="button"
+                  onClick={() => handleStatCardClick(stat.status)}
+                  title={stat.status === 'all' ? 'Show all users' : `Filter by ${stat.label.toLowerCase()}`}
+                  className={`${cardSurfaceClass} rounded-3xl p-4 md:p-5 lg:p-6 shadow-lg border-2 hover:shadow-xl transition-all min-w-0 text-left cursor-pointer ${
+                    isSelected ? (darkMode ? 'ring-2 ring-indigo-400/60 border-indigo-400/40' : 'ring-2 ring-indigo-500/40 border-indigo-300') : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`p-3 bg-gradient-to-br ${stat.iconBg} rounded-2xl shadow-lg`}>
+                      <StatIcon className="w-6 h-6 text-white" />
+                    </div>
+                    <AccentIcon className={`w-5 h-5 ${stat.accent}`} />
+                  </div>
+                  <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm font-semibold mb-1`}>{stat.label}</p>
+                  <p className={`text-4xl font-black ${darkMode ? 'text-white' : 'text-gray-900'}`}>{stat.value}</p>
+                </button>
+              );
+            })}
                 </>
               )}
             </div>
           </div>
 
-          {/* Filters & Search */}
-          <div data-floating-menu="true" className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl shadow-xl p-6 mb-8 border-2`}>
-            <div className="flex flex-col lg:flex-row gap-4">
-              {/* Search */}
-              <div className="flex-1 relative">
-                <Search className={`absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} />
-                <input
-                  type="text"
-                  placeholder="Search by name or email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`w-full pl-12 pr-4 py-4 ${
-                    darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-900'
-                  } border-2 rounded-xl focus:border-blue-500 outline-none transition-all font-medium`}
-                />
-              </div>
-
-              {/* Type Filter */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setFilterType('all')}
-                  className={`px-6 py-4 rounded-xl font-bold transition-all ${
-                    filterType === 'all'
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
-                      : darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  All
-                </button>
-                <button
-                  onClick={() => setFilterType('Professional')}
-                  className={`px-6 py-4 rounded-xl font-bold transition-all ${
-                    filterType === 'Professional'
-                      ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg'
-                      : darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  Professionals
-                </button>
-                <button
-                  onClick={() => setFilterType('Employer')}
-                  className={`px-6 py-4 rounded-xl font-bold transition-all ${
-                    filterType === 'Employer'
-                      ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-lg'
-                      : darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  Employers
-                </button>
-              </div>
-
-              {/* Status Filter */}
-                <div className="relative shrink-0 z-10" ref={statusDropdownRef}>
-                  <button
-                    onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
-                    className={`px-6 py-4 flex items-center justify-between min-w-[160px] ${
-                      darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                    } border-2 rounded-xl font-semibold cursor-pointer transition-all hover:shadow-md`}
-                  >
-                    <span className="capitalize">{filterStatus === 'all' ? 'All Status' : filterStatus}</span>
-                    <ChevronDown className={`w-5 h-5 ml-2 transition-transform duration-200 ${statusDropdownOpen ? 'rotate-180' : ''}`} />
-                  </button>
-                  
-                  {statusDropdownOpen && (
-                    <div className={`absolute top-full right-0 mt-2 w-full min-w-[160px] rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200 border-2 ${
-                      darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'
-                    }`}>
-                      <div className="py-1">
-                        {['all', 'active', 'pending', 'flagged', 'suspended'].map((status) => (
-                          <button
-                            key={status}
-                            onClick={() => {
-                              setFilterStatus(status as typeof filterStatus);
-                              setStatusDropdownOpen(false);
-                            }}
-                            className={`w-full text-left px-5 py-3 text-sm font-bold transition-colors ${
-                              filterStatus === status 
-                                ? (darkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-50 text-blue-700')
-                                : (darkMode ? 'text-gray-300 hover:bg-gray-700/50' : 'text-gray-700 hover:bg-gray-50')
-                            }`}
-                          >
-                            {status === 'all' ? 'All Status' : status.charAt(0).toUpperCase() + status.slice(1)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+          {/* Search, filters & user list */}
+          <div className={`${cardSurfaceClass} rounded-3xl shadow-xl border-2 w-full`}>
+            {/* Filter bar */}
+            <div className={`p-5 sm:p-6 border-b ${darkMode ? 'border-white/10' : 'border-gray-200'}`}>
+              <div className="flex flex-col xl:flex-row gap-4 xl:items-center">
+                <div className="relative w-full xl:max-w-sm shrink-0">
+                  <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 pointer-events-none ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                  <input
+                    type="text"
+                    placeholder="Search by name or email..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className={`w-full pl-12 pr-11 py-3 ${
+                      darkMode ? 'bg-white/5 border-white/10 text-white placeholder-gray-500 focus:bg-white/10' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-500 focus:bg-white'
+                    } border-2 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 outline-none transition-all font-medium`}
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${
+                        darkMode ? 'text-gray-400 hover:bg-white/10 hover:text-white' : 'text-gray-400 hover:bg-gray-200 hover:text-gray-700'
+                      }`}
+                      aria-label="Clear search"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   )}
                 </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-2">
-                <button
-                  onClick={loadUsers}
-                  className={`flex items-center gap-2 px-6 py-4 rounded-xl font-bold transition-all ${
-                    darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-                  Refresh
-                </button>
-              </div>
-            </div>
-          </div>
+                <div className="flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-center gap-3 w-full xl:w-auto xl:justify-end flex-1">
+                  <div className={`inline-flex w-full sm:w-auto p-1 rounded-xl border-2 ${
+                    darkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'
+                  }`}>
+                    {([
+                      { key: 'all' as const, label: 'All Types', icon: Users, activeClass: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm' },
+                      { key: 'Professional' as const, label: 'Professionals', icon: Zap, activeClass: 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-sm' },
+                      { key: 'Employer' as const, label: 'Employers', icon: Activity, activeClass: 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-sm' },
+                    ]).map(({ key, label, icon: Icon, activeClass }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setFilterType(key)}
+                        className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
+                          filterType === key
+                            ? activeClass
+                            : darkMode ? 'text-gray-300 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4 shrink-0" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
 
-          {/* Users Grid */}
-          {loading ? (
-            <div
-              className="grid grid-cols-1 lg:grid-cols-2 gap-6"
-              aria-live="polite"
-              aria-busy="true"
-              role="status"
-            >
-              {Array.from({ length: 4 }).map((_, index) => (
-                <div
-                  key={index}
-                  className={`${
-                    darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'
-                  } rounded-3xl p-6 shadow-lg border-2`}
-                >
-                  <div className="flex items-start gap-4">
-                    <Skeleton className={`h-16 w-16 shrink-0 rounded-2xl ${skeletonTone}`} />
-                    <div className="min-w-0 flex-1 space-y-4">
-                      <div className="space-y-2">
-                        <Skeleton className={`h-5 w-3/4 max-w-xs ${skeletonTone}`} />
-                        <Skeleton className={`h-4 w-1/2 max-w-[220px] ${skeletonTone}`} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <Skeleton className={`h-16 w-full rounded-xl ${skeletonTone}`} />
-                        <Skeleton className={`h-16 w-full rounded-xl ${skeletonTone}`} />
-                      </div>
-                      <div className="flex flex-wrap gap-3">
-                        <Skeleton className={`h-7 w-28 rounded-lg ${skeletonTone}`} />
-                        <Skeleton className={`h-7 w-24 rounded-lg ${skeletonTone}`} />
-                      </div>
-                      <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <Skeleton className={`h-7 w-20 rounded-full ${skeletonTone}`} />
-                        <div className="flex gap-2">
-                          <Skeleton className={`h-9 w-9 rounded-lg ${skeletonTone}`} />
-                          <Skeleton className={`h-9 w-9 rounded-lg ${skeletonTone}`} />
-                          <Skeleton className={`h-9 w-9 rounded-lg ${skeletonTone}`} />
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value as 'all' | UserAccountStatus)}
+                      className={`${selectInputClass} min-w-[140px] flex-1 sm:flex-none`}
+                      aria-label="Filter by status"
+
+                    >
+                      <option value="all">All Status</option>
+                      <option value="active">Active</option>
+                      <option value="pending">Pending</option>
+                      <option value="flagged">Flagged</option>
+                      <option value="suspended">Suspended</option>
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={loadUsers}
+                      className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                        darkMode ? 'bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white border-2 border-white/10' : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border-2 border-gray-200'
+                      }`}
+                      title="Refresh list"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </button>
+
+                    {hasActiveFilters && (
+                      <button
+                        type="button"
+                        onClick={clearFilters}
+                        className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border-2 ${
+                          darkMode 
+                            ? 'text-red-400 border-red-500/30 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/50' 
+                            : 'text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300'
+                        }`}
+                      >
+                        <X className="w-4 h-4" />
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className={`mt-4 flex flex-wrap items-center gap-2 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <span className="font-medium">
+                    {loading ? 'Loading users…' : `${filteredUsers.length} of ${totalUsers} users`}
+                  </span>
+                  {hasActiveFilters && !loading && (
+                    <>
+                      {searchQuery && (
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          darkMode ? 'bg-white/10 text-gray-300' : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          &ldquo;{searchQuery}&rdquo;
+                        </span>
+                      )}
+                      {filterType !== 'all' && (
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          darkMode ? 'bg-white/10 text-gray-300' : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {filterType === 'Professional' ? 'Professionals' : 'Employers'}
+                        </span>
+                      )}
+                      {filterStatus !== 'all' && (
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${
+                          darkMode ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-50 text-indigo-700'
+                        }`}>
+                          {filterStatus}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+            </div>
+
+            {/* User list */}
+            {loading ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-5 sm:p-6" aria-live="polite" aria-busy="true" role="status">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className={`${
+                      darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90' : 'bg-gray-50 border-gray-100'
+                    } rounded-2xl p-6 border-2`}
+                  >
+                    <div className="flex items-start gap-4">
+                      <Skeleton className={`h-16 w-16 shrink-0 rounded-2xl ${skeletonTone}`} />
+                      <div className="min-w-0 flex-1 space-y-4">
+                        <div className="space-y-2">
+                          <Skeleton className={`h-5 w-3/4 max-w-xs ${skeletonTone}`} />
+                          <Skeleton className={`h-4 w-1/2 max-w-[220px] ${skeletonTone}`} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <Skeleton className={`h-16 w-full rounded-xl ${skeletonTone}`} />
+                          <Skeleton className={`h-16 w-full rounded-xl ${skeletonTone}`} />
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
-              <p className={`col-span-full flex items-center justify-center gap-2 pb-2 text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Loading users...
-              </p>
-              <span className="sr-only">Loading user list</span>
-            </div>
-          ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {paginatedUsers.map((user) => (
-              <UserCard
-                key={user.id}
-                user={user}
-                darkMode={darkMode}
-                onView={() => setSelectedUser(user)}
-                onEdit={() => setUserToEdit(user)}
-                onDelete={() => setUserToDelete(user)}
-              />
-            ))}
-          </div>
-          )}
-
-          {/* Pagination Controls */}
-          {!loading && totalPages > 1 && (
-            <div className={`mt-8 ${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'} rounded-3xl shadow-xl p-6 border-2`}>
-              <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-                <p className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Showing <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{(currentPage - 1) * itemsPerPage + 1}</span> to <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{filteredUsers.length}</span> users
+                ))}
+                <p className={`col-span-full flex items-center justify-center gap-2 pb-2 text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Loading users...
                 </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handlePageChange(Math.max(currentPage - 1, 1))}
-                    disabled={currentPage === 1}
-                    className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold transition-all ${
-                      currentPage === 1
-                        ? (darkMode ? 'bg-gray-700/50 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-400 cursor-not-allowed')
-                        : (darkMode ? 'bg-gray-700 text-white hover:bg-gray-600 hover:shadow-md' : 'bg-white border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 text-gray-700')
-                    }`}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    Previous
-                  </button>
-                  <div className="items-center gap-1.5 hidden sm:flex">
-                    {(() => {
-                      const getVisiblePages = (current: number, total: number) => {
-                        if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-                        if (current <= 3) return [1, 2, 3, 4, '...', total];
-                        if (current >= total - 2) return [1, '...', total - 3, total - 2, total - 1, total];
-                        return [1, '...', current - 1, current, current + 1, '...', total];
-                      };
-                      return getVisiblePages(currentPage, totalPages).map((page, index) => (
-                        page === '...' ? (
-                          <span key={`ellipsis-${index}`} className={`px-2 font-bold ${darkMode ? 'text-gray-600' : 'text-gray-400'}`}>…</span>
-                        ) : (
-                          <button
-                            key={`page-${page}`}
-                            onClick={() => handlePageChange(page as number)}
-                            className={`w-10 h-10 rounded-xl font-bold text-sm transition-all ${
-                              currentPage === page
-                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 scale-105'
-                                : (darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white' : 'bg-white border-2 border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300')
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        )
-                      ));
-                    })()}
-                  </div>
-                  {/* Mobile page indicator */}
-                  <span className={`sm:hidden text-sm font-bold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    {currentPage} / {totalPages}
-                  </span>
-                  <button
-                    onClick={() => handlePageChange(Math.min(currentPage + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold transition-all ${
-                      currentPage === totalPages
-                        ? (darkMode ? 'bg-gray-700/50 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-400 cursor-not-allowed')
-                        : (darkMode ? 'bg-gray-700 text-white hover:bg-gray-600 hover:shadow-md' : 'bg-white border-2 border-gray-200 hover:bg-gray-50 hover:border-gray-300 text-gray-700')
-                    }`}
-                  >
-                    Next
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
+              </div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="p-12 text-center">
+                <div className={`w-20 h-20 ${
+                  darkMode ? 'bg-white/10' : 'bg-gray-100'
+                } rounded-full flex items-center justify-center mx-auto mb-4`}>
+                  <Users className={`w-10 h-10 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} />
                 </div>
+                <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>No users found</h3>
+                <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Try adjusting your search or filters.
+                </p>
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="px-4 py-2 text-sm font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                  >
+                    Clear all filters
+                  </button>
+                )}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-5 sm:p-6">
+                {paginatedUsers.map((user) => (
+                  <UserCard
+                    key={user.id}
+                    user={user}
+                    darkMode={darkMode}
+                    onView={() => setSelectedUser(user)}
+                    onEdit={() => setUserToEdit(user)}
+                    onDelete={() => setUserToDelete(user)}
+                  />
+                ))}
+              </div>
+            )}
 
-          {/* Empty State */}
-          {!loading && filteredUsers.length === 0 && (
-            <div className={`${
-              darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white border-gray-100'
-            } rounded-3xl shadow-xl p-12 text-center border-2`}>
-              <div className={`w-24 h-24 ${
-                darkMode ? 'bg-gradient-to-br from-gray-700 to-gray-600' : 'bg-gradient-to-br from-gray-100 to-gray-200'
-              } rounded-full flex items-center justify-center mx-auto mb-4`}>
-                <Users className={`w-12 h-12 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} />
-              </div>
-              <h3 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>No Users Found</h3>
-              <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Try adjusting your filters or search query.</p>
-            </div>
-          )}
+            {/* Pagination */}
+            {/* Pagination */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredUsers.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={handlePageChange}
+              itemName="users"
+            />
+          </div>
         </div>
       </div>
 

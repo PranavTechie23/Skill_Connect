@@ -930,7 +930,7 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="relative z-10 flex min-w-0">
+          <div className="relative flex min-w-0">
             {/* Sidebar */}
             {sidebarOpen && (
               <div
@@ -990,7 +990,7 @@ const AdminDashboard: React.FC = () => {
             </aside>
 
             {/* Main Content */}
-            <main className={`relative z-10 flex-1 min-h-screen w-full min-w-0 pt-20 px-4 sm:px-6 pb-6 overflow-x-hidden transition-all duration-300 ${sidebarOpen ? 'lg:ml-80' : 'lg:ml-[4.5rem]'}`}>
+            <main className={`relative flex-1 min-h-screen w-full min-w-0 pt-20 px-4 sm:px-6 pb-6 overflow-x-hidden transition-all duration-300 ${sidebarOpen ? 'lg:ml-80' : 'lg:ml-[4.5rem]'}`}>
               {activeTab !== 'dashboard' && (
                 <div className="admin-embedded-ui w-full min-w-0 max-w-[1800px] mx-auto overflow-x-hidden">
                   <AdminEmbeddedProvider value={{ embedded: true }}>
@@ -1752,7 +1752,7 @@ const AdminDashboard: React.FC = () => {
 
           {/* Job Detail Modal */}
           {selectedJob && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 sm:p-8">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 sm:p-8">
               <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white'} rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto`}>
                 <div className="p-5 sm:p-8">
                   <div className="flex items-center justify-between mb-6">
@@ -1817,7 +1817,7 @@ const AdminDashboard: React.FC = () => {
 
           {/* User Detail Modal */}
           {selectedUser && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 sm:p-8">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 sm:p-8">
               <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white'} rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto`}>
                 <div className="p-5 sm:p-8">
                   <div className="flex items-center justify-between mb-6">
@@ -1864,7 +1864,7 @@ const AdminDashboard: React.FC = () => {
 
           {/* Edit User Modal */}
           {userToEdit && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 sm:p-8">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 sm:p-8">
               <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white'} rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto`}>
                 <form onSubmit={handleUpdateUser} className="p-5 sm:p-8">
                   <div className="flex items-center justify-between mb-6">
@@ -1904,7 +1904,7 @@ const AdminDashboard: React.FC = () => {
 
           {/* Delete Confirmation Modal */}
           {userToDelete && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
               <div className={`${darkMode ? 'border-indigo-500/25 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/90 shadow-[0_24px_60px_-28px_rgba(99,102,241,0.5)]' : 'bg-white'} rounded-3xl shadow-2xl max-w-md w-full p-8 border-2`}>
                 <div className="text-center">
                   <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-gradient-to-br ${darkMode ? 'from-red-500/20 to-red-900/20' : 'from-red-100 to-red-200'}`}>

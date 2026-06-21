@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { scrollPageToTop } from "@/lib/scroll-to-top";
 import AdminBackButton from "@/components/AdminBackButton";
+import { Pagination } from "@/components/Pagination";
 import {
   Dialog,
   DialogContent,
@@ -712,70 +713,17 @@ export default function Applications({ embedded = false }: ApplicationsProps) {
           })}
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-6 px-2">
-            <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-              Showing <span className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{(currentPage - 1) * itemsPerPage + 1}</span> to <span className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{Math.min(currentPage * itemsPerPage, filteredApplications.length)}</span> of <span className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{filteredApplications.length}</span> applications
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  setCurrentPage(p => Math.max(1, p - 1));
-                  scrollPageToTop();
-                }}
-                disabled={currentPage === 1}
-                className={`p-2 rounded-lg border transition-colors ${
-                  currentPage === 1
-                    ? isDark ? 'border-slate-700/50 text-gray-600 bg-slate-800/20' : 'border-gray-200 text-gray-400 bg-gray-50'
-                    : isDark ? 'border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white' : 'border-gray-300 text-gray-700 hover:bg-white hover:shadow-sm'
-                }`}
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              
-              <div className="flex items-center gap-1 mx-2">
-                {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-                  let startPage = 1;
-                  if (totalPages > 5) {
-                    startPage = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
-                  }
-                  const pageNum = startPage + i;
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => {
-                        setCurrentPage(pageNum);
-                        scrollPageToTop();
-                      }}
-                      className={`w-10 h-10 rounded-lg text-sm font-bold transition-all ${
-                        currentPage === pageNum
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : isDark ? 'text-gray-400 hover:bg-slate-700 hover:text-white' : 'text-gray-600 hover:bg-white hover:shadow-sm'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <button
-                onClick={() => {
-                  setCurrentPage(p => Math.min(totalPages, p + 1));
-                  scrollPageToTop();
-                }}
-                disabled={currentPage === totalPages}
-                className={`p-2 rounded-lg border transition-colors ${
-                  currentPage === totalPages
-                    ? isDark ? 'border-slate-700/50 text-gray-600 bg-slate-800/20' : 'border-gray-200 text-gray-400 bg-gray-50'
-                    : isDark ? 'border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white' : 'border-gray-300 text-gray-700 hover:bg-white hover:shadow-sm'
-                }`}
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredApplications.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={(page) => {
+            setCurrentPage(page);
+            scrollPageToTop();
+          }}
+          itemName="applications"
+        />
 
         {filteredApplications.length === 0 && (
           <div className={`backdrop-blur-xl border rounded-2xl p-12 text-center ${isDark ? "bg-slate-800/50 border-slate-700/50" : "bg-white border-gray-200"}`}>

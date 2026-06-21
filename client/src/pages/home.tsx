@@ -109,7 +109,9 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen overflow-hidden">
+    // Avoid clipping hero content by only hiding horizontal overflow.
+    // `overflow-hidden` could clip vertical content when zoom or fonts scale.
+    <div className="min-h-screen overflow-x-hidden">
       {/* Hero Section */}
       <section
         className="bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 dark:from-blue-500 dark:via-indigo-500 dark:to-purple-500 dark:text-white py-16 lg:py-24 relative overflow-hidden"
