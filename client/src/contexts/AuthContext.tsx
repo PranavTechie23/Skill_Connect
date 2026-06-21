@@ -144,6 +144,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   useEffect(() => {
+    // Only perform a server-side session check if there's reason to believe
+    // a session may exist. Avoid calling `/api/auth/me` for anonymous guests
+    // on initial page view to prevent unnecessary 401s and server work.
+    const hasCachedUser = !!localStorage.getItem(STORAGE_KEY);
+    const hasToken = !!localStorage.getItem("skillconnect_token_v1");
+    if (!hasCachedUser && !hasToken) {
+      // No local session indicators — treat as guest and skip auth check.
+      return;
+    }
+
     const controller = new AbortController();
     checkAuth(controller);
     return () => { controller.abort(); };

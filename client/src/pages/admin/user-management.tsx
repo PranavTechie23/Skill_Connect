@@ -185,65 +185,15 @@ const UserCard = ({
               <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'} truncate`}>
                 {user.email}
               </p>
-            </div>
-          </div>
-
-          {/* Stats and Info */}
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-              <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                Designation
-              </p>
-              <p className={`text-sm font-semibold mt-1 ${darkMode ? 'text-white' : 'text-gray-900'} truncate`} title={designation}>
+              <p className={`text-xs mt-1.5 font-bold ${darkMode ? 'text-indigo-400/90' : 'text-indigo-600/90'} uppercase tracking-wider`}>
                 {designation}
               </p>
             </div>
-            <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-gray-50'}`}>
-              <p className={`text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                Joined
-              </p>
-              <p className={`text-sm font-semibold mt-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                {formatDate(createdAt)}
-              </p>
-            </div>
           </div>
 
-          {/* User Stats */}
-          {user.stats && (
-            <div className="mt-4 flex flex-wrap gap-3">
-              {user.userType === 'Professional' ? (
-                <>
-                  <div className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-                    darkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'
-                  }`}>
-                    {user.stats?.applications || 0} Applications
-                  </div>
-                  <div className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-                    darkMode ? 'bg-green-500/10 text-green-400' : 'bg-green-50 text-green-600'
-                  }`}>
-                    {user.stats?.interviews || 0} Interviews
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-                    darkMode ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-50 text-purple-600'
-                  }`}>
-                    {user.stats?.jobs || 0} Jobs Posted
-                  </div>
-                  <div className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-                    darkMode ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'
-                  }`}>
-                    {user.stats?.hires || 0} Hires
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
           {/* Status Badge and Action Buttons - Moved to bottom */}
-          <div className="mt-4 flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-            <span className={`px-3 py-1.5 text-xs font-medium rounded-full border ${getStatusBadge(user.status, darkMode)}`}>
+          <div className="mt-5 flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-800">
+            <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${getStatusBadge(user.status, darkMode)}`}>
               {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
             </span>
             <div className="flex items-center gap-2">
@@ -1021,7 +971,7 @@ const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: Use
   const [filterType, setFilterType] = useState<'all' | 'Professional' | 'Employer'>('all');
   const [filterStatus, setFilterStatus] = useState<'all' | UserAccountStatus>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 9;
   const { toast } = useToast();
 
   useEffect(() => {
@@ -1034,12 +984,12 @@ const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: Use
     onQuickActionConsumed?.();
   }, [quickActionIntent, onQuickActionConsumed]);
 
-  const loadUsers = async () => {
+  const loadUsers = async (options?: { force?: boolean }) => {
     try {
-      if (!adminService.getCachedUsers()) {
+      if (options?.force || !adminService.getCachedUsers()) {
         setLoading(true);
       }
-      const fetchedUsers = await adminService.getUsers();
+      const fetchedUsers = await adminService.getUsers(options);
       console.log('📊 Fetched users:', fetchedUsers.length);
       if (fetchedUsers.length > 0) {
         console.log('🔍 Sample user:', {
@@ -1421,7 +1371,7 @@ const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: Use
 
                     <button
                       type="button"
-                      onClick={loadUsers}
+                      onClick={() => loadUsers({ force: true })}
                       className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
                         darkMode ? 'bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white border-2 border-white/10' : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border-2 border-gray-200'
                       }`}

@@ -12,6 +12,7 @@ interface NavItemProps {
   icon?: React.ReactNode;
   className?: string;
   variant?: 'default' | 'secondary' | 'ghost';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
 }
 
 export function NavItem({
@@ -22,20 +23,19 @@ export function NavItem({
   fullWidth,
   icon,
   className = '',
-  variant = 'ghost'
+  variant = 'ghost',
+  size = 'default'
 }: NavItemProps) {
   return (
     <Link to={to} onClick={onClick} className={fullWidth ? "w-full block" : ""}>
       <GlareHover
         {...useGlareHover({ isActive, variant })}
-        className={`cursor-pointer overflow-visible ${fullWidth ? "w-full" : ""} ${className}`}
+        className={`cursor-pointer overflow-visible ${fullWidth ? "w-full" : ""}`}
       >
         <Button
           variant={isActive ? "default" : variant}
-          className={`
-            rounded-full px-6 py-2 text-xl relative z-10 transition-all duration-300
-            ${fullWidth ? "w-full justify-start" : ""}
-          `}
+          size={size}
+          className={`rounded-full relative z-10 transition-all duration-300 ${fullWidth ? "w-full justify-start" : ""} ${className}`}
         >
           {icon}
           {children}

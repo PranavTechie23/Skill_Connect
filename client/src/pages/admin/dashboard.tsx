@@ -18,7 +18,6 @@ import CompanyManagement from './companies';
 import Analytics from './analytics';
 import AdminEmployees from './employees';
 import AdminApplications from './applications';
-import AdminApprovals from './approvals';
 import AdminStories from './success-stories';
 import AdminSettings from './settings';
 import { LogoLoader } from '@/components/LogoLoader';
@@ -97,7 +96,6 @@ const AdminDashboard: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<any>({});
-  const [approvalsList, setApprovalsList] = useState<any[] | null>(null);
   const [recentUsersPage, setRecentUsersPage] = useState(1);
   const recentUsersPerPage = 5;
   
@@ -367,12 +365,11 @@ const AdminDashboard: React.FC = () => {
       setLoading(true);
       try {
         console.log('Fetching admin data...');
-        const [statsData, usersData, jobsResult, companiesData, approvalsData] = await Promise.all([
+        const [statsData, usersData, jobsResult, companiesData] = await Promise.all([
           adminService.getStats(),
           adminService.getUsers(),
           adminService.getJobs(),
-          adminService.getCompanies(),
-          adminService.getApprovals()
+          adminService.getCompanies()
         ]);
 
         // Process jobs data
@@ -425,11 +422,6 @@ const AdminDashboard: React.FC = () => {
         const totalCompanies = companiesData?.length || 0;
         console.log('Total companies:', totalCompanies);
 
-        const approvalsArray = Array.isArray(approvalsData) ? approvalsData : [];
-        adminService.setApprovalsCache(approvalsArray);
-        setApprovalsList(approvalsArray);
-        const pendingApprovalsCount = approvalsArray.length;
-
         // Process data for Recent Activity feed
         const allUsersActivity = (usersData || []).map(user => {
             const firstName = user.firstName || '';
@@ -477,7 +469,6 @@ const AdminDashboard: React.FC = () => {
 
         const processedStats = {
           // Override API stats with our calculated values
-          pendingApprovals: pendingApprovalsCount,
           activeJobs: activeJobsCount,
           totalJobs: processedJobs.length,
           newJobsThisWeek,
@@ -495,9 +486,7 @@ const AdminDashboard: React.FC = () => {
         
         console.log('📊 Navigation badges:', {
           newUsersThisWeek: newUsersThisWeekAll,
-          pendingApprovals: pendingApprovalsCount,
-          newJobsThisWeek: newJobsThisWeek,
-          approvalsDataLength: approvalsData?.length
+          newJobsThisWeek: newJobsThisWeek
         });
         
         console.log('📊 Dashboard stats calculation:', {
@@ -653,7 +642,6 @@ const AdminDashboard: React.FC = () => {
     'analytics',
     'employees',
     'applications',
-    'approvals',
     'stories',
     'settings',
   ]);
@@ -952,7 +940,6 @@ const AdminDashboard: React.FC = () => {
                     <NavItem icon={UserCheck} label="Employees" id="employees" />
                     <NavItem icon={Briefcase} label="Job Postings" id="jobs" />
                     <NavItem icon={FileText} label="Applications" id="applications" />
-                    <NavItem icon={AlertCircle} label="Approvals" id="approvals" />
                     <NavItem icon={BookOpen} label="Success Stories" id="stories" />
                     <NavItem icon={BarChart3} label="Analytics" id="analytics" />
                     <NavItem icon={Settings} label="System Settings" id="settings" />
@@ -974,7 +961,6 @@ const AdminDashboard: React.FC = () => {
                         case 'analytics': return <Analytics quickActionIntent={quickActionIntent} onQuickActionConsumed={consumeQuickAction} />;
                         case 'employees': return <AdminEmployees />;
                         case 'applications': return <AdminApplications />;
-                        case 'approvals': return <AdminApprovals initialApprovals={approvalsList} onApprovalsChange={(items) => { setApprovalsList(items); adminService.setApprovalsCache(items); setStats((prev: any) => ({ ...prev, pendingApprovals: items.length })); }} />;
                         case 'stories': return <AdminStories />;
                         case 'settings': return <AdminSettings />;
                         default: return null;

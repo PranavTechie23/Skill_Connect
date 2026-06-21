@@ -88,6 +88,27 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 5rem;
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+}
+
+/* ── Dark-mode native controls ──
+   Forces the browser to render ALL native widgets (select dropdowns,
+   scrollbars, date-pickers, etc.) with a dark colour scheme when
+   the .dark class is active. */
+.dark {
+  color-scheme: dark;
+}
+
+.dark select,
+.dark select option {
+  background-color: #1e293b;
+  color: #e2e8f0;
+}
+
+.dark select option:checked {
+  background-color: #4f46e5;
+  color: #fff;
 }
 
 @keyframes logout-progress {

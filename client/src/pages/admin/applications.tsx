@@ -619,7 +619,7 @@ const AdminApplications: React.FC = () => {
         {loading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {[...Array(8)].map((_, i) => (
-              <div key={i} className={`rounded-3xl border-2 p-5 transition-all duration-300 flex flex-col h-[200px] ${darkMode ? 'bg-gray-800/80 border-gray-700/50' : 'bg-white border-gray-100'} animate-pulse`}>
+              <div key={i} className={`rounded-3xl border-2 p-5 flex flex-col h-[200px] ${darkMode ? 'bg-gray-800/80 border-gray-700/50' : 'bg-white border-gray-100'} animate-pulse`}>
                 <div className="flex items-start gap-4 mb-4">
                   <div className={`w-12 h-12 rounded-xl ${darkMode ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
                   <div className="flex-1">

@@ -12,7 +12,7 @@ export function adminFormModalOverlayClass(darkMode?: boolean, className?: strin
 
   return cn(
 
-    'fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md',
+    'fixed inset-0 z-[60] flex items-center justify-center p-4 backdrop-blur-md',
 
     darkMode ? 'bg-black/65' : 'bg-white/55',
 
@@ -28,7 +28,7 @@ export function adminFormModalPanelClass(darkMode: boolean, className?: string) 
 
   return cn(
 
-    'max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-[2rem] border shadow-[0_30px_120px_rgba(0,0,0,0.6)]',
+    'max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-2xl sm:rounded-[2rem] border shadow-[0_30px_120px_rgba(0,0,0,0.6)]',
 
     darkMode ? 'border-white/10 bg-[#0f1728] text-white' : 'border-white/80 bg-[#fbf8ff] text-slate-900',
 
@@ -44,7 +44,7 @@ export function adminFormModalHeaderClass(darkMode: boolean, className?: string)
 
   return cn(
 
-    'relative overflow-hidden border-b px-8 py-5',
+    'relative overflow-hidden border-b px-4 py-4 sm:px-8 sm:py-5',
 
     darkMode ? 'border-white/10 bg-slate-900/40' : 'border-violet-200/70 bg-white/75',
 
@@ -78,7 +78,7 @@ export function adminFormModalIconWrapClass(className?: string) {
 
   return cn(
 
-    'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 via-violet-500 to-indigo-500 text-white shadow-[0_18px_45px_rgba(139,92,246,0.45)] ring-1 ring-white/20',
+    'flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-gradient-to-br from-fuchsia-500 via-violet-500 to-indigo-500 text-white shadow-[0_18px_45px_rgba(139,92,246,0.45)] ring-1 ring-white/20',
 
     className,
 
@@ -90,7 +90,7 @@ export function adminFormModalIconWrapClass(className?: string) {
 
 export function adminFormModalTitleClass(darkMode: boolean) {
 
-  return cn('text-3xl font-black tracking-tight', darkMode ? 'text-white' : 'text-slate-900');
+  return cn('text-xl sm:text-3xl font-black tracking-tight', darkMode ? 'text-white' : 'text-slate-900');
 
 }
 
@@ -128,7 +128,7 @@ export function adminFormModalBodyScrollClass() {
 
 export function adminFormModalFormClass() {
 
-  return 'space-y-4 px-8 py-5';
+  return 'space-y-4 px-4 py-4 sm:px-8 sm:py-5';
 
 }
 
@@ -138,7 +138,7 @@ export function adminFormModalSectionClass(darkMode: boolean) {
 
   return cn(
 
-    'space-y-4 rounded-2xl border p-4',
+    'space-y-4 rounded-xl sm:rounded-2xl border p-3 sm:p-4',
 
     darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-white/80 bg-white/90 shadow-[0_18px_50px_rgba(148,163,184,0.12)]',
 
@@ -150,7 +150,7 @@ export function adminFormModalSectionClass(darkMode: boolean) {
 
 export function adminFormModalFooterClass(darkMode: boolean) {
 
-  return cn('flex gap-3 border-t pt-4', darkMode ? 'border-white/10' : 'border-slate-200/80');
+  return cn('flex gap-3 border-t pt-3 sm:pt-4', darkMode ? 'border-white/10' : 'border-slate-200/80');
 
 }
 
@@ -160,7 +160,7 @@ export function adminFormModalCancelBtnClass(darkMode: boolean) {
 
   return cn(
 
-    'flex-1 rounded-xl px-5 py-3 text-sm font-bold transition-all',
+    'flex-1 rounded-xl px-4 py-2.5 sm:px-5 sm:py-3 text-sm font-bold transition-all',
 
     darkMode ? 'bg-white/8 text-slate-200 hover:bg-white/12' : 'bg-slate-100 text-slate-700 hover:bg-slate-200',
 
@@ -172,7 +172,7 @@ export function adminFormModalCancelBtnClass(darkMode: boolean) {
 
 export function adminFormModalSubmitBtnClass() {
 
-  return 'flex-1 rounded-xl bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500 px-5 py-3 text-sm font-bold text-white transition-all hover:shadow-lg hover:shadow-violet-500/30 disabled:opacity-50';
+  return 'flex-1 rounded-xl bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500 px-4 py-2.5 sm:px-5 sm:py-3 text-sm font-bold text-white transition-all hover:shadow-lg hover:shadow-violet-500/30 disabled:opacity-50';
 
 }
 
@@ -180,7 +180,7 @@ export function adminFormModalSubmitBtnClass() {
 
 export function adminFormModalGridClass() {
 
-  return 'grid grid-cols-1 gap-3 md:grid-cols-2';
+  return 'grid grid-cols-1 gap-3 sm:grid-cols-2';
 
 }
 
@@ -348,7 +348,7 @@ export function adminFormDialogTextareaClass(
 
 export function adminFormDialogContentClass(darkMode: boolean, className?: string) {
   return cn(
-    'flex flex-col max-h-[92vh] w-full overflow-hidden rounded-[2rem] border-0 p-0 sm:max-w-3xl [&>button.absolute]:hidden',
+    'flex flex-col max-h-[92vh] w-full overflow-hidden rounded-2xl sm:rounded-[2rem] border-0 p-0 sm:max-w-3xl [&>button.absolute]:hidden',
     darkMode
       ? 'border-white/10 bg-[#0f1728] text-white shadow-[0_30px_120px_rgba(5,10,25,0.75)]'
       : 'border-white/80 bg-[#fbf8ff] text-slate-900 shadow-[0_30px_120px_rgba(88,28,135,0.18)]',
@@ -368,7 +368,7 @@ export function adminFormDialogBodyScrollClass() {
 
 export function adminFormDialogFooterClass(darkMode: boolean) {
   return cn(
-    'shrink-0 flex flex-col-reverse gap-3 border-t px-8 py-5 sm:flex-row sm:items-center sm:justify-end',
+    'shrink-0 flex flex-col-reverse gap-3 border-t px-4 py-4 sm:px-8 sm:py-5 sm:flex-row sm:items-center sm:justify-end',
     darkMode ? 'border-white/10' : 'border-violet-200/50',
   );
 }

@@ -208,11 +208,44 @@ const safeJsonResponse = async (response: Response) => {
   }
 };
 
+// Caches for admin dashboard tabs to prevent skeleton flashing on tab switch
+let usersCache: User[] | null = null;
+let usersFetchPromise: Promise<User[]> | null = null;
+
+let jobsCache: any[] | null = null;
+let jobsFetchPromise: Promise<any[]> | null = null;
+
+let companiesCache: any[] | null = null;
+let companiesFetchPromise: Promise<any[]> | null = null;
+
+let applicationsCache: any[] | null = null;
+let applicationsFetchPromise: Promise<any[]> | null = null;
+
 export const adminService = {
   // User Management
-  getUsers: async (): Promise<User[]> => {
-    const response = await apiFetch('/api/admin/users', { method: 'GET' });
-    return safeJsonResponse(response);
+  getCachedUsers: (): User[] | null => usersCache,
+
+  invalidateUsersCache: () => {
+    usersCache = null;
+    usersFetchPromise = null;
+  },
+
+  getUsers: async (options?: { force?: boolean }): Promise<User[]> => {
+    if (!options?.force && usersCache) return usersCache;
+    if (!options?.force && usersFetchPromise) return usersFetchPromise;
+
+    usersFetchPromise = (async () => {
+      const response = await apiFetch('/api/admin/users', { method: 'GET' });
+      const data = await safeJsonResponse(response);
+      usersCache = data;
+      return data;
+    })();
+
+    try {
+      return await usersFetchPromise;
+    } finally {
+      usersFetchPromise = null;
+    }
   },
 
   getUser: async (id: string): Promise<User> => {
@@ -226,7 +259,9 @@ export const adminService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    return safeJsonResponse(response);
+    const result = await safeJsonResponse(response);
+    adminService.invalidateUsersCache();
+    return result;
   },
 
   updateUser: async (id: string, data: UpdateUserData): Promise<User> => {
@@ -235,7 +270,9 @@ export const adminService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    return safeJsonResponse(response);
+    const result = await safeJsonResponse(response);
+    adminService.invalidateUsersCache();
+    return result;
   },
 
   deleteUser: async (id: string): Promise<void> => {
@@ -249,6 +286,7 @@ export const adminService = {
       }
       throw new Error(`Failed to delete user (${response.status})`);
     }
+    adminService.invalidateUsersCache();
   },
 
   // Admin Stats
@@ -258,9 +296,29 @@ export const adminService = {
   },
 
   // Application Management
-  getApplications: async () => {
-    const response = await apiFetch('/api/admin/applications', { method: 'GET' });
-    return safeJsonResponse(response);
+  getCachedApplications: (): any[] | null => applicationsCache,
+
+  invalidateApplicationsCache: () => {
+    applicationsCache = null;
+    applicationsFetchPromise = null;
+  },
+
+  getApplications: async (options?: { force?: boolean }) => {
+    if (!options?.force && applicationsCache) return applicationsCache;
+    if (!options?.force && applicationsFetchPromise) return applicationsFetchPromise;
+
+    applicationsFetchPromise = (async () => {
+      const response = await apiFetch('/api/admin/applications', { method: 'GET' });
+      const data = await safeJsonResponse(response);
+      applicationsCache = data;
+      return data;
+    })();
+
+    try {
+      return await applicationsFetchPromise;
+    } finally {
+      applicationsFetchPromise = null;
+    }
   },
 
   updateApplication: async (id: string, status: string) => {
@@ -269,13 +327,35 @@ export const adminService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     });
-    return safeJsonResponse(response);
+    const result = await safeJsonResponse(response);
+    adminService.invalidateApplicationsCache();
+    return result;
   },
 
   // Job Management
-  getJobs: async () => {
-    const response = await apiFetch('/api/admin/jobs', { method: 'GET' });
-    return safeJsonResponse(response);
+  getCachedJobs: (): any[] | null => jobsCache,
+
+  invalidateJobsCache: () => {
+    jobsCache = null;
+    jobsFetchPromise = null;
+  },
+
+  getJobs: async (options?: { force?: boolean }) => {
+    if (!options?.force && jobsCache) return jobsCache;
+    if (!options?.force && jobsFetchPromise) return jobsFetchPromise;
+
+    jobsFetchPromise = (async () => {
+      const response = await apiFetch('/api/admin/jobs', { method: 'GET' });
+      const data = await safeJsonResponse(response);
+      jobsCache = data;
+      return data;
+    })();
+
+    try {
+      return await jobsFetchPromise;
+    } finally {
+      jobsFetchPromise = null;
+    }
   },
 
   updateJob: async (id: string, data: any) => {
@@ -284,18 +364,41 @@ export const adminService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    return safeJsonResponse(response);
+    const result = await safeJsonResponse(response);
+    adminService.invalidateJobsCache();
+    return result;
   },
 
   deleteJob: async (id: string) => {
     const response = await apiFetch(`/api/admin/jobs/${id}`, { method: 'DELETE' });
     if (!response.ok) throw new Error('Failed to delete job');
+    adminService.invalidateJobsCache();
   },
 
   // Company Management
-  getCompanies: async () => {
-    const response = await apiFetch('/api/admin/companies', { method: 'GET' });
-    return safeJsonResponse(response);
+  getCachedCompanies: (): any[] | null => companiesCache,
+
+  invalidateCompaniesCache: () => {
+    companiesCache = null;
+    companiesFetchPromise = null;
+  },
+
+  getCompanies: async (options?: { force?: boolean }) => {
+    if (!options?.force && companiesCache) return companiesCache;
+    if (!options?.force && companiesFetchPromise) return companiesFetchPromise;
+
+    companiesFetchPromise = (async () => {
+      const response = await apiFetch('/api/admin/companies', { method: 'GET' });
+      const data = await safeJsonResponse(response);
+      companiesCache = data;
+      return data;
+    })();
+
+    try {
+      return await companiesFetchPromise;
+    } finally {
+      companiesFetchPromise = null;
+    }
   },
 
   createCompany: async (data: CreateCompanyData) => {
@@ -304,7 +407,9 @@ export const adminService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    return safeJsonResponse(response);
+    const result = await safeJsonResponse(response);
+    adminService.invalidateCompaniesCache();
+    return result;
   },
 
   updateCompany: async (id: string, data: UpdateCompanyData) => {
@@ -313,13 +418,16 @@ export const adminService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    return safeJsonResponse(response);
+    const result = await safeJsonResponse(response);
+    adminService.invalidateCompaniesCache();
+    return result;
   },
 
   deleteCompany: async (id: string, reason?: string) => {
     const url = reason ? `/api/admin/companies/${id}?reason=${encodeURIComponent(reason)}` : `/api/admin/companies/${id}`;
     const response = await apiFetch(url, { method: 'DELETE' });
     if (!response.ok) throw new Error('Failed to delete company');
+    adminService.invalidateCompaniesCache();
   },
 
   // Approval Management (cached — dashboard preloads on login)

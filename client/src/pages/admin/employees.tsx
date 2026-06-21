@@ -218,11 +218,11 @@ export default function AdminEmployees() {
     }
   };
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = async (options?: { force?: boolean }) => {
     setLoading(true);
     try {
       console.log('🔄 Fetching employees...');
-      const allUsers = await adminService.getUsers();
+      const allUsers = await adminService.getUsers(options);
       console.log('✅ Received users:', allUsers);
       console.log('🔍 First user sample:', allUsers[0] ? {
         id: allUsers[0].id,
@@ -721,7 +721,7 @@ export default function AdminEmployees() {
                   <option value="flagged">Flagged</option>
                 </select>
                 <button
-                  onClick={fetchEmployees}
+                  onClick={() => fetchEmployees({ force: true })}
                   className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all ${
                     darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
@@ -737,7 +737,7 @@ export default function AdminEmployees() {
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className={`border rounded-2xl p-6 transition-all duration-300 flex flex-col h-64 ${darkMode ? 'border-slate-800 bg-slate-900/50' : 'border-gray-200/80 bg-gray-50/50'} animate-pulse`}>
+                <div key={i} className={`border rounded-2xl p-6 flex flex-col h-64 ${darkMode ? 'border-slate-800 bg-slate-900/50' : 'border-gray-200/80 bg-gray-50/50'} animate-pulse`}>
                   <div className="flex items-start gap-4 mb-4">
                     <div className={`w-14 h-14 rounded-full ${darkMode ? 'bg-slate-800' : 'bg-gray-200'}`}></div>
                     <div className="flex-1">

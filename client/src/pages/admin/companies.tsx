@@ -37,7 +37,7 @@ export default function AdminCompanies() {
   const [filterStatus, setFilterStatus] = useState<'all' | CompanyModerationStatus>('all');
   const [filterIndustry, setFilterIndustry] = useState('All Industries');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 15;
+  const itemsPerPage = 9;
   const [showAddCompany, setShowAddCompany] = useState(false);
   const [companyToEdit, setCompanyToEdit] = useState<Company | null>(null);
   const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null);
@@ -51,12 +51,12 @@ export default function AdminCompanies() {
   const getErrorMessage = (error: unknown, fallback: string) =>
     error instanceof Error ? error.message : fallback;
 
-  const fetchCompanies = async () => {
-    if (!adminService.getCachedCompanies()) {
+  const fetchCompanies = async (options?: { force?: boolean }) => {
+    if (options?.force || !adminService.getCachedCompanies()) {
       setLoading(true);
     }
     try {
-      const data = await adminService.getCompanies();
+      const data = await adminService.getCompanies(options);
       setCompanies(data || []);
     } catch (error) {
       console.error("Failed to fetch companies:", error);
@@ -265,7 +265,7 @@ export default function AdminCompanies() {
                   </div>
                 </div>
 
-                {selectedCompany.description && (
+                {selectedCompany.description && !selectedCompany.description.includes('is a fast-growing hiring partner on SkillConnect') && (
                   <div>
                     <p className={`text-xs font-bold tracking-wider mb-2 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>DESCRIPTION</p>
                     <p className={`text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>{selectedCompany.description}</p>
@@ -406,7 +406,7 @@ export default function AdminCompanies() {
                 {/* Refresh */}
                 <button
                   type="button"
-                  onClick={fetchCompanies}
+                  onClick={() => fetchCompanies({ force: true })}
                   className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex-1 sm:flex-none ${
                     darkMode ? 'bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white border-2 border-white/10' : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border-2 border-gray-200'
                   }`}
@@ -462,53 +462,53 @@ export default function AdminCompanies() {
                         : 'border-gray-100 hover:border-purple-300 bg-white'
                     } hover:shadow-xl hover:-translate-y-1`}
                   >
-                    <div className="flex items-start gap-4 mb-3">
-                      <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg flex-shrink-0">
-                        {company.logo ? (
-                          <img src={company.logo} alt="" className="w-full h-full object-cover rounded-2xl" />
-                        ) : (
-                          company.name.substring(0, 2).toUpperCase()
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className={`text-lg font-black truncate mb-1.5 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{company.name}</h3>
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-bold border ${statusConfig.color}`}>
-                            <StatusIcon className="w-3.5 h-3.5" />
-                            {company.status.charAt(0).toUpperCase() + company.status.slice(1)}
-                          </span>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                          <div className={`flex items-center gap-2 text-xs font-semibold truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-purple-500/80" />
-                            <span className="truncate">{company.industry || 'N/A'}</span>
-                          </div>
-                          <div className={`flex items-center gap-2 text-xs font-semibold truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-purple-500/80" />
-                            <span className="truncate">{company.location || 'N/A'}</span>
-                          </div>
-                          <div className={`flex items-center gap-2 text-xs font-semibold truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            <Users className="w-3.5 h-3.5 flex-shrink-0 text-purple-500/80" />
-                            <span className="truncate">{company.size || 'N/A'}</span>
-                          </div>
-                          {company.website && (
-                            <a
-                              href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className={`flex items-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-600 hover:underline truncate`}
-                            >
-                              <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
-                              <span className="truncate">Website</span>
-                            </a>
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="flex items-start gap-4 min-w-0 flex-1">
+                        <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg flex-shrink-0">
+                          {company.logo ? (
+                            <img src={company.logo} alt="" className="w-full h-full object-cover rounded-2xl" />
+                          ) : (
+                            company.name.substring(0, 2).toUpperCase()
                           )}
                         </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className={`text-lg font-black truncate mb-1.5 ${darkMode ? 'text-white' : 'text-gray-900'}`}>{company.name}</h3>
+                          
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                            <div className={`flex items-center gap-2 text-xs font-semibold truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-purple-500/80" />
+                              <span className="truncate">{company.industry || 'N/A'}</span>
+                            </div>
+                            <div className={`flex items-center gap-2 text-xs font-semibold truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-purple-500/80" />
+                              <span className="truncate">{company.location || 'N/A'}</span>
+                            </div>
+                            <div className={`flex items-center gap-2 text-xs font-semibold truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              <Users className="w-3.5 h-3.5 flex-shrink-0 text-purple-500/80" />
+                              <span className="truncate">{company.size || 'N/A'}</span>
+                            </div>
+                            {company.website && (
+                              <a
+                                href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className={`flex items-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-600 hover:underline truncate`}
+                              >
+                                <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" />
+                                <span className="truncate">Website</span>
+                              </a>
+                            )}
+                          </div>
+                        </div>
                       </div>
+                      <span className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-bold border flex-shrink-0 ${statusConfig.color}`}>
+                        <StatusIcon className="w-3.5 h-3.5" />
+                        {company.status.charAt(0).toUpperCase() + company.status.slice(1)}
+                      </span>
                     </div>
 
-                    {company.description && (
+                    {company.description && !company.description.includes('is a fast-growing hiring partner on SkillConnect') && (
                       <p className={`text-xs font-normal line-clamp-2 mt-3 mb-4 leading-relaxed ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         {company.description}
                       </p>
