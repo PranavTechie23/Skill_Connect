@@ -474,7 +474,7 @@ const AdminDashboard: React.FC = () => {
           newJobsThisWeek,
           newJobsThisMonth,
           totalUsers: professionals.length, // Only count professionals/employees
-          totalAllUsers: (usersData || []).length, // All users (for the Users card)
+          totalAllUsers: professionals.length + totalCompanies, // Ensure the tally matches perfectly on screen
           newUsersThisWeek: newUsersThisWeekAll, // New users this week (all users) for User Management badge
           newProfessionalsThisWeek: newProfessionalsThisWeek, // New professionals this week
           totalCompanies,
@@ -1047,7 +1047,7 @@ const AdminDashboard: React.FC = () => {
                         <Zap className="w-5 h-5 text-blue-500 opacity-50" />
                       </div>
                       <p className={`text-sm font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        Total Users
+                        Total Professionals
                       </p>
                       <p className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                         {stats.totalUsers || 0}

@@ -24,10 +24,10 @@ export default function Home() {
 
   // booking/form state reserved for future features
   const workers = [
-    { name: 'Axar Patel', role: 'Building worker', img: '/images/building_worker.jpg', rating: 4.2 },
-    { name: 'Abhishek Sharma', role: 'Carpenter', img: '/images/carpenter.jpg', rating: 4.0 },
-    { name: 'Taylor Swift', role: 'Mechanical Engineer', img: '/images/mechanic.jpeg', rating: 5.0 },
-    { name: 'Elizabeth', role: 'Farmer', img: '/images/farmer.jpg', rating: 4.5 },
+    { name: 'Axar Patel', role: 'Mason', img: '/images/building_worker.jpg', rating: 4.2 },
+    { name: 'Raj Sharma', role: 'Carpenter', img: '/images/carpenter.jpg', rating: 4.0 },
+    { name: 'Liza Root', role: 'Mechanic', img: '/images/mechanic.jpeg', rating: 5.0 },
+    { name: 'Laura', role: 'Farmer', img: '/images/farmer.jpg', rating: 4.5 },
   ];
 
   const [motivationalQuote, setMotivationalQuote] = useState({

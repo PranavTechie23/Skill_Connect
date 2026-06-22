@@ -117,6 +117,27 @@ function calculateCompletenessScore(user: any, profile: any): number {
 }
 
 // -------------------------------------------------------------
+// Endpoint: GET /api/ai/candidate/profile-score
+// -------------------------------------------------------------
+router.get("/profile-score", requireCandidate, async (req: Request, res: Response) => {
+  const userId = (req.session as any)?.userId || (req.user as any)?.id;
+  try {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    const [profile] = await db.select().from(professionalProfiles).where(eq(professionalProfiles.userId, userId));
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    const score = calculateCompletenessScore(user, profile);
+    return res.json({ success: true, score });
+  } catch (error: any) {
+    console.error("Profile score endpoint failed:", error);
+    return res.status(500).json({ success: false, error: "Failed to calculate score" });
+  }
+});
+
+// -------------------------------------------------------------
 // Endpoint: GET /api/ai/candidate/profile-suggestions
 // -------------------------------------------------------------
 router.get("/profile-suggestions", requireCandidate, async (req: Request, res: Response) => {

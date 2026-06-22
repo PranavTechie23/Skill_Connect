@@ -86,8 +86,6 @@ const FALLBACK_MESSAGES: Record<string, unknown> = {
     curatedForYou: "Curated for you",
     topPicks: "Top Picks",
     bestRecommended: "Trending Jobs",
-    createAccountToApply:
-      "Create an account to apply and unlock personalized recommendations.",
     joinSkillConnect: "Join SkillConnect",
     getRecommendations: "Get tailored job recommendations",
     signUpFree: "Sign up free",

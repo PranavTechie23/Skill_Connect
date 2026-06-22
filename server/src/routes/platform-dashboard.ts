@@ -27,15 +27,17 @@ router.get("/", async (req, res) => {
       GROUP BY status
     `);
     
-    let accepted = 0, rejected = 0, pending = 0, interview = 0;
+    let accepted = 0, rejected = 0, pending = 0, interview = 0, shortlisted = 0, hired = 0;
     
     for (const row of ((statusCountsResult as any).rows || statusCountsResult) as any[]) {
       const status = (row.status || "").toLowerCase();
       const count = parseInt(row.count) || 0;
       
-      if (['hired', 'accepted', 'approved', 'offer'].includes(status)) accepted += count;
+      if (['hired'].includes(status)) hired += count;
+      else if (['accepted', 'approved', 'offer'].includes(status)) accepted += count;
       else if (['rejected', 'declined'].includes(status)) rejected += count;
-      else if (['interview', 'interviewing', 'shortlisted'].includes(status)) interview += count;
+      else if (['interview', 'interviewing'].includes(status)) interview += count;
+      else if (['shortlisted'].includes(status)) shortlisted += count;
       else pending += count;
     }
 
@@ -44,6 +46,8 @@ router.get("/", async (req, res) => {
       { name: 'Rejected', value: rejected },
       { name: 'Pending', value: pending },
       { name: 'Interview', value: interview },
+      { name: 'Shortlisted', value: shortlisted },
+      { name: 'Hired', value: hired },
     ];
 
     // 3. Job Categories (using industry or job_type as proxy)
@@ -69,11 +73,11 @@ router.get("/", async (req, res) => {
 
     // 4. User Growth (last 6 months)
     const userGrowthResult = await db.execute(sql`
-      SELECT to_char(created_at, 'Mon') as month, count(*) as users
+      SELECT to_char(date_trunc('month', created_at), 'Mon') as month, count(*) as users
       FROM users
-      WHERE created_at >= NOW() - INTERVAL '6 months'
-      GROUP BY to_char(created_at, 'Mon'), extract(month from created_at)
-      ORDER BY extract(month from created_at)
+      WHERE created_at >= date_trunc('month', NOW() - INTERVAL '5 months')
+      GROUP BY date_trunc('month', created_at)
+      ORDER BY date_trunc('month', created_at)
     `);
     
     const userGrowthData = (((userGrowthResult as any).rows || userGrowthResult) as any[]).map(row => ({
@@ -107,7 +111,7 @@ router.get("/", async (req, res) => {
       LEFT JOIN applications a ON j.id = a.job_id
       GROUP BY j.id, j.title
       ORDER BY applications DESC
-      LIMIT 5
+      LIMIT 10
     `);
 
     const topJobListingsData = (((topJobsResult as any).rows || topJobsResult) as any[]).map(row => ({

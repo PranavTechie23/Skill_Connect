@@ -91,6 +91,8 @@ export default function CareerCoachPage({ embedded = false }: { embedded?: boole
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   // Profile suggestions states
+  const [profileScore, setProfileScore] = useState<number | null>(null);
+  const [loadingScore, setLoadingScore] = useState(false);
   const [suggestions, setSuggestions] = useState<ProfileSuggestions | null>(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [errorSuggestions, setErrorSuggestions] = useState<string | null>(null);
@@ -136,7 +138,25 @@ export default function CareerCoachPage({ embedded = false }: { embedded?: boole
     }
   };
 
-  // Load suggestions
+  // Load profile score (fast, deterministic)
+  const loadProfileScore = async () => {
+    setLoadingScore(true);
+    try {
+      const res = await apiFetch("/api/ai/candidate/profile-score");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setProfileScore(data.score);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load profile score:", err);
+    } finally {
+      setLoadingScore(false);
+    }
+  };
+
+  // Load suggestions (slow, AI-driven)
   const loadProfileSuggestions = async (forceRefresh = false) => {
     setLoadingSuggestions(true);
     setErrorSuggestions(null);
@@ -153,6 +173,8 @@ export default function CareerCoachPage({ embedded = false }: { embedded?: boole
       }
       const data = await res.json();
       if (data.success) {
+        // Also update score in case it changed
+        if (data.score !== undefined) setProfileScore(data.score);
         setSuggestions({
           score: data.score,
           suggestions: data.suggestions,
@@ -187,6 +209,7 @@ export default function CareerCoachPage({ embedded = false }: { embedded?: boole
 
   useEffect(() => {
     loadJobsList();
+    loadProfileScore();
     loadProfileSuggestions();
     loadNextSteps();
   }, [user?.id]);
@@ -504,14 +527,43 @@ export default function CareerCoachPage({ embedded = false }: { embedded?: boole
             TAB: PROFILE BOOSTER
             ------------------------------------------------------------- */}
         <TabsContent value="booster" className="space-y-6">
+          {/* Profile Completeness Dial Card (Always visible, fast load) */}
+          <Card className={`${overviewGlassCard} rounded-2xl overflow-hidden`}>
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row items-center gap-6">
+                <div className="relative flex items-center justify-center w-36 h-36 shrink-0 bg-secondary/20 rounded-full border">
+                  {loadingScore ? (
+                    <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                  ) : (
+                    <div className="text-center">
+                      <span className="text-4xl font-black text-indigo-500 tracking-tight">
+                        {profileScore ?? suggestions?.score ?? 0}%
+                      </span>
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mt-1">
+                        Complete
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2 w-full">
+                  <h2 className="text-lg font-bold">Profile Completion Score</h2>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    This score is calculated deterministically based on key parameters in your profile like having a Bio (minimum 40 characters), location, skills, education, and experience. Completing these ensures a higher ranking in semantic matches.
+                  </p>
+                  <Progress value={profileScore ?? suggestions?.score ?? 0} className="h-2 w-full mt-2 bg-secondary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {loadingSuggestions ? (
             <div className="space-y-4">
-              <Skeleton className="h-[200px] w-full rounded-2xl" />
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Skeleton className="h-[120px] rounded-2xl" />
-                <Skeleton className="h-[120px] rounded-2xl" />
-                <Skeleton className="h-[120px] rounded-2xl" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Skeleton className="h-[200px] w-full rounded-2xl bg-slate-200 dark:bg-slate-800" />
+                <Skeleton className="h-[200px] w-full rounded-2xl bg-slate-200 dark:bg-slate-800" />
               </div>
+              <Skeleton className="h-[150px] w-full rounded-2xl bg-slate-200 dark:bg-slate-800" />
             </div>
           ) : errorSuggestions ? (
             <Alert variant="destructive" className="rounded-2xl">
@@ -524,32 +576,6 @@ export default function CareerCoachPage({ embedded = false }: { embedded?: boole
             </Alert>
           ) : (
             <div className="space-y-6">
-              {/* Profile Completeness Dial Card */}
-              <Card className={`${overviewGlassCard} rounded-2xl overflow-hidden`}>
-                <CardContent className="p-6">
-                  <div className="flex flex-col md:flex-row items-center gap-6">
-                    <div className="relative flex items-center justify-center w-36 h-36 shrink-0 bg-secondary/20 rounded-full border">
-                      <div className="text-center">
-                        <span className="text-4xl font-black text-indigo-500 tracking-tight">
-                          {suggestions?.score ?? 0}%
-                        </span>
-                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mt-1">
-                          Complete
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h2 className="text-lg font-bold">Profile Completion Score</h2>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        This score is calculated deterministically based on key parameters in your profile like having a Bio (minimum 40 characters), location, skills, education, and experience. Completing these ensures a higher ranking in semantic matches.
-                      </p>
-                      <Progress value={suggestions?.score ?? 0} className="h-2 w-full mt-2 bg-secondary" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Suggestions Card */}
                 <Card className={`${overviewGlassCard} rounded-2xl`}>

@@ -1377,85 +1377,76 @@ export default function Jobs() {
                 </AnimatePresence>
               </div>
 
-              {/* ── PAGINATION ── */}
-              {totalPages > 1 && (
-                <div className="jobs-pagination">
-                  <Pagination>
-                    <PaginationContent style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-                      <PaginationItem>
-                        <PaginationPrevious
-                          onClick={() => setPage(Math.max(1, page - 1))}
-                          style={{
-                            color: page === 1 ? (isDark ? "#334155" : "#cbd5e1") : (isDark ? "#a5b4fc" : "#4f46e5"),
-                            pointerEvents: page === 1 ? "none" : "auto",
-                            opacity: page === 1 ? 0.45 : 1,
-                            fontWeight: 600,
-                            fontSize: "0.875rem",
-                          }}
-                        />
-                      </PaginationItem>
-
-                      <div className="hidden md:flex" style={{ alignItems: "center", gap: "0.35rem" }}>
-                        {(function() {
-                          const total = totalPages;
-                          const current = page;
-                          if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
-                          if (current <= 3) return [1, 2, 3, '...', total];
-                          if (current >= total - 2) return [1, '...', total - 2, total - 1, total];
-                          return [1, '...', current, '...', total];
-                        })().map((pn, idx) => {
-                          if (pn === '...') {
-                            return <span key={`ell-${idx}`} className="jobs-list-meta" style={{ padding: "0 6px" }}>...</span>;
-                          }
-                          return (
-                            <PaginationItem key={pn}>
-                              <PaginationLink
-                                onClick={() => setPage(pn as number)}
-                                isActive={pn === page}
-                                className={`jobs-page-btn${pn === page ? " is-active" : ""}`}
-                              >
-                                {pn}
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                        })}
-                      </div>
-
-                      <PaginationItem>
-                        <PaginationNext
-                          onClick={() => setPage(Math.min(totalPages, page + 1))}
-                          style={{
-                            color: page === totalPages ? (isDark ? "#334155" : "#cbd5e1") : (isDark ? "#a5b4fc" : "#4f46e5"),
-                            pointerEvents: page === totalPages ? "none" : "auto",
-                            opacity: page === totalPages ? 0.45 : 1,
-                            fontWeight: 600,
-                            fontSize: "0.875rem",
-                          }}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-
-                  <p className="jobs-list-meta" style={{ textAlign: "center", marginTop: "0.75rem" }}>
-                    Page {page} of {totalPages} · {totalJobs.toLocaleString()} total opportunities
-                  </p>
-                </div>
-              )}
-
-              {isGuest && !filtersActive && (
-                <div style={{ padding: "1rem 1.5rem 1.25rem", borderTop: "1px solid var(--jobs-row-border)", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
-                  <p style={{ fontSize: "0.875rem", color: "#64748b", margin: 0 }}>{t("jobs.createAccountToApply")}</p>
-                  <div style={{ display: "flex", gap: "0.65rem" }}>
-                    <Link to="/login" className="job-list-apply" style={{ opacity: 1, transform: "none", background: "transparent", color: "#334155", border: "1px solid rgba(15,23,42,0.12)" }}>
-                      {t("nav.signIn")}
-                    </Link>
-                    <Link to="/signup" className="job-list-apply" style={{ opacity: 1, transform: "none", textDecoration: "none" }}>
-                      {t("jobs.signUpFree")}
-                    </Link>
-                  </div>
-                </div>
-              )}
             </motion.div>
+
+            {/* ── PAGINATION ── */}
+            {totalPages > 1 && (
+              <div className="jobs-pagination mt-8">
+                <Pagination>
+                  <PaginationContent style={{ display: "flex", alignItems: "center", justifyItems: "center", gap: "1rem", width: "100%", justifyContent: "center" }}>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={() => setPage(Math.max(1, page - 1))}
+                        style={{
+                          color: page === 1 ? (isDark ? "#334155" : "#cbd5e1") : (isDark ? "#a5b4fc" : "#4f46e5"),
+                          pointerEvents: page === 1 ? "none" : "auto",
+                          opacity: page === 1 ? 0.45 : 1,
+                          fontWeight: 600,
+                          fontSize: "0.875rem",
+                          cursor: "pointer"
+                        }}
+                      />
+                    </PaginationItem>
+
+                    <div className="hidden md:flex" style={{ alignItems: "center", gap: "0.35rem" }}>
+                      {(function() {
+                        const total = totalPages;
+                        const current = page;
+                        if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+                        if (current <= 3) return [1, 2, 3, '...', total];
+                        if (current >= total - 2) return [1, '...', total - 2, total - 1, total];
+                        return [1, '...', current, '...', total];
+                      })().map((pn, idx) => {
+                        if (pn === '...') {
+                          return <span key={`ell-${idx}`} className="jobs-list-meta" style={{ padding: "0 6px" }}>...</span>;
+                        }
+                        return (
+                          <PaginationItem key={pn}>
+                            <PaginationLink
+                              onClick={() => setPage(pn as number)}
+                              isActive={pn === page}
+                              className={`jobs-page-btn${pn === page ? " is-active" : ""}`}
+                            >
+                              {pn}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+                    </div>
+
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={() => setPage(Math.min(totalPages, page + 1))}
+                        style={{
+                          color: page === totalPages ? (isDark ? "#334155" : "#cbd5e1") : (isDark ? "#a5b4fc" : "#4f46e5"),
+                          pointerEvents: page === totalPages ? "none" : "auto",
+                          opacity: page === totalPages ? 0.45 : 1,
+                          fontWeight: 600,
+                          fontSize: "0.875rem",
+                          cursor: "pointer"
+                        }}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+
+                <p className="jobs-list-meta" style={{ textAlign: "center", marginTop: "0.75rem" }}>
+                  Page {page} of {totalPages} · {totalJobs.toLocaleString()} total opportunities
+                </p>
+              </div>
+            )}
+
+            
           </div>
         </div >
       </div >

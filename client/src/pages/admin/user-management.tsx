@@ -127,8 +127,15 @@ const UserCard = ({
   const firstName = user.firstName || (user as any).first_name || '';
   const lastName = user.lastName || (user as any).last_name || '';
   
-  // Get initials - use first letter of firstName and lastName, or fallback to email
+  // Get initials - prefer company name for employers
   const getInitials = () => {
+    const isEmployer = user.userType === 'Employer' || (user as any).user_type === 'Employer';
+    const companyName = (user as any).company?.name;
+    if (isEmployer && companyName) {
+      const parts = companyName.split(' ').filter(Boolean);
+      if (parts.length >= 2) return `${parts[0][0].toUpperCase()}${parts[1][0].toUpperCase()}`;
+      if (parts.length === 1) return `${parts[0][0].toUpperCase()}${parts[0][1]?.toUpperCase() || ''}`;
+    }
     if (firstName && lastName) {
       return `${firstName[0].toUpperCase()}${lastName[0].toUpperCase()}`;
     } else if (firstName) {
@@ -143,17 +150,22 @@ const UserCard = ({
   
   const initials = getInitials();
   
-  // Get full name
-  const fullName = firstName && lastName 
-    ? `${firstName} ${lastName}`.trim()
-    : firstName || lastName || user.email || 'Unknown User';
+  const isEmployer = user.userType === 'Employer' || (user as any).user_type === 'Employer';
+  const companyName = (user as any).company?.name;
+  
+  // Get full name - prefer company name for employers
+  const fullName = isEmployer && companyName
+    ? companyName
+    : firstName && lastName 
+      ? `${firstName} ${lastName}`.trim()
+      : firstName || lastName || user.email || 'Unknown User';
   
   // Get designation/title - prefer title, then profile.headline, then profile.title
   const designation = (user as any).title || 
                       (user as any).designation || 
                       (user as any).profile?.headline || 
                       (user as any).profile?.title || 
-                      user.userType || 
+                      (user.userType === 'Employer' ? 'Company' : user.userType) || 
                       'N/A';
   
   // Get createdAt from both formats
@@ -250,13 +262,23 @@ const ViewUserModal = ({
 }) => {
   const firstName = user.firstName || (user as any).first_name || '';
   const lastName = user.lastName || (user as any).last_name || '';
-  const fullName = firstName && lastName ? `${firstName} ${lastName}`.trim() : firstName || lastName || user.email || 'Unknown User';
-  const designation = (user as any).title || (user as any).designation || (user as any).profile?.headline || user.userType || 'N/A';
+  const isEmployer = user.userType === 'Employer' || (user as any).user_type === 'Employer';
+  const companyName = (user as any).company?.name;
+  
+  const fullName = isEmployer && companyName
+    ? companyName
+    : firstName && lastName ? `${firstName} ${lastName}`.trim() : firstName || lastName || user.email || 'Unknown User';
+  const designation = (user as any).title || (user as any).designation || (user as any).profile?.headline || (isEmployer ? 'Company' : user.userType) || 'N/A';
   const createdAt = user.createdAt || (user as any).created_at;
   const location = user.location || 'N/A';
   const userType = user.userType || (user as any).user_type || 'N/A';
   
   const getInitials = () => {
+    if (isEmployer && companyName) {
+      const parts = companyName.split(' ').filter(Boolean);
+      if (parts.length >= 2) return `${parts[0][0].toUpperCase()}${parts[1][0].toUpperCase()}`;
+      if (parts.length === 1) return `${parts[0][0].toUpperCase()}${parts[0][1]?.toUpperCase() || ''}`;
+    }
     if (firstName && lastName) return `${firstName[0].toUpperCase()}${lastName[0].toUpperCase()}`;
     if (firstName) return `${firstName[0].toUpperCase()}${firstName[1]?.toUpperCase() || ''}`;
     if (lastName) return `${lastName[0].toUpperCase()}${lastName[1]?.toUpperCase() || ''}`;
@@ -566,7 +588,7 @@ const AddUserModal = ({
                   className={inputClass}
                 >
                   <option value="Professional">Professional</option>
-                  <option value="Employer">Employer</option>
+                  <option value="Employer">Company</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>
@@ -864,7 +886,7 @@ const EditUserModal = ({
                       className={inputClass}
                     >
                       <option value="Professional">Professional</option>
-                      <option value="Employer">Employer</option>
+                      <option value="Employer">Company</option>
                       <option value="admin">Admin</option>
                     </select>
                   </div>
@@ -984,9 +1006,9 @@ const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: Use
     onQuickActionConsumed?.();
   }, [quickActionIntent, onQuickActionConsumed]);
 
-  const loadUsers = async (options?: { force?: boolean }) => {
+  const loadUsers = async (options?: { force?: boolean, background?: boolean }) => {
     try {
-      if (options?.force || !adminService.getCachedUsers()) {
+      if ((options?.force || !adminService.getCachedUsers()) && !options?.background) {
         setLoading(true);
       }
       const fetchedUsers = await adminService.getUsers(options);
@@ -1056,7 +1078,7 @@ const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: Use
         variant: 'success',
       });
       setShowAddUser(false);
-      loadUsers();
+      loadUsers({ background: true });
     } catch (error) {
       console.error('Failed to create user:', error);
       toast({
@@ -1088,7 +1110,7 @@ const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: Use
         variant: 'success',
       });
       setUserToEdit(null);
-      loadUsers();
+      loadUsers({ background: true });
     } catch (error) {
       console.error('Failed to update user:', error);
       toast({
@@ -1102,15 +1124,17 @@ const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: Use
 
   const handleDeleteUser = async (userId: string): Promise<void> => {
     try {
+      setUsers(prev => prev.filter(u => u.id !== userId));
       await adminService.deleteUser(userId);
       toast({
         title: 'Success',
         description: 'User deleted successfully',
         variant: 'success',
       });
-      loadUsers();
+      loadUsers({ background: true });
       setUserToDelete(null);
     } catch (error) {
+      loadUsers({ force: true }); // Revert on failure
       console.error('Failed to delete user:', error);
       toast({
         title: 'Error',
@@ -1336,7 +1360,7 @@ const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: Use
                     {([
                       { key: 'all' as const, label: 'All Types', icon: Users, activeClass: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm' },
                       { key: 'Professional' as const, label: 'Professionals', icon: Zap, activeClass: 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-sm' },
-                      { key: 'Employer' as const, label: 'Employers', icon: Activity, activeClass: 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-sm' },
+                      { key: 'Employer' as const, label: 'Companies', icon: Activity, activeClass: 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-sm' },
                     ]).map(({ key, label, icon: Icon, activeClass }) => (
                       <button
                         key={key}
@@ -1416,7 +1440,7 @@ const UserManagement = ({ quickActionIntent = null, onQuickActionConsumed }: Use
                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                           darkMode ? 'bg-white/10 text-gray-300' : 'bg-gray-100 text-gray-700'
                         }`}>
-                          {filterType === 'Professional' ? 'Professionals' : 'Employers'}
+                          {filterType === 'Professional' ? 'Professionals' : 'Companies'}
                         </span>
                       )}
                       {filterStatus !== 'all' && (

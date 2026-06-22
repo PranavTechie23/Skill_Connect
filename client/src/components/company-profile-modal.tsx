@@ -4,6 +4,7 @@ import { useTheme } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 import { fetchPublicCompany, type PublicCompanyProfile } from "@/lib/company-profile";
 import { CompanyPublicView } from "@/components/company-public-view";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 interface CompanyProfileModalProps {
   companyId: string | null | undefined;
@@ -56,25 +57,12 @@ export function CompanyProfileModal({
     };
   }, [isOpen, companyId]);
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="company-profile-title"
-    >
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-        aria-label="Close"
-      />
-      <div
+    <Dialog open={isOpen} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent 
         className={cn(
-          "relative w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl flex flex-col",
-          darkMode ? "bg-slate-950 border border-slate-700/80" : "bg-white border border-slate-200",
+          "w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl flex flex-col p-0 border-0 [&>button]:hidden",
+          darkMode ? "bg-slate-950" : "bg-white"
         )}
       >
         <div
@@ -85,20 +73,23 @@ export function CompanyProfileModal({
         >
           <div className="flex items-center gap-2 min-w-0">
             <Building2 className={cn("w-5 h-5 shrink-0", darkMode ? "text-indigo-400" : "text-indigo-600")} />
-            <h2
+            <DialogTitle
               id="company-profile-title"
-              className={cn("font-bold truncate", darkMode ? "text-white" : "text-gray-900")}
+              className={cn("font-bold truncate m-0", darkMode ? "text-white" : "text-gray-900")}
             >
               {company?.name || companyName || "Company"}
-            </h2>
+            </DialogTitle>
           </div>
           <button
             type="button"
             onClick={onClose}
             className={cn(
-              "p-2 rounded-xl transition-colors",
-              darkMode ? "hover:bg-white/10 text-gray-400" : "hover:bg-gray-100 text-gray-600",
+              "p-2 rounded-full transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500",
+              darkMode 
+                ? "bg-slate-800 hover:bg-slate-700 text-gray-300 hover:text-white" 
+                : "bg-slate-100 hover:bg-slate-200 text-gray-600 hover:text-gray-900",
             )}
+            aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>
@@ -116,7 +107,7 @@ export function CompanyProfileModal({
           )}
           {!loading && company && <CompanyPublicView company={company} darkMode={darkMode} />}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

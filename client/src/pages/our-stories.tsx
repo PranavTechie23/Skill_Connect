@@ -14,6 +14,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface Story {
   id: string;
@@ -120,7 +129,7 @@ export default function OurStories() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const storiesPerPage = 12;
+  const storiesPerPage = 9;
 
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -268,15 +277,16 @@ export default function OurStories() {
 
         {/* Pagination */}
         {!loading && totalPages > 1 && (
-          <section className="flex justify-end items-center gap-2 mb-20">
-            <Button
-              variant="outline"
-              onClick={() => goToPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-            >
-              Previous
-            </Button>
-            <div className="flex items-center gap-1 mx-2">
+          <Pagination className="mb-20">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  href="#" 
+                  onClick={(e) => { e.preventDefault(); goToPage(Math.max(1, currentPage - 1)); }}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+              
               {(function() {
                 const total = totalPages;
                 const current = currentPage;
@@ -285,28 +295,31 @@ export default function OurStories() {
                 if (current >= total - 2) return [1, '...', total - 2, total - 1, total];
                 return [1, '...', current, '...', total];
               })().map((page, idx) => (
-                page === '...' ? (
-                  <span key={`ellipsis-${idx}`} className="px-2 text-slate-500 dark:text-zinc-400">...</span>
-                ) : (
-                  <Button
-                    key={page}
-                    variant={currentPage === page ? "default" : "outline"}
-                    onClick={() => goToPage(page as number)}
-                    className="w-10 h-10 p-0"
-                  >
-                    {page}
-                  </Button>
-                )
+                <PaginationItem key={idx}>
+                  {page === '...' ? (
+                    <PaginationEllipsis />
+                  ) : (
+                    <PaginationLink
+                      href="#"
+                      isActive={currentPage === page}
+                      onClick={(e) => { e.preventDefault(); goToPage(page as number); }}
+                      className={currentPage === page ? "bg-blue-600 text-white hover:bg-blue-700 hover:text-white border-blue-600" : ""}
+                    >
+                      {page}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
               ))}
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => goToPage(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </Button>
-          </section>
+
+              <PaginationItem>
+                <PaginationNext 
+                  href="#" 
+                  onClick={(e) => { e.preventDefault(); goToPage(Math.min(totalPages, currentPage + 1)); }}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         )}
 
         {/* CTA Section */}

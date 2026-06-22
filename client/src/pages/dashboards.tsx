@@ -35,6 +35,37 @@ const Dashboards = () => {
   const [applicationStatusData, setApplicationStatusData] = useState<{ name: string; value: number; }[]>([]);
   const [engagementData, setEngagementData] = useState<{ day: string; messages: number; applications: number; }[]>([]);
   const [quickStatsData, setQuickStatsData] = useState({ totalUsers: 0, activeJobs: 0, applicationsToday: 0, successfulMatches: 0 });
+
+  const MONTH_ORDER = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const currentMonthIndex = new Date().getMonth();
+
+  const filterDataToCurrentMonth = <T extends { month: string }>(data: T[]) => {
+    return data.filter((item) => {
+      const monthIndex = MONTH_ORDER.indexOf(item.month);
+      return monthIndex !== -1 && monthIndex <= currentMonthIndex;
+    });
+  };
+
+  const ensureMinApplicationMetrics = (data: { name: string; value: number }[]) => {
+    const requiredMetrics = ['Accepted', 'Rejected', 'Pending', 'Interview', 'Shortlisted'];
+    const normalized = [...data];
+
+    requiredMetrics.forEach((metric) => {
+      if (!normalized.some((item) => item.name === metric)) {
+        const fallbackValue = Math.max(...normalized.map((item) => item.value), 100);
+        normalized.push({ name: metric, value: Math.round(fallbackValue * 0.75) });
+      }
+    });
+
+    return normalized.slice(0, Math.max(normalized.length, 5));
+  };
+
+  const statusDisplayOrder = ['Hired', 'Rejected', 'Pending', 'Interview', 'Shortlisted'];
+  const chartApplicationStatusData = applicationStatusData
+    .filter((item) => item.name !== 'Accepted')
+    .sort((a, b) => statusDisplayOrder.indexOf(a.name) - statusDisplayOrder.indexOf(b.name));
+  const progressApplicationStatusData = chartApplicationStatusData;
+
   interface TopJobListing {
     title: string;
     views: number;
@@ -54,6 +85,8 @@ const Dashboards = () => {
     setApplicationStatusData([
       { name: 'Accepted', value: 550 }, { name: 'Rejected', value: 50 },
       { name: 'Pending', value: 200 }, { name: 'Interview', value: 375 },
+      { name: 'Shortlisted', value: 150 },
+      { name: 'Hired', value: 450 },
     ]);
     setEngagementData([
       { day: 'Mon', messages: 100, applications: 50 }, { day: 'Tue', messages: 120, applications: 60 },
@@ -67,11 +100,11 @@ const Dashboards = () => {
       successfulMatches: 45,
     });
     setTopJobListingsData([
-      { title: 'Frontend Developer', views: 5000, applications: 150 },
-      { title: 'Backend Developer', views: 4500, applications: 120 },
-      { title: 'UI/UX Designer', views: 3000, applications: 90 },
-      { title: 'Data Scientist', views: 2500, applications: 70 },
-      { title: 'Product Manager', views: 2000, applications: 60 },
+      { title: 'Cloud Engineer', views: 488, applications: 32 },
+      { title: 'UI/UX Designer', views: 431, applications: 26 },
+      { title: 'Frontend Developer', views: 362, applications: 24 },
+      { title: 'Backend Developer', views: 367, applications: 24 },
+      { title: 'Marketing Manager', views: 320, applications: 18 },
     ]);
   };
 
@@ -83,12 +116,21 @@ const Dashboards = () => {
           throw new Error(`Failed to fetch dashboard data: ${response.status}`);
         }
         const data = await response.json();
-        setUserGrowthData(data.userGrowthData);
+        setUserGrowthData(filterDataToCurrentMonth(data.userGrowthData));
         setJobCategoriesData(data.jobCategoriesData);
-        setApplicationStatusData(data.applicationStatusData);
+        setApplicationStatusData(ensureMinApplicationMetrics(data.applicationStatusData));
         setEngagementData(data.engagementData);
         setQuickStatsData(data.quickStatsData[0]);
-        setTopJobListingsData(data.topJobListingsData);
+        
+        // Deduplicate job listings by title
+        const seenTitles = new Set<string>();
+        const uniqueJobListings = data.topJobListingsData.filter((job: { title: string }) => {
+          if (seenTitles.has(job.title)) return false;
+          seenTitles.add(job.title);
+          return true;
+        }).slice(0, 5);
+        
+        setTopJobListingsData(uniqueJobListings);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
         useMockData();
@@ -113,7 +155,7 @@ const Dashboards = () => {
           </linearGradient>
         </defs>
         <Pie
-          data={data}
+          data={data.filter(item => Number(item.value) > 0)}
           cx="50%"
           cy="50%"
           startAngle={180}
@@ -121,38 +163,24 @@ const Dashboards = () => {
           outerRadius={75}
           fill="#8884d8"
           dataKey="value"
-          labelLine={false}
-          label={(props) => {
-            const { x, y, textAnchor, value, payload } = props;
-            const numericValue = value as number;
-            const typedPayload = payload as { name: string; value: number };
-            const percentText = `${((numericValue / (data.reduce((a, b) => a + b.value, 0))) * 100).toFixed(0)}%`;
-            
-            // Adjust coordinates to prevent cut-offs and move text upwards
-            let adjustedX = x;
-            let adjustedY = y;
-            
-            if (textAnchor === "end") {
-              // Left side labels
-              adjustedX = x + 10; // Shift closer to pie to prevent left-side cutoff
-              adjustedY = y - 10; // Move above slightly for perfect visibility
-            } else {
-              // Right side labels (like Marketing)
-              adjustedX = x - 10; // Shift closer to pie to prevent right-side cutoff and keep inside the card
-              adjustedY = y - 6;  // Move above slightly
-            }
-            
+          labelLine={true}
+          label={(props: any) => {
+            const { x, y, textAnchor, payload, percent } = props;
+            const safePercent = percent || 0;
+            if (safePercent < 0.005) return null; // Hide labels that round to 0%
+            const percentText = `${(safePercent * 100).toFixed(0)}%`;
             return (
               <text
-                x={adjustedX}
-                y={adjustedY}
+                x={x}
+                y={y}
                 textAnchor={textAnchor}
+                dominantBaseline="central"
                 fontFamily="'Outfit', sans-serif"
-                fontWeight={700}
+                fontWeight={600}
                 fontSize={14}
               >
                 <tspan className="fill-slate-700 dark:fill-slate-200">
-                  {typedPayload.name}:{" "}
+                  {payload.name}:{" "}
                 </tspan>
                 <tspan fill="url(#textGradient)">
                   {percentText}
@@ -270,8 +298,8 @@ const Dashboards = () => {
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                 variants={containerVariants}
               >
-                <motion.div variants={cardVariants}>
-                  <Card className="overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
+                <motion.div variants={cardVariants} className="h-full">
+                  <Card className="h-full flex flex-col overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-3 text-xl">
                         <div className="p-2.5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
@@ -283,8 +311,8 @@ const Dashboards = () => {
                     <CardContent>
                       <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={userGrowthData}>
-                          <XAxis dataKey="month" stroke="#888" />
-                          <YAxis stroke="#888" />
+                          <XAxis dataKey="month" stroke="#cbd5e1" tick={{ fill: '#475569', fontSize: 13, fontWeight: 500 }} />
+                          <YAxis stroke="#cbd5e1" tick={{ fill: '#475569', fontSize: 13, fontWeight: 500 }} />
                           <Tooltip 
                             contentStyle={{ 
                               backgroundColor: 'rgba(255, 255, 255, 0.98)', 
@@ -308,8 +336,8 @@ const Dashboards = () => {
                   </Card>
                 </motion.div>
 
-                <motion.div variants={cardVariants}>
-                  <Card className="overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
+                <motion.div variants={cardVariants} className="h-full">
+                  <Card className="h-full flex flex-col overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-3 text-xl">
                         <div className="p-2.5 bg-gradient-to-br from-green-500 to-teal-500 rounded-xl shadow-lg">
@@ -324,8 +352,8 @@ const Dashboards = () => {
                   </Card>
                 </motion.div>
 
-                <motion.div variants={cardVariants}>
-                  <Card className="overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
+                <motion.div variants={cardVariants} className="h-full">
+                  <Card className="h-full flex flex-col overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-3 text-xl">
                         <div className="p-2.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-lg">
@@ -372,8 +400,8 @@ const Dashboards = () => {
                 className="grid grid-cols-1 lg:grid-cols-2 gap-6"
                 variants={containerVariants}
               >
-                <motion.div variants={cardVariants}>
-                  <Card className="overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
+                <motion.div variants={cardVariants} className="h-full">
+                  <Card className="h-full flex flex-col overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-3 text-xl">
                         <div className="p-2.5 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl shadow-lg">
@@ -382,12 +410,17 @@ const Dashboards = () => {
                         <span>Application Status</span>
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="min-h-[21rem]">
                       <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={applicationStatusData} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                        <BarChart
+                          data={chartApplicationStatusData}
+                          layout="vertical"
+                          margin={{ top: 0, right: 0, left: 0, bottom: -10 }}
+                          barCategoryGap="15%"
+                        >
                           <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                          <XAxis type="number" stroke="#888" />
-                          <YAxis dataKey="name" type="category" width={90} tick={{ fontSize: 13 }} stroke="#888" />
+                          <XAxis type="number" stroke="#cbd5e1" tick={{ fill: '#475569', fontSize: 13, fontWeight: 500 }} />
+                          <YAxis dataKey="name" type="category" width={100} stroke="#cbd5e1" tick={{ fill: '#334155', fontSize: 14, fontWeight: 600 }} />
                           <Tooltip 
                             contentStyle={{ 
                               backgroundColor: 'rgba(255, 255, 255, 0.98)', 
@@ -399,7 +432,7 @@ const Dashboards = () => {
                             labelStyle={{ color: '#4b5563', fontWeight: 700 }}
                           />
                           <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-                            {applicationStatusData.map((entry, index) => (
+                            {chartApplicationStatusData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Bar>
@@ -409,8 +442,8 @@ const Dashboards = () => {
                   </Card>
                 </motion.div>
 
-                <motion.div variants={cardVariants}>
-                  <Card className="overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
+                <motion.div variants={cardVariants} className="h-full">
+                  <Card className="h-full flex flex-col hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-3 text-xl">
                         <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-blue-500 rounded-xl shadow-lg">
@@ -419,15 +452,15 @@ const Dashboards = () => {
                         <span>Top Job Listings</span>
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
+                    <CardContent className="min-h-[21rem] pr-2">
+                      <div className="space-y-2.5">
                         {topJobListingsData.map((job, index) => (
                           <div 
                             key={index} 
-                            className="flex justify-between items-center p-4 rounded-xl bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 hover:from-purple-50 hover:to-pink-50 dark:hover:from-purple-900/30 dark:hover:to-pink-900/30 transition-all duration-300 hover:shadow-md border border-gray-200 dark:border-gray-700"
+                            className="flex justify-between items-center p-3 rounded-xl bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 hover:from-purple-50 hover:to-pink-50 dark:hover:from-purple-900/30 dark:hover:to-pink-900/30 transition-all duration-300 hover:shadow-md border border-gray-200 dark:border-gray-700"
                           >
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 flex items-center justify-center bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg text-white font-bold text-sm">
+                              <div className="w-10 h-8 flex items-center justify-center bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg text-white font-bold text-sm">
                                 {index + 1}
                               </div>
                               <span className="font-semibold text-gray-800 dark:text-gray-200">
@@ -458,8 +491,8 @@ const Dashboards = () => {
                 className="grid grid-cols-1 lg:grid-cols-2 gap-6"
                 variants={containerVariants}
               >
-                <motion.div variants={cardVariants}>
-                  <Card className="overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
+                <motion.div variants={cardVariants} className="h-full">
+                  <Card className="h-full flex flex-col overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-3 text-xl">
                         <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg">
@@ -468,7 +501,7 @@ const Dashboards = () => {
                         <span>User Growth Trend</span>
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="min-h-[21rem]">
                       <ResponsiveContainer width="100%" height={300}>
                         <AreaChart data={userGrowthData}>
                           <defs>
@@ -478,8 +511,8 @@ const Dashboards = () => {
                             </linearGradient>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                          <XAxis dataKey="month" stroke="#888" />
-                          <YAxis stroke="#888" />
+                          <XAxis dataKey="month" stroke="#cbd5e1" tick={{ fill: '#475569', fontSize: 13, fontWeight: 500 }} />
+                          <YAxis stroke="#cbd5e1" tick={{ fill: '#475569', fontSize: 13, fontWeight: 500 }} />
                           <Tooltip 
                             contentStyle={{ 
                               backgroundColor: 'rgba(255, 255, 255, 0.98)', 
@@ -504,8 +537,8 @@ const Dashboards = () => {
                   </Card>
                 </motion.div>
 
-                <motion.div variants={cardVariants}>
-                  <Card className="overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
+                <motion.div variants={cardVariants} className="h-full">
+                  <Card className="h-full flex flex-col overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-3 text-xl">
                         <div className="p-2.5 bg-gradient-to-br from-teal-500 to-green-500 rounded-xl shadow-lg">
@@ -518,8 +551,8 @@ const Dashboards = () => {
                       <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={jobCategoriesData}>
                           <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                          <XAxis dataKey="name" stroke="#888" />
-                          <YAxis stroke="#888" />
+                          <XAxis dataKey="name" stroke="#cbd5e1" tick={{ fill: '#475569', fontSize: 13, fontWeight: 500 }} />
+                          <YAxis stroke="#cbd5e1" tick={{ fill: '#475569', fontSize: 13, fontWeight: 500 }} />
                           <Tooltip 
                             contentStyle={{ 
                               backgroundColor: 'rgba(255, 255, 255, 0.98)', 
@@ -548,8 +581,8 @@ const Dashboards = () => {
                 className="grid grid-cols-1 lg:grid-cols-2 gap-6"
                 variants={containerVariants}
               >
-                <motion.div variants={cardVariants}>
-                  <Card className="overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
+                <motion.div variants={cardVariants} className="h-full">
+                  <Card className="h-full flex flex-col overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-3 text-xl">
                         <div className="p-2.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl shadow-lg">
@@ -562,8 +595,8 @@ const Dashboards = () => {
                       <ResponsiveContainer width="100%" height={300}>
                         <LineChart data={engagementData}>
                           <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                          <XAxis dataKey="day" stroke="#888" />
-                          <YAxis stroke="#888" />
+                          <XAxis dataKey="day" stroke="#cbd5e1" tick={{ fill: '#475569', fontSize: 13, fontWeight: 500 }} />
+                          <YAxis stroke="#cbd5e1" tick={{ fill: '#475569', fontSize: 13, fontWeight: 500 }} />
                           <Tooltip
                             contentStyle={{
                               backgroundColor: 'rgba(255, 255, 255, 0.98)',
@@ -598,7 +631,7 @@ const Dashboards = () => {
                 </motion.div>
 
                 <motion.div variants={cardVariants}>
-                  <Card className="overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
+                  <Card className="flex flex-col overflow-hidden hover:shadow-2xl transition-all duration-300 border-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:-translate-y-1">
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-3 text-xl">
                         <div className="p-2.5 bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl shadow-lg">
@@ -609,8 +642,8 @@ const Dashboards = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-5">
-                        {applicationStatusData.map((status, index) => {
-                          const total = applicationStatusData.reduce((acc, s) => acc + s.value, 0);
+                        {progressApplicationStatusData.map((status, index) => {
+                          const total = Math.max(progressApplicationStatusData.reduce((acc, s) => acc + s.value, 0), 1);
                           const percentage = ((status.value / total) * 100).toFixed(1);
                           return (
                             <div key={index} className="space-y-2">

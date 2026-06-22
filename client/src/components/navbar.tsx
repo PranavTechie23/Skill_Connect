@@ -85,7 +85,12 @@ export default function Navbar() {
             )}
 
             {user?.userType === "Employer" && (
-              <NavItem to="/employer/dashboard" isActive={isActive("/employer")}>
+              <NavItem
+                to="/employer/dashboard"
+                isActive={isActive("/employer")}
+                className={navItemClass}
+                size={navItemSize}
+              >
                 {t("nav.postJobs")}
               </NavItem>
             )}

@@ -172,7 +172,6 @@ async function getOrCreateCompany(ownerId: string, name: string, location: strin
     [
       id,
       name,
-      `${name} is a fast-growing hiring partner on SkillConnect.`,
       `https://${name.toLowerCase().replace(/\s+/g, "")}.com`,
       location,
       "51-200",
