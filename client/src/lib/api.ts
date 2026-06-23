@@ -4,7 +4,7 @@ import { startGlobalLoading, stopGlobalLoading } from "./loading-store";
 // In development, use relative paths to let Vite's dev-server proxy handle requests
 // API_BASE_URL: only use when explicitly provided via VITE_API_URL
 // In production, API_BASE_URL should be set to the actual API server URL
-export const API_BASE_URL = import.meta.env.DEV ? "" : (import.meta.env.VITE_API_URL ?? "");
+export const API_BASE_URL = import.meta.env.DEV ? "" : (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || "");
 
 /** Set on a request to opt out of the global overlay loader (e.g. polling). */
 export const SKIP_GLOBAL_LOADER_HEADER = "X-Skip-Global-Loader";
