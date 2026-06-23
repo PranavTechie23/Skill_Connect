@@ -242,7 +242,7 @@ export const loginSchema = z.object({
 });
 
 export const registerSchema = z.object({
-  email: z.email(),
+  email: z.string().email(),
   password: z.string().min(6),
   firstName: z.string(),
   lastName: z.string(),
@@ -257,13 +257,13 @@ export const registerSchema = z.object({
   title: z.string().optional(),
   bio: z.string().optional(),
   skills: z.array(z.string()).optional(),
-}).loose().refine((data) => data.password === data.confirmPassword, {
+}).passthrough().refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
 });
 
 export const adminCreateUserSchema = z.object({
-  email: z.email(),
+  email: z.string().email(),
   password: z.string().min(6),
   firstName: z.string(),
   lastName: z.string(),
