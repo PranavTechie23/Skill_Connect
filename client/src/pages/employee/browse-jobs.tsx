@@ -45,6 +45,7 @@ interface Job {
 
 
 
+import { apiFetch } from '../../lib/api';
 import { QuickApplyModal } from '../../components/quick-apply-modal';
 import { CompanyProfileModal } from '@/components/company-profile-modal';
 
@@ -110,7 +111,7 @@ useEffect(() => {
       });
       selectedSkills.forEach((skill) => queryParams.append('skills', skill));
       
-      const response = await fetch(`/api/jobs?${queryParams}`, {
+      const response = await apiFetch(`/api/jobs?${queryParams}`, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'

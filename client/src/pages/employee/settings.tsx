@@ -1,3 +1,4 @@
+import { apiFetch } from '@/lib/api';
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -216,7 +217,7 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
 
   const handleExportData = async () => {
     try {
-      const response = await fetch('/api/me/export');
+      const response = await apiFetch('/api/me/export');
       if (!response.ok) throw new Error('Failed to export data');
       const data = await response.json();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -250,7 +251,7 @@ const SettingsPage = ({ embedded = false }: SettingsPageProps) => {
     setDeleteLoading(true);
     setDeleteError('');
     try {
-      const response = await fetch('/api/me/account', {
+      const response = await apiFetch('/api/me/account', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: deletePassword }),

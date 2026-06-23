@@ -1,3 +1,4 @@
+import { apiFetch } from '@/lib/api';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { scrollDashboardToTop } from '@/lib/scroll-to-top';
@@ -239,7 +240,7 @@ const EmployerSettings: React.FC<EmployerSettingsProps> = ({ embedded = false })
   const handleExportData = async () => {
     setExportLoading(true);
     try {
-      const response = await fetch('/api/me/export');
+      const response = await apiFetch('/api/me/export');
       if (!response.ok) throw new Error('Failed to export data');
       const data = await response.json();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -276,7 +277,7 @@ const EmployerSettings: React.FC<EmployerSettingsProps> = ({ embedded = false })
     setDeleteLoading(true);
     setDeleteError('');
     try {
-      const response = await fetch('/api/me/account', {
+      const response = await apiFetch('/api/me/account', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: deletePassword }),
