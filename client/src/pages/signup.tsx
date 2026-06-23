@@ -125,7 +125,7 @@ export default function Signup() {
         setEmailError(null);
         form.clearErrors("email");
         try {
-          const res = await fetch("/api/auth/check-email", {
+          const res = await apiFetch("/api/auth/check-email", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email }),
@@ -200,7 +200,7 @@ export default function Signup() {
     if (!email) return false;
     setIsCheckingEmail(true);
     try {
-      const res = await fetch("/api/auth/check-email", {
+      const res = await apiFetch("/api/auth/check-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -319,7 +319,7 @@ export default function Signup() {
         createdUser = await auth.register(payload);
       } else {
         // Fallback to raw fetch if AuthContext.register isn't available
-        const res = await fetch("/api/auth/register", {
+        const res = await apiFetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
