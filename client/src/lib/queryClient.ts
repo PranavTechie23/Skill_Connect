@@ -38,7 +38,8 @@ export function getQueryFn<T>(options: { on401: UnauthorizedBehavior }): QueryFu
       if (qs) url = `${url}?${qs}`;
     }
 
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+    let baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+    if (baseUrl && !baseUrl.startsWith("http")) baseUrl = `https://${baseUrl}`;
     const fetchUrl = url.startsWith("/") ? `${baseUrl}${url}` : url;
     const res = await fetch(fetchUrl, { credentials: "include" });
     if (on401 === "returnNull" && res.status === 401) {
@@ -51,7 +52,8 @@ export function getQueryFn<T>(options: { on401: UnauthorizedBehavior }): QueryFu
 }
 
 export async function apiRequest(method: HttpMethod, url: string, body?: unknown): Promise<Response> {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+  let baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+  if (baseUrl && !baseUrl.startsWith("http")) baseUrl = `https://${baseUrl}`;
   const fetchUrl = url.startsWith("/") ? `${baseUrl}${url}` : url;
   
   const res = await fetch(fetchUrl, {
