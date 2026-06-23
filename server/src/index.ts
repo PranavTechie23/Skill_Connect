@@ -54,9 +54,11 @@ const server = http.createServer(app);
       'http://localhost:5002',  // API server
       'http://localhost:5003',  // API server
       'http://localhost:3000',  // Common React port
+      'https://skill-connect-alpha.vercel.app', // Vercel production frontend
+      process.env.FRONTEND_URL, // Dynamic frontend URL from env
       null,                     // Allow requests with no origin (like mobile apps or curl requests)
       'null'                    // Allow requests from files opened in browser
-    ];
+    ].filter(Boolean);
 
     // Configure CORS before any route handlers
     app.use(cors({
