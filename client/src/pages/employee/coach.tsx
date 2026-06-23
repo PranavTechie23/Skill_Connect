@@ -29,7 +29,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import ReactMarkdown from "react-markdown";
 import { AIFeedback } from "@/components/ui/ai-feedback";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, withSkipGlobalLoader } from "@/lib/api";
 
 interface ChatMessage {
   id: string;
@@ -243,11 +243,11 @@ export default function CareerCoachPage({ embedded = false }: { embedded?: boole
         text: m.text
       }));
 
-      const res = await apiFetch("/api/ai/candidate/coach-chat", {
+      const res = await apiFetch("/api/ai/candidate/coach-chat", withSkipGlobalLoader({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: chatHistory })
-      });
+      }));
 
       if (!res.ok) {
         if (res.status === 429) {
@@ -297,11 +297,11 @@ export default function CareerCoachPage({ embedded = false }: { embedded?: boole
     setCoverLetterResult(null);
 
     try {
-      const res = await apiFetch("/api/ai/candidate/cover-letter", {
+      const res = await apiFetch("/api/ai/candidate/cover-letter", withSkipGlobalLoader({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobId: selectedLetterJob, customInstructions })
-      });
+      }));
 
       if (!res.ok) {
         if (res.status === 429) {
@@ -335,11 +335,11 @@ export default function CareerCoachPage({ embedded = false }: { embedded?: boole
     setPrepResult(null);
 
     try {
-      const res = await apiFetch("/api/ai/candidate/interview-prep", {
+      const res = await apiFetch("/api/ai/candidate/interview-prep", withSkipGlobalLoader({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobId: selectedPrepJob })
-      });
+      }));
 
       if (!res.ok) {
         if (res.status === 429) {
