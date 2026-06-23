@@ -243,7 +243,7 @@ export default function CareerCoachPage({ embedded = false }: { embedded?: boole
         text: m.text
       }));
 
-      const res = await fetch("/api/ai/candidate/coach-chat", {
+      const res = await apiFetch("/api/ai/candidate/coach-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: chatHistory })
@@ -297,7 +297,7 @@ export default function CareerCoachPage({ embedded = false }: { embedded?: boole
     setCoverLetterResult(null);
 
     try {
-      const res = await fetch("/api/ai/candidate/cover-letter", {
+      const res = await apiFetch("/api/ai/candidate/cover-letter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobId: selectedLetterJob, customInstructions })
@@ -335,7 +335,7 @@ export default function CareerCoachPage({ embedded = false }: { embedded?: boole
     setPrepResult(null);
 
     try {
-      const res = await fetch("/api/ai/candidate/interview-prep", {
+      const res = await apiFetch("/api/ai/candidate/interview-prep", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobId: selectedPrepJob })

@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { apiFetch } from "@/lib/api";
+
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart as RechartsPieChart, Pie, Cell, LineChart, Line, AreaChart, Area, CartesianGrid, Legend } from "recharts";
 import { Users, Briefcase, TrendingUp, MessageCircle, Activity, ClipboardList, Eye, FileText, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -111,7 +113,7 @@ const Dashboards = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch("/api/admin/platform-dashboard");
+        const response = await apiFetch("/api/admin/platform-dashboard");
         if (!response.ok) {
           throw new Error(`Failed to fetch dashboard data: ${response.status}`);
         }

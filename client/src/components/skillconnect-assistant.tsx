@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ReactMarkdown from "react-markdown";
+import { apiFetch } from "@/lib/api";
 
 interface ChatMessage {
   id: number;
@@ -65,7 +66,7 @@ export function SkillConnectAssistant() {
       const timeout = setTimeout(() => controller.abort(), 12000);
       // Keep payload small to reduce latency.
       const history = [...messagesRef.current, userMessage].slice(-12);
-      const res = await fetch("/api/assistant/chat", {
+      const res = await apiFetch("/api/assistant/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
