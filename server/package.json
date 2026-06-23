@@ -4,6 +4,7 @@
   "type": "commonjs",
   "scripts": {
     "dev": "nodemon --require dotenv/config --require tsconfig-paths/register --watch src --exec \"npx tsx src/index.ts\"",
+    "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "fix:db": "tsx scripts/add-telephone-column.ts"
   },
@@ -41,6 +42,7 @@
     "nodemon": "^3.1.10",
     "tsconfig-paths": "^4.2.0",
     "tsx": "^4.20.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21"
   }
 }
