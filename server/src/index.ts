@@ -60,6 +60,9 @@ const server = http.createServer(app);
       'null'                    // Allow requests from files opened in browser
     ].filter(Boolean);
 
+    // Trust proxy (required for secure cookies when behind Railway/Vercel proxies)
+    app.set('trust proxy', 1);
+
     // Configure CORS before any route handlers
     app.use(cors({
       origin: (origin, callback) => {

@@ -336,8 +336,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         resave: false,
         saveUninitialized: false, // Only save sessions that have been modified
         cookie: { 
-          secure: false, // Set to false for development (no HTTPS)
-          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production', // true for Railway/Vercel
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' required for cross-domain
           maxAge: 24 * 60 * 60 * 1000, // 24 hours
           httpOnly: true,
           path: '/',

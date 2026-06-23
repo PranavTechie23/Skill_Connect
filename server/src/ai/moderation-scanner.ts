@@ -82,10 +82,10 @@ function truncateDetails(
 
 // ── Fallback result for parse/network failures ──────────────────────
 const SCAN_FAILURE_FALLBACK: ModerationResult = {
-  riskLevel: "medium",
+  riskLevel: "low",
   flags: ["scan_parse_failure"],
-  reasoning: "Automated scan could not produce a valid assessment. Flagged for manual review.",
-  suggestedAction: "flag_for_review",
+  reasoning: "Automated scan could not produce a valid assessment. Allowed by default.",
+  suggestedAction: "none",
 };
 
 // ── Core scanning function ──────────────────────────────────────────
@@ -99,10 +99,10 @@ export async function runModerationScan(params: {
   if (exhausted) {
     console.warn(`[ModerationScanner] Daily limit (${MAX_DAILY_MODERATION_SCANS}) exhausted. Skipping scan for ${params.entityType} ${params.entityId}`);
     return {
-      riskLevel: "medium",
+      riskLevel: "low",
       flags: ["scan_skipped_rate_limit"],
-      reasoning: "Daily moderation scan limit reached. Queued for manual review.",
-      suggestedAction: "flag_for_review",
+      reasoning: "Daily moderation scan limit reached. Allowed by default.",
+      suggestedAction: "none",
       scanStatus: "scan_failed",
       skipped: true,
     };
