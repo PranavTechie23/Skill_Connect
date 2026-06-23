@@ -38,7 +38,9 @@ export function getQueryFn<T>(options: { on401: UnauthorizedBehavior }): QueryFu
       if (qs) url = `${url}?${qs}`;
     }
 
-    const res = await fetch(url, { credentials: "include" });
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+    const fetchUrl = url.startsWith("/") ? `${baseUrl}${url}` : url;
+    const res = await fetch(fetchUrl, { credentials: "include" });
     if (on401 === "returnNull" && res.status === 401) {
       // @ts-ignore allow null when caller expects it
       return null;
@@ -49,7 +51,10 @@ export function getQueryFn<T>(options: { on401: UnauthorizedBehavior }): QueryFu
 }
 
 export async function apiRequest(method: HttpMethod, url: string, body?: unknown): Promise<Response> {
-  const res = await fetch(url, {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+  const fetchUrl = url.startsWith("/") ? `${baseUrl}${url}` : url;
+  
+  const res = await fetch(fetchUrl, {
     method,
     headers: { "Content-Type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,

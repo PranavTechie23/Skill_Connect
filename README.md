@@ -55,7 +55,6 @@ This project aligns with **UN SDG 8 — Decent Work and Economic Growth**, promo
 - 🏢 **Company Profiles** - Detailed employer information and branding
 - 📈 **Success Stories** - Showcase platform impact and user testimonials
 - 🤖 **In-app Support Chatbot** - `/api/assistant/chat` endpoint (Gemini API key required)
-- 🌐 **Multilingual UI** - Locale files under `client/src/locales/`
 
 ### Advanced Features
 
@@ -106,12 +105,6 @@ This project aligns with **UN SDG 8 — Decent Work and Economic Growth**, promo
 └── CORS              - Cross-origin resource sharing
 ```
 
-### Deployment
-```
-├── Vercel            - Frontend hosting
-├── NeonDB            - PostgreSQL hosting
-└── Git/GitHub        - Version control
-```
 
 ---
 
@@ -129,9 +122,10 @@ This project aligns with **UN SDG 8 — Decent Work and Economic Growth**, promo
 ### Installation
 
 1. **Install all dependencies**
+*(Note: This project uses NPM Workspaces. Always run `npm install` from the root directory, which will automatically handle both `client/` and `server/` dependencies.)*
 
 ```bash
-npm run install:all
+npm install
 ```
 
 2. **Configure environment variables** (see [Environment Variables](#-environment-variables))
@@ -150,26 +144,6 @@ Client: http://localhost:5173
 Server: http://localhost:5002
 ```
 
-### Database Management
-
-The project uses Drizzle ORM. You can manage the database with the following npm scripts:
-
-```bash
-# Push schema changes directly to the database
-npm run db:push
-
-# Generate migration files
-npm run db:generate
-
-# Run migrations
-npm run db:migrate
-
-# Open Drizzle Studio to view and edit data
-npm run db:studio
-
-# Seed database with test jobs/data
-npm run add-test-jobs
-```
 
 ## 📁 Project Structure
 
@@ -202,114 +176,7 @@ CEP_Project/
 └── README.md
 ```
 
----
 
-## 🔐 Environment Variables
-
-Create `server/.env` (server reads it from `server/.env`).
-
-```env
-# Server
-PORT=5002
-NODE_ENV=development
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DB_NAME
-SESSION_SECRET=replace-me-with-a-long-random-string
-
-# Google OAuth (optional)
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-GOOGLE_CALLBACK_URL=http://localhost:5002/api/auth/google/callback
-
-# AI Assistant (required for chatbot)
-GEMINI_API_KEY=...
-```
-
-Notes:
-- The AI assistant endpoint (`POST /api/assistant/chat`) returns an error if `GEMINI_API_KEY` is not set.
-- In development, the client proxies `/api` to the server (see `client/vite.config.ts`).
-
----
-
-## 📚 API Notes
-
-### Common endpoints (non-exhaustive)
-
-```http
-POST /api/auth/register
-POST /api/auth/login
-POST /api/auth/logout
-GET  /api/auth/me
-POST /api/assistant/chat
-```
-
-### Job Endpoints
-
-```http
-GET    /api/jobs              # Get all jobs (with filters)
-GET    /api/jobs/:id          # Get job by ID
-POST   /api/jobs              # Create job (employer only)
-PUT    /api/jobs/:id          # Update job (employer only)
-DELETE /api/jobs/:id          # Delete job (employer only)
-```
-
-### Application Endpoints
-
-```http
-GET    /api/applications             # Get user applications
-POST   /api/applications             # Submit application
-PUT    /api/applications/:id/status  # Update status (employer)
-```
-
-### Admin Endpoints
-
-```http
-GET    /api/admin/stats       # Platform statistics
-GET    /api/admin/users       # All users
-GET    /api/admin/jobs        # All jobs
-GET    /api/admin/companies   # All companies
-GET    /api/admin/approvals   # Pending approvals
-```
-
-### Messaging Endpoints
-
-```http
-GET    /api/messages          # Get conversations
-POST   /api/messages          # Send message
-GET    /api/messages/:userId  # Get conversation with user
-```
-
-Tip: during development, call API endpoints via the client origin (`http://localhost:5173/api/...`) so cookies/sessions behave consistently.
-
----
-
-## 🚢 Deployment
-
-### Frontend (Vercel)
-
-Deploy the `client/` project on Vercel:
-- **Build command**: `npm run build`
-- **Output directory**: `dist`
-- **Install command**: `npm install`
-
-### Backend (Your preferred platform)
-
-```bash
-cd server
-npm start
-```
-
-### Database (NeonDB)
-
-1. Create a NeonDB account
-2. Create a new database
-3. Update `DATABASE_URL` in environment variables
-4. Run migrations (if your workflow uses Drizzle migrations)
-
-For Vercel, remember:
-- Vercel hosts the frontend; your server must be deployed separately (Render/Railway/Fly/VM/etc.) unless you convert it to serverless.
-- Set the production API base URL in the client if required by your deployment strategy.
-
----
 
 ## 🤝 Contributing
 
@@ -347,6 +214,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🗺️ Roadmap
 
+
 ### Completed ✅
 - User authentication and authorization
 - Job posting and management
@@ -354,15 +222,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Basic messaging functionality
 - Admin dashboard
 - Responsive UI/UX
+- **Advanced Search with AI Semantic matching**
+- **AI Resume Parsing and Auto-fill extraction**
+- **Agentic Workflows (Recruiter, Support, Admin bots)**
 
 ### In Progress 🚧
-- Advanced search with AI recommendations
 - Email notifications
 - Mobile application
 - Enhanced messaging with file attachments
 
 ### Planned 📋
-- Resume parsing and auto-fill
 - Video interviews
 - Skill assessment tests
 - Employer verification system
@@ -387,22 +256,16 @@ Check out the Skills Connect Job Board in action!
 🎥 [Watch SkillConnect Demo](https://drive.google.com/file/d/1yQk2p9alTo18dxsHKmT85fsCKa4R9p6W/view?usp=drive_link)
 
 
----
 
 ## 🌐 Live Demo
 
-Add your live deployment link here:
-- Client (Vercel): `[add link]`
-- Server: `[add link]`
-
----
-
+https://skill-connect-alpha.vercel.app/
+-
 <div align="center">
 
 **Made by the SkillConnect team**
 
 *Empowering Local Employment Through Technology*
 
-[Report Bug](https://github.com/yourusername/skillsconnect-job-board/issues) · [Request Feature](https://github.com/yourusername/skillsconnect-job-board/issues)
 
 </div>
