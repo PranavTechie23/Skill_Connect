@@ -14,7 +14,7 @@ const user = process.env.POSTGRES_USER || 'postgres';
 const password = process.env.POSTGRES_PASSWORD || '';
 const database = process.env.POSTGRES_DB || 'graphicgenie';
 
-const connectionString = `postgres://${user}:${password}@${host}:${port}/${database}?sslmode=disable`;
+const connectionString = process.env.DATABASE_URL || `postgres://${user}:${password}@${host}:${port}/${database}?sslmode=disable`;
 const queryClient = postgres(connectionString, { 
   ssl: false,
   onnotice: () => {}, // Ignore notice messages
@@ -245,7 +245,7 @@ async function addTestData() {
           ${job.job_type},
           ${job.salary_min},
           ${job.salary_max},
-          ARRAY[${sql.join(job.skills.map(s => sql`${s}`), sql`, `)}],
+          ${JSON.stringify(job.skills)}::jsonb,
           ${job.company_id},
           ${job.employer_id},
           ${job.is_active},

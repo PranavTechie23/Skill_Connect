@@ -172,6 +172,7 @@ async function getOrCreateCompany(ownerId: string, name: string, location: strin
     [
       id,
       name,
+      `Leading company in ${industry}`, // Description
       `https://${name.toLowerCase().replace(/\s+/g, "")}.com`,
       location,
       "51-200",
