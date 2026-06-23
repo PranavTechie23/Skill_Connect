@@ -101,7 +101,9 @@ const server = http.createServer(app);
       res.status(500).json({ error: 'Internal Server Error' });
     });
     if (process.env.NODE_ENV === "production") {
-      serveStatic(app);
+      // The frontend is deployed separately on Vercel. 
+      // We do not need to serve static client files from the backend.
+      app.get('/', (req, res) => res.send('SkillConnect API is running'));
     } else if (process.env.USE_INTEGRATED_VITE === "true") {
       // Single-process dev: server serves UI via Vite middleware (requires vite in server deps).
       await setupVite(app, server);
