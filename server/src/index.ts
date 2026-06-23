@@ -78,7 +78,7 @@ const server = http.createServer(app);
       },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-skip-global-loader']
     }));
 
     // Explicitly handle preflight requests (removed app.options('*') for Express 5 compatibility)
