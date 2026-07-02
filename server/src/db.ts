@@ -20,13 +20,13 @@ console.log("Using database URL:", DATABASE_URL);
 const pool = new Pool({
   connectionString: DATABASE_URL,
   max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-  connectionTimeoutMillis: 2000, // How long to wait before timing out when connecting a new client
+  idleTimeoutMillis: 15000, // Reduced to avoid Railway load balancer killing idle connections
+  connectionTimeoutMillis: 10000, // Increased to avoid timeouts on cold starts
 });
 
 pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  // Do not exit the process here. Idle connection drops are normal in cloud environments.
 });
 
 pool.on('connect', () => {
