@@ -58,7 +58,8 @@ This project aligns with **UN SDG 8 — Decent Work and Economic Growth**, promo
 
 ### Advanced Features
 
-- ⚡ **Real-time Updates** - Live application status changes
+- ⚡ **Real-time Updates** - Live application status changes and Socket.io messaging
+- ☁️ **Cloud Storage** - Cloudinary integration for scalable avatar and resume storage
 - 📱 **Responsive Design** - Mobile-first, accessible on all devices
 - 🎨 **Modern UI/UX** - Clean, intuitive interface with TailwindCSS
 - 📧 **Email Notifications** - Automated alerts for applications and updates
@@ -93,7 +94,11 @@ This project aligns with **UN SDG 8 — Decent Work and Economic Growth**, promo
 ├── connect-pg-simple  - PostgreSQL session store
 ├── Passport.js        - Authentication middleware
 ├── Zod                - Schema validation
-└── bcrypt             - Password hashing
+├── bcrypt             - Password hashing
+├── Socket.io          - Real-time bidirectional event-based communication
+├── Cloudinary         - Cloud image and document storage
+├── Helmet             - HTTP response security headers
+└── Morgan             - HTTP request logging
 ```
 
 ### Security
@@ -219,7 +224,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - User authentication and authorization
 - Job posting and management
 - Application tracking system
-- Basic messaging functionality
+- Real-time messaging functionality (Socket.io)
+- Cloudinary Integration for file uploads
+- Security headers and logging (Helmet & Morgan)
 - Admin dashboard
 - Responsive UI/UX
 - **Advanced Search with AI Semantic matching**

@@ -47,3 +47,37 @@ export function normalizeUserType(raw?: string) {
   console.warn("Unrecognized user type:", raw, "defaulting to Professional");
   return "professional";
 }
+
+export function getDashboardPathForRole(raw?: string): string {
+  const role = normalizeUserType(raw);
+  if (role === "professional") return "/employee/dashboard";
+  if (role === "employer") return "/employer/dashboard";
+  if (role === "admin") return "/admin";
+  return "/";
+}
+
+export function resolveResumeUrl(resume?: string | null): string | null {
+  if (!resume?.trim()) return null;
+  const raw = resume.trim();
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const first = parsed[0] as { path?: string; filename?: string };
+      // If path is a full URL (Cloudinary), use it directly
+      if (first.path && first.path.startsWith('http')) {
+        return first.path;
+      }
+      const filePath = first.path || first.filename;
+      if (filePath) {
+        if (String(filePath).startsWith('http')) return String(filePath);
+        const normalized = String(filePath).replace(/\\/g, "/");
+        const base = normalized.split("/").pop();
+        return base ? `/uploads/${base}` : null;
+      }
+    }
+  } catch {
+    if (raw.startsWith('http')) return raw;
+    if (raw.startsWith('/uploads/')) return raw;
+  }
+  return null;
+}

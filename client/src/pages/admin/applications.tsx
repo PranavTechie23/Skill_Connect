@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import AdminBackButton, { useAdminEmbedded } from '@/components/AdminBackButton';
+import { resolveResumeUrl } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
@@ -232,25 +233,7 @@ const mapApplicationsData = (data: any[]): Application[] => {
   if (!data || !Array.isArray(data)) return [];
   return data.map((app: any, index: number) => {
     const extractResumeUrl = (resumeValue: unknown): string | undefined => {
-      if (!resumeValue) return undefined;
-      if (typeof resumeValue === 'string') {
-        try {
-          const parsed = JSON.parse(resumeValue);
-          if (Array.isArray(parsed) && parsed[0]?.filename) {
-            return `/uploads/${parsed[0].filename}`;
-          }
-        } catch {
-          if (resumeValue.startsWith('/uploads/') || resumeValue.startsWith('http')) return resumeValue;
-        }
-        return undefined;
-      }
-      if (Array.isArray(resumeValue) && resumeValue[0]?.filename) {
-        return `/uploads/${resumeValue[0].filename}`;
-      }
-      if (typeof resumeValue === 'object' && (resumeValue as any)?.filename) {
-        return `/uploads/${(resumeValue as any).filename}`;
-      }
-      return undefined;
+      return resolveResumeUrl(typeof resumeValue === 'string' ? resumeValue : JSON.stringify(resumeValue)) || undefined;
     };
 
     const applicant = app.applicant || {};

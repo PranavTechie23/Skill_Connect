@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
 import { LogOut, Menu, X, Info, BookOpen, LayoutDashboard, Home, Briefcase, FileText, PlusSquare, LogIn, UserPlus } from "lucide-react";
-import { normalizeUserType } from "@/lib/utils";
+import { normalizeUserType, getDashboardPathForRole } from "@/lib/utils";
 import { useState } from "react";
 import { NavItem } from "@/components/NavItem";
 
@@ -40,6 +40,12 @@ export default function Navbar() {
   const isActive = (path: string) => location.pathname === path;
   const navItemClass = "text-base px-4 py-2";
   const navItemSize = "default" as const;
+  const userRole = user
+    ? normalizeUserType(
+        (user as { userType?: string; user_type?: string }).userType
+          ?? (user as { user_type?: string }).user_type,
+      )
+    : "";
 
   return (
     <nav
@@ -78,13 +84,13 @@ export default function Navbar() {
               {t("nav.jobs")}
             </NavItem>
 
-            {user?.userType === "Professional" && (
+            {userRole === "professional" && (
               <NavItem to="/applications" isActive={isActive("/applications")} className={navItemClass} size={navItemSize}>
                 {t("nav.applications")}
               </NavItem>
             )}
 
-            {user?.userType === "Employer" && (
+            {userRole === "employer" && (
               <NavItem
                 to="/employer/dashboard"
                 isActive={isActive("/employer")}
@@ -118,8 +124,10 @@ export default function Navbar() {
               <>
                 {/* Replace Profile with a role-aware Dashboard link for marketing/front pages */}
                 {(() => {
-                  const normalized = normalizeUserType((user as any)?.userType);
-                  const dashboardPath = normalized === "professional" ? "/employee/dashboard" : normalized === "employer" ? "/employer/dashboard" : "/";
+                  const dashboardPath = getDashboardPathForRole(
+                    (user as { userType?: string; user_type?: string }).userType
+                      ?? (user as { user_type?: string }).user_type,
+                  );
                   return (
                     <NavItem
                       to={dashboardPath}
@@ -195,7 +203,7 @@ export default function Navbar() {
                 {t("nav.jobs")}
               </NavItem>
 
-              {user?.userType === "Professional" && (
+              {userRole === "professional" && (
                 <NavItem
                   to="/applications"
                   isActive={isActive("/applications")}
@@ -208,7 +216,7 @@ export default function Navbar() {
                 </NavItem>
               )}
 
-              {user?.userType === "Employer" && (
+              {userRole === "employer" && (
                 <NavItem
                   to="/employer/dashboard"
                   isActive={isActive("/employer")}
@@ -259,8 +267,10 @@ export default function Navbar() {
                 {user ? (
                   <div className="flex flex-col gap-2">
                     {(() => {
-                      const normalized = normalizeUserType((user as any)?.userType);
-                      const dashboardPath = normalized === "professional" ? "/employee/dashboard" : normalized === "employer" ? "/employer/dashboard" : "/";
+                      const dashboardPath = getDashboardPathForRole(
+                        (user as { userType?: string; user_type?: string }).userType
+                          ?? (user as { user_type?: string }).user_type,
+                      );
                       return (
                         <NavItem
                           to={dashboardPath}

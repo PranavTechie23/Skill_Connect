@@ -415,29 +415,7 @@ export function canRejectApplication(status?: string | null): boolean {
   return tab !== "rejected" && tab !== "hired";
 }
 
-/** Resolve resume field (plain URL or JSON attachment from quick-apply) */
-export function resolveResumeUrl(resume?: string | null): string | null {
-  if (!resume?.trim()) return null;
-  const raw = resume.trim();
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      const first = parsed[0] as { path?: string; filename?: string };
-      const filePath = first.path || first.filename;
-      if (filePath) {
-        const normalized = String(filePath).replace(/\\/g, "/");
-        const base = normalized.split("/").pop();
-        return base ? `/uploads/${base}` : null;
-      }
-    }
-  } catch {
-    /* plain string URL or filename */
-  }
-  if (raw.startsWith("http://") || raw.startsWith("https://") || raw.startsWith("/")) {
-    return raw;
-  }
-  return `/uploads/${raw}`;
-}
+export { resolveResumeUrl } from './utils';
 
 export async function fetchApplicantProfile(userId: string): Promise<{
   user: EmployerApplicant & { bio?: string | null };

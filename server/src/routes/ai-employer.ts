@@ -201,7 +201,7 @@ router.post("/messages/draft", requireEmployer, async (req: Request, res: Respon
 
   try {
     const bodySchema = z.object({
-      applicationId: z.number().int(),
+      applicationId: z.coerce.number().int(),
       customInstructions: z.string().optional(),
       type: z.enum(["interview", "rejection", "general"]),
     });

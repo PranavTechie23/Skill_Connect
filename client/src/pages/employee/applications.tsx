@@ -26,6 +26,7 @@ import {
 import { scrollPageToTop } from "@/lib/scroll-to-top";
 import type { LucideIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/ui/dark-mode-toggle";
 import { useTheme } from "@/components/theme-provider";
@@ -125,6 +126,7 @@ function ApplicationPipeline({
 
 export default function Applications({ embedded = false, onNavigateTab }: ApplicationsProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { theme } = useTheme();
   const darkMode =
     typeof window !== "undefined" &&
@@ -1078,9 +1080,14 @@ export default function Applications({ embedded = false, onNavigateTab }: Applic
                 <button
                   type="button"
                   onClick={() => {
+                    const applicationId = selectedApplication.id;
                     setSelectedApplication(null);
-                    if (onNavigateTab) onNavigateTab("messages");
-                    else window.location.href = "/employee/dashboard?tab=messages";
+                    const messagesUrl = `/employee/dashboard?tab=messages&applicationId=${applicationId}`;
+                    if (embedded) {
+                      navigate(messagesUrl);
+                    } else {
+                      window.location.href = messagesUrl;
+                    }
                   }}
                   className="flex-1 py-3 rounded-xl font-semibold transition-all bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/25"
                 >
