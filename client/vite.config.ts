@@ -45,6 +45,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      "/socket.io": {
+        target: "http://localhost:5002",
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+      },
       "/api": {
         target: "http://localhost:5002",
         changeOrigin: true,

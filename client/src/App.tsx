@@ -8,6 +8,7 @@ import {
 } from "react-router-dom";
 import { useAuth } from "./contexts/AuthContext";
 import { SavedJobsProvider } from "./contexts/SavedJobsContext";
+import { SocketProvider } from "./contexts/SocketContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Navbar from "./components/navbar";
 import EmployeeLayout from "./components/layouts/EmployeeLayout";
@@ -345,8 +346,10 @@ export default function App() {
         <Router>
           <ScrollToTop />
           <SavedJobsProvider>
-            <AppContent />
-            <GlobalLoader />
+            <SocketProvider>
+              <AppContent />
+              <GlobalLoader />
+            </SocketProvider>
           </SavedJobsProvider>
         </Router>
       </React.Suspense>

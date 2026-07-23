@@ -13,6 +13,7 @@ import {
   Briefcase,
   DollarSign,
   Mail,
+  MessageSquare,
   Download,
   Eye,
   CheckCircle,
@@ -183,7 +184,12 @@ export default function Applications({ embedded = false }: ApplicationsProps) {
   const handleContact = (app: EmployerApplication) => {
     if (!app.applicantId) return;
     const path = embedded ? "/employer/dashboard?tab=messages" : "/employer/messages";
-    navigate(path, { state: { peerId: app.applicantId } });
+    navigate(path, {
+      state: {
+        peerId: app.applicantId,
+        applicationId: Number(app.id),
+      },
+    });
   };
 
   const handleViewProfile = (app: EmployerApplication) => {
@@ -433,7 +439,10 @@ export default function Applications({ embedded = false }: ApplicationsProps) {
                   <button
                     key={t}
                     type="button"
-                    onClick={() => setOutreachType(t)}
+                    onClick={() => {
+                      setOutreachType(t);
+                      setGeneratedDraft('');
+                    }}
                     className={`flex-1 py-2 px-3 text-xs font-semibold border rounded-lg capitalize transition-all cursor-pointer ${
                       outreachType === t
                         ? 'bg-indigo-600 text-white border-indigo-600'
@@ -485,18 +494,56 @@ export default function Applications({ embedded = false }: ApplicationsProps) {
             </button>
             
             {generatedDraft && (
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(generatedDraft);
-                  toast({
-                    title: "Copied to clipboard",
-                    description: "You can now paste it in the chat or email.",
-                  });
-                }}
-                className="px-4 py-2 text-sm border border-indigo-500/20 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-lg transition-colors cursor-pointer"
-              >
-                Copy
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(generatedDraft);
+                    toast({
+                      title: "Copied to clipboard",
+                      description: "You can now paste it in the chat or email.",
+                    });
+                  }}
+                  className="px-4 py-2 text-sm border border-indigo-500/20 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 rounded-lg transition-colors cursor-pointer"
+                >
+                  Copy
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!outreachApp || !outreachApp.applicant) return;
+                    try {
+                      setIsDraftingOutreach(true);
+                      const res = await apiFetch('/api/messages', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          senderId: user?.id,
+                          receiverId: outreachApp.applicant.id,
+                          applicationId: outreachApp.id,
+                          content: generatedDraft,
+                        }),
+                      });
+                      if (!res.ok) throw new Error('Failed to send message');
+                      toast({
+                        title: "Message Sent!",
+                        description: "The candidate will be notified.",
+                      });
+                      setOutreachApp(null);
+                    } catch (err: any) {
+                      toast({
+                        title: "Failed to send message",
+                        description: err.message,
+                        variant: "destructive"
+                      });
+                    } finally {
+                      setIsDraftingOutreach(false);
+                    }
+                  }}
+                  disabled={isDraftingOutreach}
+                  className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  Send Message
+                </button>
+              </>
             )}
 
             <button
@@ -548,7 +595,7 @@ export default function Applications({ embedded = false }: ApplicationsProps) {
                   Generating...
                 </>
               ) : (
-                'Generate Draft'
+                generatedDraft ? 'Regenerate' : 'Generate Draft'
               )}
             </button>
           </div>
@@ -698,6 +745,9 @@ export default function Applications({ embedded = false }: ApplicationsProps) {
                         <XCircle className="w-3.5 h-3.5" />
                       </button>
                     )}
+                    <button type="button" title="Message candidate" onClick={() => handleContact(app)} disabled={!app.applicantId} className={`p-2 rounded-lg font-medium border flex items-center justify-center transition-colors ${isDark ? "bg-slate-800 border-slate-700 text-blue-400 hover:bg-slate-700 hover:text-blue-300" : "bg-white border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"} disabled:opacity-50`}>
+                      <MessageSquare className="w-3.5 h-3.5" />
+                    </button>
                     <button type="button" title="Draft Outreach Message" onClick={() => setOutreachApp(app)} disabled={!app.applicantId} className={`p-2 rounded-lg font-medium border flex items-center justify-center transition-colors ${isDark ? "bg-slate-800 border-slate-700 text-indigo-400 hover:bg-slate-700 hover:text-indigo-300" : "bg-white border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700"} disabled:opacity-50`}>
                       <Mail className="w-3.5 h-3.5" />
                     </button>

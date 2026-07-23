@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Search, Paperclip, Smile,
   Send, Loader2, MessageSquare, Mail,
-  Phone, Video, MoreHorizontal,
+  Phone, Video, MoreHorizontal, Briefcase, Lock,
 } from 'lucide-react';
 import { MessageDeliveryTicks, messageDeliveryStatus } from '@/components/message-delivery-ticks';
 import { useTheme } from "@/components/theme-provider";
@@ -11,6 +12,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch, withSkipGlobalLoader } from '@/lib/api';
 import { formatRelativeTime } from '@/lib/notifications-service';
 import { hrRoleLabel, isHrUserType } from '@/lib/messaging-policy';
+import { useSocket } from '@/contexts/SocketContext';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 interface EmployeeMessagesProps {
@@ -41,6 +44,28 @@ interface Conversation {
   sortAt: string;
   unread: number;
 }
+
+interface RecruiterThread {
+  applicationId: number;
+  jobId: string;
+  jobTitle: string | null;
+  companyName: string | null;
+  employerId: string;
+  employerName: string;
+  status: string;
+  employerHasMessaged: boolean;
+  canSend: boolean;
+  unlockReason: string | null;
+  messagingHint?: string;
+  statusLabel?: string;
+  lastMessage: string | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+}
+
+type SelectedChat =
+  | { kind: 'hr'; peerId: string }
+  | { kind: 'recruiter'; peerId: string; applicationId: number };
 
 interface HrContact {
   id: string;
@@ -131,15 +156,65 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { theme } = useTheme();
+  const [searchParams, setSearchParams] = useSearchParams();
   const darkMode =
     typeof window !== 'undefined' &&
     (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
 
-  const [selectedPeerId, setSelectedPeerId] = useState<string | null>(null);
+  const [selectedChat, setSelectedChat] = useState<SelectedChat | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [peerNames, setPeerNames] = useState<Record<string, string>>({});
+  
+  const { isConnected, latestMessage } = useSocket();
+  const [isPendingEcho, setIsPendingEcho] = useState(false);
+  const echoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const selectedPeerId = selectedChat?.peerId ?? null;
+  const selectedApplicationId =
+    selectedChat?.kind === 'recruiter' ? selectedChat.applicationId : null;
+
+  // Catch up on missed messages when reconnecting
+  useEffect(() => {
+    if (isConnected) {
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    }
+  }, [isConnected, queryClient]);
+
+  // Handle real-time socket messages
+  useEffect(() => {
+    if (!latestMessage || !user?.id || !selectedChat) return;
+
+    const isPeerMatch =
+      (latestMessage.senderId === selectedChat.peerId && latestMessage.receiverId === user.id) ||
+      (latestMessage.senderId === user.id && latestMessage.receiverId === selectedChat.peerId);
+
+    const socketAppId = latestMessage.applicationId != null ? Number(latestMessage.applicationId) : null;
+    const isApplicationMatch =
+      selectedChat.kind === 'hr'
+        ? socketAppId == null
+        : socketAppId == null || socketAppId === selectedChat.applicationId;
+
+    if (!isPeerMatch || !isApplicationMatch) return;
+
+    const threadKey =
+      selectedChat.kind === 'recruiter'
+        ? ['messages', user.id, selectedChat.peerId, selectedChat.applicationId]
+        : ['messages', user.id, selectedChat.peerId, null];
+
+    queryClient.setQueryData(threadKey, (old: NormalizedMessage[] | undefined) => {
+      const normalized = normalizeMessage(latestMessage);
+      if (!old) return [normalized];
+      if (old.some((m) => String(m.id) === String(normalized.id))) return old;
+      return [...old, normalized];
+    });
+
+    if (latestMessage.senderId === user.id) {
+      setIsPendingEcho(false);
+      if (echoTimeoutRef.current) clearTimeout(echoTimeoutRef.current);
+    }
+  }, [latestMessage, selectedChat, user?.id, queryClient]);
 
   const panelClass = cn(
     'rounded-2xl border backdrop-blur-xl',
@@ -177,6 +252,55 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
     enabled: !!user?.id,
     staleTime: 60_000,
   });
+
+  const { data: recruiterThreads = [], isLoading: recruiterThreadsLoading } = useQuery({
+    queryKey: ['messages', 'recruiter-threads', user?.id],
+    queryFn: async (): Promise<RecruiterThread[]> => {
+      const res = await apiFetch('/api/messages/recruiter-threads');
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (!Array.isArray(data)) return [];
+      return data.map((t: Record<string, unknown>) => ({
+        applicationId: Number(t.applicationId),
+        jobId: str(t.jobId),
+        jobTitle: t.jobTitle != null ? str(t.jobTitle) : null,
+        companyName: t.companyName != null ? str(t.companyName) : null,
+        employerId: str(t.employerId),
+        employerName: str(t.employerName) || 'Recruiter',
+        status: str(t.status),
+        employerHasMessaged: Boolean(t.employerHasMessaged),
+        canSend: Boolean(t.canSend),
+        unlockReason: t.unlockReason != null ? str(t.unlockReason) : null,
+        messagingHint: t.messagingHint != null ? str(t.messagingHint) : undefined,
+        statusLabel: t.statusLabel != null ? str(t.statusLabel) : undefined,
+        lastMessage: t.lastMessage != null ? str(t.lastMessage) : null,
+        lastMessageAt: t.lastMessageAt != null ? str(t.lastMessageAt) : null,
+        unreadCount: Number(t.unreadCount ?? 0),
+      }));
+    },
+    enabled: !!user?.id,
+    refetchInterval: 30_000,
+  });
+
+  useEffect(() => {
+    const applicationIdParam = searchParams.get('applicationId');
+    if (!applicationIdParam || recruiterThreads.length === 0) return;
+
+    const thread = recruiterThreads.find(
+      (t) => String(t.applicationId) === applicationIdParam,
+    );
+    if (!thread) return;
+
+    setSelectedChat({
+      kind: 'recruiter',
+      peerId: thread.employerId,
+      applicationId: thread.applicationId,
+    });
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('applicationId');
+    setSearchParams(next, { replace: true });
+  }, [recruiterThreads, searchParams, setSearchParams]);
 
   const resolvePeerName = async (peerId: string) => {
     if (!peerId || peerNames[peerId]) return;
@@ -266,9 +390,23 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
   }, [allMessages, user?.id, peerNames, hrContacts]);
 
   useEffect(() => {
-    if (selectedPeerId || hrContacts.length === 0) return;
-    setSelectedPeerId(hrContacts[0].id);
-  }, [hrContacts, selectedPeerId]);
+    if (selectedChat || recruiterThreads.length > 0) return;
+    if (hrContacts.length === 0) return;
+    setSelectedChat({ kind: 'hr', peerId: hrContacts[0].id });
+  }, [hrContacts, selectedChat, recruiterThreads.length]);
+
+  const filteredRecruiterThreads = recruiterThreads.filter((thread) => {
+    const haystack = [
+      thread.employerName,
+      thread.jobTitle,
+      thread.companyName,
+      thread.lastMessage,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(searchQuery.toLowerCase());
+  });
 
   const filteredConversations = conversations.filter(
     (c) =>
@@ -277,10 +415,14 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
   );
 
   const { data: threadMessages = [], isLoading: threadLoading } = useQuery({
-    queryKey: ['messages', user?.id, selectedPeerId],
+    queryKey: ['messages', user?.id, selectedPeerId, selectedApplicationId],
     queryFn: async () => {
       if (!selectedPeerId) return [];
-      const res = await apiFetch(`/api/messages?otherUserId=${selectedPeerId}`);
+      const url =
+        selectedApplicationId != null
+          ? `/api/messages?applicationId=${selectedApplicationId}`
+          : `/api/messages?otherUserId=${selectedPeerId}`;
+      const res = await apiFetch(url);
       if (!res.ok) return [];
       const data = await res.json();
       return (Array.isArray(data) ? data : []).map((m: RawMessage) => normalizeMessage(m));
@@ -289,9 +431,38 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
     refetchInterval: 10_000,
   });
 
+  useEffect(() => {
+    if (!user?.id || threadMessages.length === 0) return;
+
+    const unreadInbound = threadMessages.filter(
+      (msg) => msg.receiverId === user.id && !msg.isRead,
+    );
+    if (unreadInbound.length === 0) return;
+
+    void (async () => {
+      await Promise.all(
+        unreadInbound.map((msg) =>
+          apiFetch(`/api/messages/${msg.id}/read`, {
+            method: 'PUT',
+            ...withSkipGlobalLoader(),
+          }),
+        ),
+      );
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    })();
+  }, [threadMessages, user?.id, queryClient]);
+
+  const activeRecruiterThread =
+    selectedChat?.kind === 'recruiter'
+      ? recruiterThreads.find((t) => t.applicationId === selectedChat.applicationId)
+      : null;
+
+  const canSendInCurrentChat =
+    selectedChat?.kind === 'hr' || activeRecruiterThread?.canSend !== false;
+
   const sendMutation = useMutation({
     mutationFn: async (content: string) => {
-      if (!user?.id || !selectedPeerId) throw new Error('Missing recipient');
+      if (!user?.id || !selectedChat) throw new Error('Missing recipient');
       const res = await apiFetch(
         '/api/messages',
         withSkipGlobalLoader({
@@ -299,36 +470,62 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             senderId: user.id,
-            receiverId: selectedPeerId,
+            receiverId: selectedChat.peerId,
             content,
+            ...(selectedChat.kind === 'recruiter'
+              ? { applicationId: selectedChat.applicationId }
+              : {}),
           }),
-        })
+        }),
       );
-      if (!res.ok) throw new Error('Failed to send message');
-      return res.json();
-    },
-    onSuccess: () => {
-      setMessageInput('');
-      queryClient.invalidateQueries({ queryKey: ['messages'] });
+      if (!res.ok) {
+        let detail = 'Failed to send message';
+        try {
+          const err = await res.json();
+          detail = String(err.message ?? err.error ?? detail);
+        } catch {
+          // ignore
+        }
+        throw new Error(detail);
+      }
     },
   });
 
   const currentConversation = conversations.find((c) => c.peerId === selectedPeerId);
+  const currentRecruiterThread = activeRecruiterThread;
 
   const sendMessage = () => {
     const text = messageInput.trim();
-    if (!text || sendMutation.isPending) return;
-    sendMutation.mutate(text);
+    if (!text || sendMutation.isPending || isPendingEcho || !canSendInCurrentChat) return;
+    
+    const backupText = text;
+    setMessageInput('');
+    setIsPendingEcho(true);
+    
+    echoTimeoutRef.current = setTimeout(() => {
+      setIsPendingEcho(false);
+      toast.error("Message delivery is delayed.");
+    }, 10000);
+
+    sendMutation.mutate(text, {
+      onError: (error) => {
+        setIsPendingEcho(false);
+        if (echoTimeoutRef.current) clearTimeout(echoTimeoutRef.current);
+        setMessageInput(backupText);
+        toast.error(error instanceof Error ? error.message : "Failed to send message. Please try again.");
+      }
+    });
+    
     setShowAttachmentMenu(false);
   };
 
   const ConversationItem = ({ conversation }: { conversation: Conversation }) => (
     <button
       type="button"
-      onClick={() => setSelectedPeerId(conversation.peerId)}
+      onClick={() => setSelectedChat({ kind: 'hr', peerId: conversation.peerId })}
       className={cn(
         'w-full text-left p-3 rounded-xl transition-all',
-        selectedPeerId === conversation.peerId
+        selectedChat?.kind === 'hr' && selectedChat.peerId === conversation.peerId
           ? darkMode
             ? 'bg-violet-600/20 border border-violet-500/30'
             : 'bg-indigo-50 border border-indigo-200'
@@ -365,6 +562,75 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
       </div>
     </button>
   );
+
+  const RecruiterThreadItem = ({ thread }: { thread: RecruiterThread }) => {
+    const isSelected =
+      selectedChat?.kind === 'recruiter' &&
+      selectedChat.applicationId === thread.applicationId;
+    const subtitle = [thread.jobTitle, thread.companyName].filter(Boolean).join(' · ');
+    const preview =
+      thread.lastMessage ||
+      thread.messagingHint ||
+      (thread.canSend ? 'Start a conversation' : 'Waiting for recruiter');
+
+    return (
+      <button
+        type="button"
+        onClick={() =>
+          setSelectedChat({
+            kind: 'recruiter',
+            peerId: thread.employerId,
+            applicationId: thread.applicationId,
+          })
+        }
+        className={cn(
+          'w-full text-left p-3 rounded-xl transition-all',
+          isSelected
+            ? darkMode
+              ? 'bg-sky-600/20 border border-sky-500/30'
+              : 'bg-sky-50 border border-sky-200'
+            : darkMode
+              ? 'hover:bg-white/[0.06] border border-transparent'
+              : 'hover:bg-gray-50 border border-transparent',
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <Avatar name={thread.employerName} darkMode={darkMode} size="sm" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2 mb-0.5">
+              <h4 className={cn('font-semibold truncate text-sm', darkMode ? 'text-white' : 'text-gray-900')}>
+                {thread.employerName}
+              </h4>
+              <span className={cn('text-xs shrink-0', darkMode ? 'text-slate-400' : 'text-gray-500')}>
+                {thread.lastMessageAt ? formatRelativeTime(thread.lastMessageAt) : ''}
+              </span>
+            </div>
+            <p className={cn('text-[11px] truncate mb-1', darkMode ? 'text-sky-300/80' : 'text-sky-700')}>
+              {subtitle || 'Application thread'}
+            </p>
+            <p className={cn('text-xs truncate', darkMode ? 'text-slate-400' : 'text-gray-600')}>
+              {preview}
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            {!thread.canSend && (
+              <Lock className={cn('w-3.5 h-3.5', darkMode ? 'text-amber-400' : 'text-amber-600')} />
+            )}
+            {thread.unreadCount > 0 && (
+              <span
+                className={cn(
+                  'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold',
+                  darkMode ? 'bg-sky-500 text-white' : 'bg-sky-600 text-white',
+                )}
+              >
+                {thread.unreadCount}
+              </span>
+            )}
+          </div>
+        </div>
+      </button>
+    );
+  };
 
   const MessageBubble = ({ message }: { message: NormalizedMessage }) => {
     const isOwn = message.senderId === user?.id;
@@ -423,7 +689,7 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
               Messages
             </h1>
             <p className={cn('mt-1 text-sm', darkMode ? 'text-slate-400' : 'text-gray-600')}>
-              Contact HR for application support, interviews, and account help
+              Message recruiters for your applications or contact HR for platform support
             </p>
           </div>
         )}
@@ -460,8 +726,33 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
 
             <div className={cn(panelClass, 'flex-1 min-h-0 overflow-hidden flex flex-col')}>
               <div className="px-4 py-3 border-b border-inherit shrink-0">
+                <p className={cn('text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5', darkMode ? 'text-slate-500' : 'text-gray-500')}>
+                  <Briefcase className="w-3.5 h-3.5" />
+                  Recruiters
+                </p>
+              </div>
+              <div className="max-h-[42%] overflow-y-auto p-2 space-y-1 border-b border-inherit">
+                {recruiterThreadsLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-sky-500" />
+                  </div>
+                ) : filteredRecruiterThreads.length === 0 ? (
+                  <div className="text-center py-8 px-4">
+                    <Briefcase className={cn('w-8 h-8 mx-auto mb-2', darkMode ? 'text-slate-600' : 'text-gray-300')} />
+                    <p className={cn('text-xs font-medium', darkMode ? 'text-slate-400' : 'text-gray-600')}>
+                      Apply to jobs to message recruiters
+                    </p>
+                  </div>
+                ) : (
+                  filteredRecruiterThreads.map((thread) => (
+                    <RecruiterThreadItem key={thread.applicationId} thread={thread} />
+                  ))
+                )}
+              </div>
+
+              <div className="px-4 py-3 border-b border-inherit shrink-0">
                 <p className={cn('text-xs font-semibold uppercase tracking-wider', darkMode ? 'text-slate-500' : 'text-gray-500')}>
-                  HR contacts
+                  HR support
                 </p>
               </div>
               <div className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -489,7 +780,7 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
           </div>
 
           <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
-            {currentConversation && selectedPeerId ? (
+            {selectedChat && selectedPeerId ? (
               <div className={cn(panelClass, 'flex flex-col flex-1 min-h-0 overflow-hidden')}>
                 <div
                   className={cn(
@@ -499,13 +790,26 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <Avatar name={currentConversation.userName} darkMode={darkMode} />
+                      <Avatar
+                        name={
+                          currentRecruiterThread?.employerName ||
+                          currentConversation?.userName ||
+                          'Contact'
+                        }
+                        darkMode={darkMode}
+                      />
                       <div className="min-w-0">
                         <h3 className={cn('font-semibold truncate', darkMode ? 'text-white' : 'text-gray-900')}>
-                          {currentConversation.userName}
+                          {currentRecruiterThread?.employerName ||
+                            currentConversation?.userName ||
+                            'Contact'}
                         </h3>
                         <p className={cn('text-xs truncate', darkMode ? 'text-slate-400' : 'text-gray-600')}>
-                          {currentConversation.userRole}
+                          {currentRecruiterThread
+                            ? [currentRecruiterThread.jobTitle, currentRecruiterThread.companyName]
+                                .filter(Boolean)
+                                .join(' · ')
+                            : currentConversation?.userRole || hrRoleLabel()}
                         </p>
                       </div>
                     </div>
@@ -525,6 +829,20 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
                     </div>
                   </div>
                 </div>
+
+                {!canSendInCurrentChat && currentRecruiterThread?.messagingHint && (
+                  <div
+                    className={cn(
+                      'mx-4 mt-3 px-3 py-2 rounded-xl text-xs flex items-start gap-2',
+                      darkMode
+                        ? 'bg-amber-500/10 text-amber-200 border border-amber-500/20'
+                        : 'bg-amber-50 text-amber-800 border border-amber-200',
+                    )}
+                  >
+                    <Lock className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>{currentRecruiterThread.messagingHint}</span>
+                  </div>
+                )}
 
                 <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 lg:p-6">
                   {threadLoading ? (
@@ -570,10 +888,18 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
                     <textarea
                       value={messageInput}
                       onChange={(e) => setMessageInput(e.target.value)}
-                      placeholder="Message HR..."
+                      placeholder={
+                        canSendInCurrentChat
+                          ? selectedChat.kind === 'recruiter'
+                            ? 'Message recruiter...'
+                            : 'Message HR...'
+                          : 'Messaging unlocks when the recruiter replies or advances your application'
+                      }
                       rows={1}
+                      disabled={!canSendInCurrentChat}
                       className={cn(
                         'flex-1 px-4 py-2.5 rounded-xl resize-none text-sm outline-none transition-colors max-h-28',
+                        !canSendInCurrentChat && 'opacity-60 cursor-not-allowed',
                         darkMode
                           ? 'bg-white/[0.05] border border-white/10 text-slate-50 placeholder-slate-500 focus:border-violet-500/50'
                           : 'bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 focus:border-indigo-400',
@@ -597,10 +923,18 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
                     <button
                       type="button"
                       onClick={sendMessage}
-                      disabled={!messageInput.trim() || sendMutation.isPending}
+                      disabled={
+                        !messageInput.trim() ||
+                        sendMutation.isPending ||
+                        isPendingEcho ||
+                        !canSendInCurrentChat
+                      }
                       className={cn(
                         'p-2.5 rounded-xl transition-all shrink-0',
-                        !messageInput.trim()
+                        (!messageInput.trim() ||
+                          sendMutation.isPending ||
+                          isPendingEcho ||
+                          !canSendInCurrentChat)
                           ? darkMode
                             ? 'bg-white/[0.06] text-slate-600'
                             : 'bg-gray-200 text-gray-400'
@@ -609,7 +943,7 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
                             : 'bg-indigo-600 hover:bg-indigo-700 text-white',
                       )}
                     >
-                      {sendMutation.isPending ? (
+                      {sendMutation.isPending || isPendingEcho ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
                       ) : (
                         <Send className="w-5 h-5" />
@@ -639,7 +973,7 @@ const EmployeeMessages: React.FC<EmployeeMessagesProps> = ({ embedded = false })
                   Select a conversation
                 </h3>
                 <p className={cn('text-sm max-w-sm', darkMode ? 'text-slate-400' : 'text-gray-600')}>
-                  Select an HR contact from the sidebar to view messages or send a new inquiry.
+                  Choose a recruiter thread or HR contact from the sidebar to start messaging.
                 </p>
               </div>
             )}

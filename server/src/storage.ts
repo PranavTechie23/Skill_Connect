@@ -244,8 +244,10 @@ export class Storage {
       }
       invalidateSuggestionsCache(id);
       return result.rows[0] as User;
-    } catch (error) {
-      console.error('Error in updateUser:', error);
+    } catch (error: any) {
+      if (error?.code !== '23505' && error?.cause?.code !== '23505') {
+        console.error('Error in updateUser:', error);
+      }
       throw error;
     }
   }

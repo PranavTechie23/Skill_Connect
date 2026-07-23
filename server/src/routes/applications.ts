@@ -7,23 +7,10 @@ import { runModerationScan } from '../ai/moderation-scanner';
 import { z } from 'zod';
 
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs/promises';
-
-const storage = multer.diskStorage({
-  destination: async (_req, _file, cb) => {
-    const uploadDir = path.join(process.cwd(), 'uploads');
-    await fs.mkdir(uploadDir, { recursive: true });
-    cb(null, uploadDir);
-  },
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  },
-});
+import { applicationStorage } from '../lib/cloudinary';
 
 const upload = multer({
-  storage,
+  storage: applicationStorage as any,
   fileFilter: (_req, file, cb) => {
     const allowedMimes = [
       'application/pdf',
@@ -108,8 +95,11 @@ export const createApplication = async (req: Request, res: Response) => {
     if (req.body.applicantDetails) {
       try {
         await syncApplicantDetails(userId, req.body.applicantDetails);
-      } catch (parseErr) {
-        console.warn('applicantDetails ignored:', parseErr);
+      } catch (err: any) {
+        if (err?.code === '23505' || err?.cause?.code === '23505' || err?.message?.includes('users_email_unique')) {
+          return res.status(400).json({ error: 'This email is already in use by another account.' });
+        }
+        console.warn('applicantDetails ignored:', err);
       }
     }
 
@@ -135,12 +125,11 @@ export const createApplication = async (req: Request, res: Response) => {
         });
       }
 
-      const basename = path.basename(resumeUrl.replace(/\\/g, '/'));
       attachments = [
         {
-          filename: basename,
-          originalName: profile.resumeName || basename,
-          path: path.join(process.cwd(), 'uploads', basename),
+          filename: 'resume.pdf',
+          originalName: profile.resumeName || 'resume.pdf',
+          path: resumeUrl,
           size: 0,
           mimeType: 'application/pdf',
         },
@@ -199,17 +188,7 @@ export const createApplication = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error creating application:', error);
 
-    if (req.files) {
-      const files = Array.isArray(req.files) ? req.files : Object.values(req.files);
-      await Promise.all(
-        files.map((file) => {
-          const f = file as Express.Multer.File;
-          return fs.unlink(f.path).catch((err) =>
-            console.error(`Failed to delete file ${f.path}:`, err)
-          );
-        })
-      );
-    }
+
 
     res.status(500).json({
       error: 'Failed to submit application',

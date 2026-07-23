@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import http from "http";
+import helmet from "helmet";
+import morgan from "morgan";
 import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
@@ -27,6 +29,11 @@ console.log("Environment:", {
 });
 
 const app = express();
+
+// Security middleware
+app.use(helmet());
+// HTTP request logging
+app.use(morgan('dev'));
 
 const server = http.createServer(app);
 
@@ -98,7 +105,7 @@ const server = http.createServer(app);
     app.use("/uploads", express.static(uploadsPath));
 
     // Register all API routes before the Vite/static middleware
-    await registerRoutes(app);
+    await registerRoutes(app, server);
 
     // Error handling middleware
     app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

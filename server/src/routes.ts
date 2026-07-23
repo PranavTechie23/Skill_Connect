@@ -28,6 +28,7 @@ import adminStoriesRouter from "./routes/admin/stories";
 import authOauthRouter, { passport as oauthPassport } from "./routes/auth-oauth";
 import { type Express, Router } from "express";
 import { createServer, type Server } from "http";
+import { initSocket, emitToUser } from './socket';
 import session from "express-session";
 import cors from "cors";
 import bcrypt from "bcrypt";
@@ -36,6 +37,7 @@ import { sql } from "drizzle-orm";
 import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
+import { avatarStorage, resumeStorage } from './lib/cloudinary';
 // Remove import { applications } from './schema'; removed as we use shared schema
 
 import { db, pool } from './db';
@@ -309,7 +311,7 @@ const sanitizeUser = (user: any) => {
   };
 };
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express, server?: Server): Promise<Server> {
     // Note: CORS is already configured in index.ts, so we don't need to configure it here again
     
     // Setup session store using PostgreSQL
@@ -329,23 +331,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     // Setup session and file upload handling
-    app.use(
-      session({
-        store: sessionStore,
-        secret: process.env.SESSION_SECRET || 'your-secret-key',
-        resave: false,
-        saveUninitialized: false, // Only save sessions that have been modified
-        cookie: { 
-          secure: process.env.NODE_ENV === 'production', // true for Railway/Vercel
-          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' required for cross-domain
-          maxAge: 24 * 60 * 60 * 1000, // 24 hours
-          httpOnly: true,
-          path: '/',
-          // Don't set domain for localhost - let browser handle it
-        },
-        name: 'skillconnect.sid'
-      }) as any
-    );
+    const sessionMiddleware = session({
+      store: sessionStore,
+      secret: process.env.SESSION_SECRET || 'your-secret-key',
+      resave: false,
+      saveUninitialized: false, // Only save sessions that have been modified
+      cookie: { 
+        secure: process.env.NODE_ENV === 'production', // true for Railway/Vercel
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' required for cross-domain
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        httpOnly: true,
+        path: '/',
+        // Don't set domain for localhost - let browser handle it
+      },
+      name: 'skillconnect.sid'
+    });
+
+    app.use(sessionMiddleware as any);
+
+    if (server) {
+      initSocket(server, sessionMiddleware as any);
+    }
 
     // Passport initialization for OAuth routes
     app.use(oauthPassport.initialize() as any);
@@ -518,7 +524,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });  // Check if email exists route
 
   const uploadImage = multer({
-    storage: multerStorage,
+    storage: avatarStorage as any,
     fileFilter: (req, file, cb) => {
       const allowed = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
       if (allowed.includes(file.mimetype)) {
@@ -1362,7 +1368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const photoUrl = `/uploads/${req.file.filename}`;
         const updatedUser = await storage.updateUserProfilePhoto(userId, photoUrl);
-        return res.json({ user: sanitizeUser(updatedUser), profilePhoto: photoUrl });
+        return res.json({ user: sanitizeUser(updatedUser), profilePhoto: req.file.path });
       } catch (error) {
         handleError(res, error, "Failed to upload profile photo");
       }
@@ -1370,7 +1376,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const uploadResume = multer({
-    storage: multerStorage,
+    storage: resumeStorage as any,
     fileFilter: (req, file, cb) => {
       const ext = path.extname(file.originalname || "").toLowerCase();
       const allowedExts = [".pdf", ".doc", ".docx"];
@@ -1409,15 +1415,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const existingProfile = await storage.getProfessionalProfileByUserId(userId);
-        if (existingProfile?.resumeUrl?.startsWith("/uploads/")) {
-          const oldName = path.basename(existingProfile.resumeUrl);
-          const oldPath = path.join(process.cwd(), "uploads", oldName);
-          if (fs.existsSync(oldPath)) {
-            fs.unlinkSync(oldPath);
-          }
-        }
-
-        const resumeUrl = `/uploads/${req.file.filename}`;
+        const resumeUrl = req.file.path;
         const resumeName = req.file.originalname || req.file.filename;
         const profile = await storage.updateProfessionalProfileResume(userId, resumeUrl, resumeName);
         return res.json({ profile, resumeUrl, resumeName });
@@ -2091,6 +2089,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           applicationId: resolvedApplicationId,
         }).catch((err) => console.error("Message notification failed:", err));
       }
+
+      // Emit real-time socket events to both receiver and sender (all tabs)
+      const socketPayload = {
+        ...message,
+        senderId: message.senderId ?? (message as { sender_id?: string }).sender_id,
+        receiverId: message.receiverId ?? (message as { receiver_id?: string }).receiver_id,
+        applicationId: message.applicationId ?? (message as { application_id?: number | null }).application_id ?? null,
+        isRead: message.isRead ?? (message as { is_read?: boolean }).is_read ?? false,
+        createdAt: message.createdAt ?? (message as { created_at?: string }).created_at,
+      };
+      emitToUser(String(data.receiverId), 'newMessage', socketPayload);
+      emitToUser(String(data.senderId), 'newMessage', socketPayload);
 
       res.json(message);
     } catch ( error) {
@@ -3068,8 +3078,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Note: Removed catch-all route as it was interfering with route matching
   // Express will naturally return 404 for unmatched routes
 
-  const httpServer = createServer(app);
-  return httpServer;
+  return server ?? createServer(app);
 }
 
 export default registerRoutes;

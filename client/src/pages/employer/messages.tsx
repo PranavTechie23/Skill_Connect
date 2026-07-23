@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Send, Paperclip, Smile, MoreVertical, Calendar, Briefcase, ClipboardList, Loader2, Mail, Link2 } from 'lucide-react';
@@ -10,6 +10,7 @@ import { formatRelativeTime } from '@/lib/notifications-service';
 import { getInitials } from '@/lib/employer-service';
 import AdminBackButton from "@/components/AdminBackButton";
 import { useToast } from '@/hooks/use-toast';
+import { useSocket } from '@/contexts/SocketContext';
 import { cn } from '@/lib/utils';
 import { employerPageTitleClass } from '@/lib/employer-page-styles';
 
@@ -46,16 +47,69 @@ export default function Messages({ embedded = false }: MessagesProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const location = useLocation();
-  const initialPeer = (location.state as { peerId?: string } | null)?.peerId ?? null;
+  const initialPeer = (location.state as { peerId?: string; applicationId?: number } | null)?.peerId ?? null;
+  const initialApplicationId =
+    (location.state as { peerId?: string; applicationId?: number } | null)?.applicationId ?? null;
 
   const [selectedPeerId, setSelectedPeerId] = useState<string | null>(initialPeer);
+  const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(initialApplicationId);
   const [message, setMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [peerNames, setPeerNames] = useState<Record<string, string>>({});
+  
+  const { isConnected, latestMessage } = useSocket();
+  const [isPendingEcho, setIsPendingEcho] = useState(false);
+  const echoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Catch up on missed messages when reconnecting
+  useEffect(() => {
+    if (isConnected) {
+      void queryClient.invalidateQueries({ queryKey: ['messages'] });
+    }
+  }, [isConnected, queryClient]);
+
+  // Handle real-time socket messages
+  useEffect(() => {
+    if (latestMessage && user?.id) {
+      const isForCurrentChat = 
+        (latestMessage.senderId === selectedPeerId && latestMessage.receiverId === user.id) ||
+        (latestMessage.senderId === user.id && latestMessage.receiverId === selectedPeerId);
+
+      if (isForCurrentChat) {
+        queryClient.setQueryData(
+          ['messages', user.id, selectedPeerId, selectedApplicationId],
+          (old: ReturnType<typeof normalizeMessage>[] | undefined) => {
+            const normalized = normalizeMessage(latestMessage);
+            if (!old) return [normalized];
+            if (old.some((m) => String(m.id) === String(normalized.id))) return old;
+            return [...old, normalized];
+          },
+        );
+
+        if (latestMessage.senderId === user.id) {
+          setIsPendingEcho(false);
+          if (echoTimeoutRef.current) clearTimeout(echoTimeoutRef.current);
+        }
+      }
+    }
+  }, [latestMessage, selectedPeerId, selectedApplicationId, user?.id, queryClient]);
 
   useEffect(() => {
     if (initialPeer) setSelectedPeerId(initialPeer);
-  }, [initialPeer]);
+    if (initialApplicationId != null) setSelectedApplicationId(initialApplicationId);
+  }, [initialPeer, initialApplicationId]);
+
+  const { data: applicantThreads = [] } = useQuery({
+    queryKey: ['messages', 'employer-threads', user?.id],
+    queryFn: async () => {
+      const res = await apiFetch('/api/messages/employer-threads');
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!user?.id,
+    refetchInterval: 30_000,
+  });
 
   const { data: allMessages = [], isLoading } = useQuery({
     queryKey: ['messages', user?.id],
@@ -117,6 +171,41 @@ export default function Messages({ embedded = false }: MessagesProps) {
     return Array.from(map.values()).sort((a, b) => b.sortAt.localeCompare(a.sortAt));
   }, [allMessages, user?.id, peerNames]);
 
+  const conversationsWithApplicants = useMemo(() => {
+    type ConversationRow = (typeof conversations)[number] & { applicationId?: number };
+    const merged = new Map<string, ConversationRow>(
+      conversations.map((c) => [c.id, { ...c }]),
+    );
+    for (const thread of applicantThreads) {
+      const id = String(thread.applicantId);
+      const existing = merged.get(id);
+      if (existing) {
+        merged.set(id, {
+          ...existing,
+          applicationId: Number(thread.applicationId),
+          position: String(thread.jobTitle || existing.position),
+          unread: Math.max(existing.unread, Number(thread.unreadCount ?? 0)),
+        });
+        continue;
+      }
+      merged.set(id, {
+        id,
+        name: String(thread.applicantName || 'Candidate'),
+        position: String(thread.jobTitle || 'Applicant'),
+        avatar: getInitials(String(thread.applicantName || 'Candidate')),
+        lastMessage: thread.lastMessage ? String(thread.lastMessage) : 'New applicant — say hello',
+        time: thread.lastMessageAt ? formatRelativeTime(String(thread.lastMessageAt)) : '',
+        unread: Number(thread.unreadCount ?? 0),
+        online: false,
+        status: 'read' as const,
+        gradient: GRADIENTS[merged.size % GRADIENTS.length],
+        sortAt: String(thread.lastMessageAt || ''),
+        applicationId: Number(thread.applicationId),
+      });
+    }
+    return Array.from(merged.values()).sort((a, b) => b.sortAt.localeCompare(a.sortAt));
+  }, [applicantThreads, conversations]);
+
   useEffect(() => {
     if (!user?.id) return;
     const missing = new Set<string>();
@@ -137,10 +226,14 @@ export default function Messages({ embedded = false }: MessagesProps) {
   }, [allMessages, user?.id, peerNames]);
 
   const { data: threadMessages = [] } = useQuery({
-    queryKey: ['messages', user?.id, selectedPeerId],
+    queryKey: ['messages', user?.id, selectedPeerId, selectedApplicationId],
     queryFn: async () => {
       if (!selectedPeerId) return [];
-      const res = await apiFetch(`/api/messages?otherUserId=${selectedPeerId}`);
+      const url =
+        selectedApplicationId != null
+          ? `/api/messages?applicationId=${selectedApplicationId}`
+          : `/api/messages?otherUserId=${selectedPeerId}`;
+      const res = await apiFetch(url);
       if (!res.ok) return [];
       const data = await res.json();
       return (Array.isArray(data) ? data : []).map((m: RawMessage) => normalizeMessage(m));
@@ -149,13 +242,35 @@ export default function Messages({ embedded = false }: MessagesProps) {
     refetchInterval: 10_000,
   });
 
+  useEffect(() => {
+    if (!user?.id || threadMessages.length === 0) return;
+    const unreadInbound = threadMessages.filter(
+      (msg) => msg.receiverId === user.id && !msg.isRead,
+    );
+    if (unreadInbound.length === 0) return;
+
+    void (async () => {
+      await Promise.all(
+        unreadInbound.map((msg) =>
+          apiFetch(`/api/messages/${msg.id}/read`, { method: 'PUT' }),
+        ),
+      );
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    })();
+  }, [threadMessages, user?.id, queryClient]);
+
   const sendMutation = useMutation({
     mutationFn: async (content: string) => {
       if (!user?.id || !selectedPeerId) throw new Error('Select a conversation first');
       const res = await apiFetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ senderId: user.id, receiverId: selectedPeerId, content }),
+        body: JSON.stringify({
+          senderId: user.id,
+          receiverId: selectedPeerId,
+          content,
+          ...(selectedApplicationId != null ? { applicationId: selectedApplicationId } : {}),
+        }),
       });
       if (!res.ok) {
         let detail = 'Failed to send message';
@@ -166,10 +281,6 @@ export default function Messages({ embedded = false }: MessagesProps) {
         throw new Error(detail);
       }
       return res.json();
-    },
-    onSuccess: () => {
-      setMessage('');
-      void queryClient.invalidateQueries({ queryKey: ['messages'] });
     },
     onError: (e: Error) => {
       toast({
@@ -182,11 +293,30 @@ export default function Messages({ embedded = false }: MessagesProps) {
 
   const sendMessage = () => {
     const text = message.trim();
-    if (!text || !selectedPeerId || sendMutation.isPending) return;
-    sendMutation.mutate(text);
+    if (!text || !selectedPeerId || sendMutation.isPending || isPendingEcho) return;
+    
+    const backupText = text;
+    setMessage('');
+    setIsPendingEcho(true);
+    
+    echoTimeoutRef.current = setTimeout(() => {
+      setIsPendingEcho(false);
+      toast({
+        title: 'Delayed Delivery',
+        description: 'Message sent but real-time update is delayed.',
+      });
+    }, 10000);
+
+    sendMutation.mutate(text, {
+      onError: (e) => {
+        setIsPendingEcho(false);
+        if (echoTimeoutRef.current) clearTimeout(echoTimeoutRef.current);
+        setMessage(backupText);
+      }
+    });
   };
 
-  const currentChat = conversations.find((c) => c.id === selectedPeerId);
+  const currentChat = conversationsWithApplicants.find((c) => c.id === selectedPeerId);
   const currentMessages = threadMessages.map((msg) => ({
     id: msg.id,
     sender: msg.senderId === user?.id ? 'me' : 'them',
@@ -194,7 +324,7 @@ export default function Messages({ embedded = false }: MessagesProps) {
     time: msg.createdAt ? formatRelativeTime(msg.createdAt) : '',
     status: msg.isRead ? 'read' as const : 'delivered' as const,
   }));
-  const filteredConversations = conversations.filter(
+  const filteredConversations = conversationsWithApplicants.filter(
     (c) =>
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.position.toLowerCase().includes(searchTerm.toLowerCase()),
@@ -259,7 +389,14 @@ export default function Messages({ embedded = false }: MessagesProps) {
               {filteredConversations.map((conv) => (
                 <div
                   key={conv.id}
-                  onClick={() => setSelectedPeerId(conv.id)}
+                  onClick={() => {
+                    setSelectedPeerId(conv.id);
+                    setSelectedApplicationId(
+                      conv.applicationId ??
+                        applicantThreads.find((t) => String(t.applicantId) === conv.id)?.applicationId ??
+                        null,
+                    );
+                  }}
                   className={`p-4 border-b ${darkMode ? 'border-slate-700/30' : 'border-gray-200'} cursor-pointer transition-all ${selectedPeerId === conv.id ? darkMode ? 'bg-slate-700/50 border-l-4 border-l-blue-500' : 'bg-blue-50 border-l-4 border-l-blue-500' : darkMode ? 'hover:bg-slate-700/30' : 'hover:bg-gray-100'}`}
                 >
                   <div className="flex items-start gap-3">
@@ -435,12 +572,12 @@ export default function Messages({ embedded = false }: MessagesProps) {
                 </button>
                 <button
                   type="button"
-                  disabled={!message.trim() || !selectedPeerId || sendMutation.isPending}
+                  disabled={!message.trim() || !selectedPeerId || sendMutation.isPending || isPendingEcho}
                   onClick={sendMessage}
                   aria-label="Send message"
                   className={cn(
                     'p-2.5 rounded-xl transition-all shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center',
-                    !message.trim() || !selectedPeerId
+                    !message.trim() || !selectedPeerId || sendMutation.isPending || isPendingEcho
                       ? darkMode
                         ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
                         : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -449,7 +586,7 @@ export default function Messages({ embedded = false }: MessagesProps) {
                         : 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/30',
                   )}
                 >
-                  {sendMutation.isPending ? (
+                  {sendMutation.isPending || isPendingEcho ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <Send className="w-5 h-5" />
