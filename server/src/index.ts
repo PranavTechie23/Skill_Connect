@@ -14,6 +14,16 @@ dotenv.config({
   path: path.resolve(__dirname, "../.env")
 });
 
+// Production validation for SESSION_SECRET
+if (process.env.NODE_ENV === "production") {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret === "your-secret-key" || secret.trim() === "") {
+    console.error("❌ CRITICAL SECURITY ERROR: SESSION_SECRET is not set or uses the default insecure key in production environment.");
+    console.error("Please set a secure SESSION_SECRET environment variable before starting the application.");
+    process.exit(1);
+  }
+}
+
 // Set default port to 5002 explicitly
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5002;
 process.env.PORT = String(PORT);
@@ -36,6 +46,25 @@ app.use(helmet());
 app.use(morgan('dev'));
 
 const server = http.createServer(app);
+
+// Graceful process shutdown handler for uncaught errors
+function handleFatalError(type: string, error: any) {
+  console.error(`💥 FATAL ERROR [${type}]:`, error);
+  
+  const timeoutTimer = setTimeout(() => {
+    console.error('⚠️ Graceful drain timed out after 3000ms. Forcefully terminating process.');
+    process.exit(1);
+  }, 3000);
+
+  server.close(() => {
+    clearTimeout(timeoutTimer);
+    console.log('✅ HTTP server closed gracefully after fatal error. Exiting process.');
+    process.exit(1);
+  });
+}
+
+process.on('uncaughtException', (err) => handleFatalError('uncaughtException', err));
+process.on('unhandledRejection', (reason) => handleFatalError('unhandledRejection', reason));
 
 (async function start() {
   try {
@@ -63,9 +92,7 @@ const server = http.createServer(app);
       'http://localhost:3000',  // Common React port
       'https://skill-connect-alpha.vercel.app', // Vercel production frontend
       process.env.FRONTEND_URL, // Dynamic frontend URL from env
-      null,                     // Allow requests with no origin (like mobile apps or curl requests)
-      'null'                    // Allow requests from files opened in browser
-    ].filter(Boolean);
+    ].filter(Boolean) as string[];
 
     // Trust proxy (required for secure cookies when behind Railway/Vercel proxies)
     app.set('trust proxy', 1);
@@ -73,7 +100,7 @@ const server = http.createServer(app);
     // Configure CORS before any route handlers
     app.use(cors({
       origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl requests)
+        // Allow requests with no origin (like mobile apps, curl, or backend server requests)
         if (!origin) return callback(null, true);
         
         if (allowedOrigins.includes(origin)) {
@@ -88,12 +115,21 @@ const server = http.createServer(app);
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-skip-global-loader']
     }));
 
-    // Explicitly handle preflight requests (removed app.options('*') for Express 5 compatibility)
-
     // Basic health check endpoint
     app.get('/health', (req, res) => {
       res.json({ status: 'ok', timestamp: new Date().toISOString() });
     });
+
+    // Test crash route for manual verification of process failure handler (dev/test only)
+    if (process.env.NODE_ENV !== "production") {
+      app.get('/api/test/crash', (req, res) => {
+        console.warn('Triggering deliberate uncaught exception for testing...');
+        setTimeout(() => {
+          throw new Error('Test deliberate uncaught exception');
+        }, 10);
+        res.json({ message: 'Triggering crash...' });
+      });
+    }
     
     app.use(express.json());
 
@@ -113,14 +149,10 @@ const server = http.createServer(app);
       res.status(500).json({ error: 'Internal Server Error' });
     });
     if (process.env.NODE_ENV === "production") {
-      // The frontend is deployed separately on Vercel. 
-      // We do not need to serve static client files from the backend.
       app.get('/', (req, res) => res.send('SkillConnect API is running'));
     } else if (process.env.USE_INTEGRATED_VITE === "true") {
-      // Single-process dev: server serves UI via Vite middleware (requires vite in server deps).
       await setupVite(app, server);
     } else {
-      // Default for `npm run dev`: client runs Vite on :5173 and proxies /api to this server.
       console.log("API-only dev mode — UI at http://localhost:5173 (run dev:client if needed)");
     }
 

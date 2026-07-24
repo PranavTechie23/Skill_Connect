@@ -192,7 +192,7 @@ export const createApplication = async (req: Request, res: Response) => {
 
     res.status(500).json({
       error: 'Failed to submit application',
-      message: error instanceof Error ? error.message : 'Unknown error occurred',
+      message: 'An internal error occurred while processing your application. Please try again later.',
     });
   }
 };

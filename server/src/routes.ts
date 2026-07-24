@@ -43,6 +43,18 @@ import { avatarStorage, resumeStorage } from './lib/cloudinary';
 import { db, pool } from './db';
 import { storage, Storage } from "./storage";
 import connectPgSimple from 'connect-pg-simple';
+import rateLimit from 'express-rate-limit';
+
+// In-memory rate limiter for authentication endpoints (single-instance).
+// NOTE: If horizontal scaling / multi-node clustering is introduced in the future,
+// replace this in-memory store with a Redis store (e.g. rate-limit-redis).
+const authRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 15, // limit each IP to 15 requests per windowMs
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { message: "Too many attempts. Please try again later." }
+});
 import type { Session } from 'express-session';
 import { 
   loginSchema as sharedLoginSchema, 
@@ -266,12 +278,7 @@ const requireAdmin = async (req: any, res: any, next: any) => {
     return res.status(401).json({ message: "Not authenticated" });
   }
 
-  // Handle the hardcoded admin user
-  if (req.session.userId === 'admin-001') {
-    return next();
-  }
-
-  // For regular users, check their userType in the database
+  // Check userType in the database
   const user = await storage.getUser(req.session.userId);
   const normalizedUserType = ((user as any)?.userType || (user as any)?.user_type || "")
     .toString()
@@ -584,7 +591,7 @@ export async function registerRoutes(app: Express, server?: Server): Promise<Ser
   });
 
   // Auth routes
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/auth/register", authRateLimiter as any, async (req, res) => {
     try {
       console.log('Registration request body:', req.body);
       const data = registerSchema.parse(req.body);
@@ -705,7 +712,7 @@ export async function registerRoutes(app: Express, server?: Server): Promise<Ser
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", authRateLimiter as any, async (req, res) => {
     try {
       console.log('🔑 Processing login request:', req.body);
       

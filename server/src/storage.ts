@@ -38,6 +38,28 @@ function buildUserDisplayName(
   return "User";
 }
 
+const ALLOWED_EXPERIENCE_COLUMNS = {
+  title: sql`title`,
+  company: sql`company`,
+  location: sql`location`,
+  startDate: sql`start_date`,
+  endDate: sql`end_date`,
+  description: sql`description`,
+} as const;
+
+function buildUpdateClauses<T extends Record<string, unknown>>(
+  updates: T,
+  allowedMap: Record<string, ReturnType<typeof sql>>
+) {
+  const clauses: ReturnType<typeof sql>[] = [];
+  for (const [key, value] of Object.entries(updates)) {
+    if (value === undefined || !(key in allowedMap)) continue;
+    const bound = value instanceof Date ? value.toISOString() : value;
+    clauses.push(sql`${allowedMap[key]} = ${bound as any}`);
+  }
+  return clauses;
+}
+
 function mapEnrichedMessageRow(row: Record<string, unknown>) {
   const senderDisplayName = buildUserDisplayName(
     row.sender_first_name as string | undefined,
@@ -538,7 +560,7 @@ export class Storage {
         setParts.push(sql`salary_max = ${updates.salaryMax}`);
       }
       if (updates.skills !== undefined) {
-        setParts.push(sql.raw(`skills = '${JSON.stringify(updates.skills).replace(/'/g, "''")}'::jsonb`));
+        setParts.push(sql`skills = ${JSON.stringify(updates.skills)}::jsonb`);
       }
       if (updates.companyId !== undefined) {
         setParts.push(sql`company_id = ${updates.companyId}`);
@@ -689,7 +711,7 @@ export class Storage {
           ${job.jobType},
           ${job.salaryMin || null},
           ${job.salaryMax || null},
-          ${sql.raw(`'${JSON.stringify(job.skills || [])}'::jsonb`)},
+          ${JSON.stringify(job.skills || [])}::jsonb,
           ${companyId},
           ${job.employerId},
           ${job.deadline ? new Date(String(job.deadline)) : null},
@@ -1944,19 +1966,16 @@ export class Storage {
 
   async updateExperience(id: string, updates: Partial<Experience>): Promise<Experience> {
     try {
-      const setFields = [];
-      const updates_values = [];
-
-      for (const [key, value] of Object.entries(updates)) {
-        if (value !== undefined) {
-          setFields.push(`${key} = ${sql.raw('$' + String(updates_values.length + 1))}`);
-          updates_values.push(value instanceof Date ? value.toISOString() : String(value));
-        }
+      const clauses = buildUpdateClauses(updates as Record<string, unknown>, ALLOWED_EXPERIENCE_COLUMNS);
+      if (clauses.length === 0) {
+        const existing = await this.getExperience(id);
+        if (!existing) throw new Error("Experience record not found");
+        return existing;
       }
 
       const result = await db.execute(sql`
         UPDATE experiences 
-        SET ${sql.raw(setFields.join(', '))} 
+        SET ${sql.join(clauses, sql`, `)} 
         WHERE id = ${id} 
         RETURNING *`);
       return result.rows[0] as Experience;
