@@ -150,7 +150,7 @@ export default function OurStories() {
         
         const data: PaginatedResponse = await response.json();
         
-        let allStories = data.stories;
+        let allStories = data.stories.filter((s) => !s.title.startsWith("Career Journey"));
         if (currentPage === 1) {
           allStories = [...allStories, ...fallbackStories];
           allStories.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());

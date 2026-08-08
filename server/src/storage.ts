@@ -1408,7 +1408,7 @@ export class Storage {
           u.user_type AS "authorUserType"
         FROM stories s
         LEFT JOIN users u ON s.author_id = u.id
-        WHERE s.approved = true
+        WHERE s.approved = true AND s.title NOT LIKE 'Career Journey%'
         ORDER BY s.created_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
@@ -1422,7 +1422,7 @@ export class Storage {
   async getStoryCount(): Promise<number> {
     try {
       const result = await db.execute(sql`
-        SELECT COUNT(*)::int AS count FROM stories WHERE approved = true
+        SELECT COUNT(*)::int AS count FROM stories WHERE approved = true AND title NOT LIKE 'Career Journey%'
       `);
       return parseInt(String(result.rows[0]?.count || '0'));
     } catch (error) {
@@ -1447,6 +1447,7 @@ export class Storage {
           u.user_type AS "authorUserType"
         FROM stories s
         LEFT JOIN users u ON s.author_id = u.id
+        WHERE s.title NOT LIKE 'Career Journey%'
         ORDER BY s.featured DESC, s.created_at DESC
       `);
       return result.rows.map((row) => this.mapStoryRow(row as Record<string, unknown>)) as (Story & { authorUserType?: string | null })[];

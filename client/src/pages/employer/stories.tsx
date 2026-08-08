@@ -68,8 +68,10 @@ export default function Stories({ embedded = false }: StoriesProps) {
       // Filter stories by current user if they're logged in
       const userStories = user 
         ? (data.stories || data).filter((story: Story) => 
-            story.authorId === user.id || 
-            story.submitterEmail === user.email
+            !story.title.startsWith("Career Journey") && (
+              story.authorId === user.id || 
+              story.submitterEmail === user.email
+            )
           )
         : [];
       setStories(userStories);
