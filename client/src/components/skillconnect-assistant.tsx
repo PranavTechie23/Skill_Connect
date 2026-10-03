@@ -39,13 +39,18 @@ export function SkillConnectAssistant() {
     messagesRef.current = messages;
   }, [messages]);
 
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
+    });
+  };
+
   useEffect(() => {
     if (!open) return;
-    const el = listRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-    }
-  }, [open, messages.length]);
+    scrollToBottom(messages.length <= 2 ? "auto" : "smooth");
+  }, [open, messages]);
 
   const handleSend = async (text?: string) => {
     if (isSending) return;
@@ -216,6 +221,7 @@ export function SkillConnectAssistant() {
                   </div>
                 </div>
               ))}
+              <div ref={messagesEndRef} className="h-px w-full" />
             </div>
 
             <div className="relative px-4 pb-2 flex flex-wrap gap-1.5">

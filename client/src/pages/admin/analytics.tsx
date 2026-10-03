@@ -1098,11 +1098,10 @@ const Analytics = ({ quickActionIntent = null, onQuickActionConsumed }: Analytic
                         <th className={`pb-4 border-b ${dark ? 'border-white/10 text-gray-400' : 'border-black/5 text-gray-500'} font-bold text-sm tracking-wide`}>Industry</th>
                         <th className={`pb-4 border-b ${dark ? 'border-white/10 text-gray-400' : 'border-black/5 text-gray-500'} font-bold text-sm tracking-wide`}>Active Jobs</th>
                         <th className={`pb-4 border-b ${dark ? 'border-white/10 text-gray-400' : 'border-black/5 text-gray-500'} font-bold text-sm tracking-wide`}>Success Rate</th>
-                        <th className={`pb-4 border-b ${dark ? 'border-white/10 text-gray-400' : 'border-black/5 text-gray-500'} font-bold text-sm tracking-wide`}>Trend</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {analyticsData.jobCategories.sort((a, b) => b.value - a.value).slice(0, 4).map((cat, i) => (
+                      {[...analyticsData.jobCategories].sort((a, b) => b.value - a.value).slice(0, 4).map((cat, i) => (
                         <tr key={i} className={`group border-b last:border-0 ${dark ? 'border-white/5 hover:bg-white/5' : 'border-black/5 hover:bg-black/5'} transition-colors`}>
                           <td className="py-4">
                             <div className="flex items-center gap-3">
